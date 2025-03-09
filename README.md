@@ -1,6 +1,5 @@
-<a href="#buildEstate---premium-real-estate-platform">
 # 🏡 BuildEstate - Premium Real Estate Platform
-</a>
+
 
 ![BuildEstate Banner](https://via.placeholder.com/1200x300)
 
@@ -292,5 +291,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 </p>
 
 <p align="center">Made with ❤️ by Aayush Vaghela</p>
-
-<p align="center"><a href="#buildEstate---premium-real-estate-platform">Back to top ⬆️</a></p>

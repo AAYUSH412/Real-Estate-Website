@@ -25,7 +25,7 @@ _A full-stack real estate platform integrating seamless property browsing, intel
 
 </div>
 
-<video src="https://github.com/AAYUSH412/Real-Estate-Website/raw/main/videos/Homepage.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
+<video src="https://ik.imagekit.io/xh3awoalr/Portfolio/Homepage.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
 
 ---
 
@@ -34,28 +34,28 @@ _A full-stack real estate platform integrating seamless property browsing, intel
 ### 🤖 AI Property Hub
 
 Experience intelligent real estate search. Powered by GPT-4.1, the AI Hub provides natural language search, market analysis, and location trend insights.
-<video src="https://github.com/AAYUSH412/Real-Estate-Website/raw/main/videos/Ai-property-hub.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
+<video src="https://ik.imagekit.io/xh3awoalr/Portfolio/Ai-property-hub.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
 
 <br/>
 
 ### 🏡 Property Browsing & Appointment Booking
 
 Browse properties with rich filters, view detailed galleries (up to 4 images via ImageKit), and easily schedule appointments as a guest or registered user.
-<video src="https://github.com/AAYUSH412/Real-Estate-Website/raw/main/videos/Propertypage.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
+<video src="https://ik.imagekit.io/xh3awoalr/Portfolio/Propertypage.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
 
 <br/>
 
 ### 📊 Comprehensive Admin Dashboard
 
 Manage the entire platform from a sleek dashboard. Includes property CRUD operations, image uploads, appointment tracking, and platform analytics.
-<video src="https://github.com/AAYUSH412/Real-Estate-Website/raw/main/videos/Admin-panel.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
+<video src="https://ik.imagekit.io/xh3awoalr/Portfolio/Admin-panel.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
 
 <br/>
 
 ### ⚙️ Robust Backend Architecture
 
 A secure, scalable REST API built with Express, secured via JWT, with integrated Brevo SMTP email notifications and MongoDB Atlas data management.
-<video src="https://github.com/AAYUSH412/Real-Estate-Website/raw/main/videos/Backend.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
+<video src="https://ik.imagekit.io/xh3awoalr/Portfolio/Backend.mov" width="100%" controls="controls" autoplay="autoplay" loop="loop" muted="muted" playsinline="playsinline"></video>
 
 ---
 

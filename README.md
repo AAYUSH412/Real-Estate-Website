@@ -1,6 +1,6 @@
 <div align="center">
 
-# BuildEstate
+# BuildEstate 🏢✨
 
 ### AI-Powered Real Estate Platform
 
@@ -17,54 +17,60 @@
 [![Forks](https://img.shields.io/github/forks/AAYUSH412/Real-Estate-Website?style=for-the-badge&logo=github&color=blue)](https://github.com/AAYUSH412/Real-Estate-Website)
 [![License](https://img.shields.io/github/license/AAYUSH412/Real-Estate-Website?style=for-the-badge&color=green)](LICENSE)
 
+<br/>
+
+_A full-stack real estate platform integrating seamless property browsing, intelligent AI analysis, and comprehensive management features._
+
+<br/>
+
+<video src="videos/Homepage.mov" autoplay loop muted playsinline width="100%"></video>
+
 </div>
 
 ---
 
-A full-stack real estate platform with AI-powered property search, market analysis, appointment scheduling, and an admin dashboard. Built with React, Node.js, Express, and MongoDB.
+## ✨ Features Showcase
+
+### 🤖 AI Property Hub
+
+Experience intelligent real estate search. Powered by GPT-4.1, the AI Hub provides natural language search, market analysis, and location trend insights.
+<video src="videos/Ai-property-hub.mov" autoplay loop muted playsinline width="100%"></video>
+
+<br/>
+
+### 🏡 Property Browsing & Appointment Booking
+
+Browse properties with rich filters, view detailed galleries (up to 4 images via ImageKit), and easily schedule appointments as a guest or registered user.
+<video src="videos/Propertypage.mov" autoplay loop muted playsinline width="100%"></video>
+
+<br/>
+
+### 📊 Comprehensive Admin Dashboard
+
+Manage the entire platform from a sleek dashboard. Includes property CRUD operations, image uploads, appointment tracking, and platform analytics.
+<video src="videos/Admin-panel.mov" autoplay loop muted playsinline width="100%"></video>
+
+<br/>
+
+### ⚙️ Robust Backend Architecture
+
+A secure, scalable REST API built with Express, secured via JWT, with integrated Brevo SMTP email notifications and MongoDB Atlas data management.
+<video src="videos/Backend.mov" autoplay loop muted playsinline width="100%"></video>
 
 ---
 
-## Features
+## 💻 Tech Stack
 
-- **Property Browsing** — Filter by type, price, availability, amenities with grid/list views
-- **AI Property Hub** — GPT-4.1 powered search, market analysis, location trends (local only)
-- **Appointment Scheduling** — Book property viewings as guest or registered user
-- **User Authentication** — JWT-based sign up, sign in, forgot/reset password with email
-- **Admin Dashboard** — Manage properties (CRUD + image upload), appointments, and analytics
-- **Email Notifications** — Branded transactional emails via Brevo SMTP
-- **Image Management** — Upload up to 4 images per property via ImageKit CDN
-- **SEO Optimized** — Structured data, sitemap.xml, robots.txt, per-page meta tags
+- **Frontend:** React 18, TypeScript, Vite 6, Tailwind CSS v4, Framer Motion, React Router v7
+- **Admin Panel:** React 18, Vite 6, Tailwind CSS v3, Chart.js, Lucide React
+- **Backend:** Node.js, Express.js, Mongoose, JWT, Multer, Nodemailer
+- **Database:** MongoDB Atlas
+- **AI Services:** GPT-4.1 (GitHub Models), Firecrawl (web scraping)
+- **Storage & Deployment:** ImageKit CDN, Vercel (Frontend), Render (Backend + Admin)
 
 ---
 
-## Tech Stack
-
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 18, TypeScript, Vite 6, Tailwind CSS v4, Framer Motion, React Router v7 |
-| **Admin Panel** | React 18, Vite 6, Tailwind CSS v3, Chart.js, Lucide React |
-| **Backend** | Node.js, Express.js, Mongoose, JWT, Multer, Nodemailer |
-| **Database** | MongoDB Atlas |
-| **AI Services** | GPT-4.1 (GitHub Models), Firecrawl (web scraping) |
-| **Storage** | ImageKit CDN |
-| **Deployment** | Vercel (frontend), Render (backend + admin) |
-
----
-
-## Repository Structure
-
-```
-Real-Estate-Website/
-├── frontend/          → User-facing website (React + TypeScript + Vite)
-├── admin/             → Admin dashboard (React + Vite)
-├── backend/           → REST API server (Node.js + Express)
-└── .github/           → Issue templates, PR template, CODEOWNERS
-```
-
----
-
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -80,7 +86,8 @@ git clone https://github.com/AAYUSH412/Real-Estate-Website.git
 cd Real-Estate-Website
 ```
 
-### 2. Set Up the Backend
+<details>
+<summary><strong>2. Set Up the Backend</strong></summary>
 
 ```bash
 cd backend
@@ -126,7 +133,10 @@ GITHUB_MODELS_API_KEY=your_github_pat_token
 npm run dev   # starts at http://localhost:4000
 ```
 
-### 3. Set Up the Frontend
+</details>
+
+<details>
+<summary><strong>3. Set Up the Frontend</strong></summary>
 
 ```bash
 cd ../frontend
@@ -145,7 +155,10 @@ VITE_ENABLE_AI_HUB=true
 npm run dev   # starts at http://localhost:5173
 ```
 
-### 4. Set Up the Admin Panel
+</details>
+
+<details>
+<summary><strong>4. Set Up the Admin Panel</strong></summary>
 
 ```bash
 cd ../admin
@@ -163,55 +176,69 @@ VITE_BACKEND_URL=http://localhost:4000
 npm run dev   # starts at http://localhost:5174
 ```
 
----
-
-## API Endpoints
-
-### Authentication — `/api/users`
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/register` | Register new user |
-| POST | `/login` | Login (returns JWT) |
-| POST | `/admin` | Admin login |
-| GET | `/me` | Get current user (JWT required) |
-| POST | `/forgot` | Send password reset email |
-| POST | `/reset/:token` | Reset password |
-
-### Properties — `/api/products`
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/list` | List all properties |
-| GET | `/single/:id` | Get property by ID |
-| POST | `/add` | Add property with images (admin) |
-| POST | `/update` | Update property (admin) |
-| POST | `/remove` | Delete property (admin) |
-
-### Appointments — `/api/appointments`
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/schedule` | Book viewing (guest) |
-| POST | `/schedule/auth` | Book viewing (logged in) |
-| GET | `/user` | Get appointments by email |
-| PUT | `/cancel/:id` | Cancel appointment |
-| GET | `/all` | All appointments (admin) |
-| PUT | `/status` | Update status (admin) |
-| PUT | `/update-meeting` | Add meeting link (admin) |
-
-### Other
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/forms/submit` | Contact form submission |
-| GET | `/api/admin/stats` | Dashboard statistics (admin) |
-| POST | `/api/ai/search` | AI property search |
-| GET | `/api/locations/:city/trends` | Location market trends |
+</details>
 
 ---
 
-## AI Property Hub
+## 🔌 API Endpoints
+
+<details>
+<summary><strong>Authentication & Users</strong></summary>
+
+| Method | Endpoint                  | Description                     |
+| ------ | ------------------------- | ------------------------------- |
+| POST   | `/api/users/register`     | Register new user               |
+| POST   | `/api/users/login`        | Login (returns JWT)             |
+| POST   | `/api/users/admin`        | Admin login                     |
+| GET    | `/api/users/me`           | Get current user (JWT required) |
+| POST   | `/api/users/forgot`       | Send password reset email       |
+| POST   | `/api/users/reset/:token` | Reset password                  |
+
+</details>
+
+<details>
+<summary><strong>Properties</strong></summary>
+
+| Method | Endpoint                   | Description                      |
+| ------ | -------------------------- | -------------------------------- |
+| GET    | `/api/products/list`       | List all properties              |
+| GET    | `/api/products/single/:id` | Get property by ID               |
+| POST   | `/api/products/add`        | Add property with images (admin) |
+| POST   | `/api/products/update`     | Update property (admin)          |
+| POST   | `/api/products/remove`     | Delete property (admin)          |
+
+</details>
+
+<details>
+<summary><strong>Appointments</strong></summary>
+
+| Method | Endpoint                           | Description               |
+| ------ | ---------------------------------- | ------------------------- |
+| POST   | `/api/appointments/schedule`       | Book viewing (guest)      |
+| POST   | `/api/appointments/schedule/auth`  | Book viewing (logged in)  |
+| GET    | `/api/appointments/user`           | Get appointments by email |
+| PUT    | `/api/appointments/cancel/:id`     | Cancel appointment        |
+| GET    | `/api/appointments/all`            | All appointments (admin)  |
+| PUT    | `/api/appointments/status`         | Update status (admin)     |
+| PUT    | `/api/appointments/update-meeting` | Add meeting link (admin)  |
+
+</details>
+
+<details>
+<summary><strong>Other Services</strong></summary>
+
+| Method | Endpoint                      | Description                  |
+| ------ | ----------------------------- | ---------------------------- |
+| POST   | `/api/forms/submit`           | Contact form submission      |
+| GET    | `/api/admin/stats`            | Dashboard statistics (admin) |
+| POST   | `/api/ai/search`              | AI property search           |
+| GET    | `/api/locations/:city/trends` | Location market trends       |
+
+</details>
+
+---
+
+## 🤖 AI Property Hub details
 
 The AI Property Hub uses **GPT-4.1** (GitHub Models) and **Firecrawl** to provide:
 
@@ -222,22 +249,26 @@ The AI Property Hub uses **GPT-4.1** (GitHub Models) and **Firecrawl** to provid
 
 > **Note:** The AI Hub is **disabled on the live Vercel deployment** to conserve API credits.
 > Visiting `/ai-hub` on the live site shows instructions to clone and run locally.
-> To enable it, set `VITE_ENABLE_AI_HUB=true` in `frontend/.env.local` and add
-> `FIRECRAWL_API_KEY` and `GITHUB_MODELS_API_KEY` to `backend/.env.local`.
+> To enable it, set `VITE_ENABLE_AI_HUB=true` in `frontend/.env.local` and add `FIRECRAWL_API_KEY` and `GITHUB_MODELS_API_KEY` to `backend/.env.local`.
 
 ---
 
-## Deployment
+## 🌐 Deployment Details
 
-### Frontend → Vercel
+<details>
+<summary><strong>Frontend on Vercel</strong></summary>
 
 1. Import repo in [Vercel](https://vercel.com)
 2. Set **Root Directory** to `frontend`
 3. Add env variable: `VITE_API_BASE_URL` = your Render backend URL
 4. Do **not** set `VITE_ENABLE_AI_HUB` (AI Hub stays disabled in production)
 5. Deploy
+</details>
 
-### Backend → Render
+<details>
+<summary><strong>Backend & Admin on Render</strong></summary>
+
+**Backend:**
 
 1. Create a **Web Service** on [Render](https://render.com)
 2. Set **Root Directory** to `backend`
@@ -245,32 +276,30 @@ The AI Property Hub uses **GPT-4.1** (GitHub Models) and **Firecrawl** to provid
 4. Add all env variables from `backend/.env.example`
 5. Set `NODE_ENV=production` and `WEBSITE_URL` to your Vercel URL
 
-### Admin Panel → Render
+**Admin Panel:**
+Same as backend, with **Root Directory** set to `admin` and env variable `VITE_BACKEND_URL` pointing to your Render backend URL.
 
-Same as backend, with **Root Directory** set to `admin` and env variable:
-- `VITE_BACKEND_URL` = your Render backend URL
-
----
-
-## Available Scripts
-
-| Directory | Script | Description |
-|---|---|---|
-| `backend/` | `npm run dev` | Start with nodemon (auto-reload) |
-| `backend/` | `npm start` | Start production server |
-| `frontend/` | `npm run dev` | Start Vite dev server |
-| `frontend/` | `npm run build` | Production build |
-| `admin/` | `npm run dev` | Start Vite dev server |
-| `admin/` | `npm run build` | Production build |
+</details>
 
 ---
 
-## Project Structure
+## 📂 Repository Layout
 
 <details>
-<summary><strong>Frontend (frontend/)</strong></summary>
+<summary><strong>View Directory Structure</strong></summary>
 
+```text
+Real-Estate-Website/
+├── frontend/          → User-facing website (React + TypeScript + Vite)
+├── admin/             → Admin dashboard (React + Vite)
+├── backend/           → REST API server (Node.js + Express)
+├── videos/            → Embedded demo animations
+└── .github/           → Issue templates, PR template, CODEOWNERS
 ```
+
+**Frontend Breakdown (frontend/)**
+
+```text
 frontend/src/
 ├── components/
 │   ├── ai-hub/            → AI Property Hub UI
@@ -287,12 +316,9 @@ frontend/src/
 └── styles/
 ```
 
-</details>
+**Backend Breakdown (backend/)**
 
-<details>
-<summary><strong>Backend (backend/)</strong></summary>
-
-```
+```text
 backend/
 ├── config/         → MongoDB, ImageKit, Nodemailer, AI config
 ├── controller/     → Route handlers
@@ -305,12 +331,9 @@ backend/
 └── email.js        → Branded email templates
 ```
 
-</details>
+**Admin Breakdown (admin/)**
 
-<details>
-<summary><strong>Admin Panel (admin/)</strong></summary>
-
-```
+```text
 admin/src/
 ├── components/     → Login, Navbar
 ├── config/         → Constants (property types, amenities)
@@ -322,7 +345,20 @@ admin/src/
 
 ---
 
-## Contributing
+## 📜 Available Scripts
+
+| Directory   | Script          | Description                      |
+| ----------- | --------------- | -------------------------------- |
+| `backend/`  | `npm run dev`   | Start with nodemon (auto-reload) |
+| `backend/`  | `npm start`     | Start production server          |
+| `frontend/` | `npm run dev`   | Start Vite dev server            |
+| `frontend/` | `npm run build` | Production build                 |
+| `admin/`    | `npm run dev`   | Start Vite dev server            |
+| `admin/`    | `npm run build` | Production build                 |
+
+---
+
+## 🤝 Contributing
 
 Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) first.
 
@@ -336,13 +372,13 @@ See also: [Code of Conduct](CODE_OF_CONDUCT.md) · [Security Policy](SECURITY.md
 
 ---
 
-## License
+## 📝 License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## Author
+## 👨‍💻 Author
 
 **Aayush Vaghela**
 

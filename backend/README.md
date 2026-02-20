@@ -1,52 +1,53 @@
-# BuildEstate — Backend API
+<div align="center">
 
-REST API server for the BuildEstate real estate platform. Built with Node.js, Express, and MongoDB.
+# BuildEstate — Backend API ⚙️
+
+_The core REST API server driving the BuildEstate real estate platform._
+
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Express.js](https://img.shields.io/badge/Express.js-Backend-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com)
 
 [![Live API](https://img.shields.io/badge/Live_API-On_Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://real-estate-website-backend-zfu7.onrender.com/)
 
----
-
-## Features
-
-- **JWT Authentication** — Secure token-based auth with bcrypt password hashing
-- **Property CRUD** — Add, list, update, delete properties with up to 4 images each
-- **Image Upload** — Multer file handling → ImageKit CDN storage
-- **Appointment Scheduling** — Guest and authenticated bookings with email notifications
-- **AI Property Search** — GPT-4.1 (GitHub Models) + Firecrawl web scraping
-- **Location Trends** — Scraped market data for Indian cities
-- **Contact Forms** — Submissions stored to MongoDB
-- **Admin Dashboard Stats** — Property, user, and appointment counts
-- **Rate Limiting** — express-rate-limit for DDoS protection
-- **Security Headers** — Helmet.js middleware
-- **Email Notifications** — Branded transactional emails via Brevo SMTP
+</div>
 
 ---
 
-## Tech Stack
+## ✨ Features
 
-| Category | Technology | Purpose |
-|---|---|---|
-| **Runtime** | Node.js 18+ | JavaScript runtime |
-| **Framework** | Express.js | Web application framework |
-| **Database** | MongoDB Atlas | NoSQL document database |
-| **ODM** | Mongoose | MongoDB object modeling |
-| **Authentication** | JWT + Bcrypt | Secure auth system |
-| **File Upload** | Multer + ImageKit | File handling and CDN |
-| **Email** | Nodemailer + Brevo | Transactional emails |
-| **AI Services** | GPT-4.1 + Firecrawl | Property search and scraping |
-| **Security** | Helmet + CORS + rate-limit | Security middleware |
+- **JWT Authentication** — Hardened token-based user authentication using bcrypt password hashing.
+- **Property Management (CRUD)** — Robust operations to add, query, update, and remove properties with multiplexed image management (up to 4 images).
+- **Scalable Image Upload** — Multer temp-file integration piping seamlessly into ImageKit CDN pipelines.
+- **Appointment Architecture** — Guest and authenticated bookings coupled with autonomous email dispatch routing.
+- **AI Property Processing** — Interfacing with GPT-4.1 (GitHub Models) and Firecrawl web scraping for deep market analysis.
+- **Location Analytics** — Specialized localized data scraping tracking market trends for top Indian hubs.
+- **Administrative Utilities** — Dashboard analytics handling aggregate counts across properties, users, and transactions.
+- **Infrastructure Security** — `express-rate-limit` DDoS prevention, deep Helmet.js header shielding, and integrated CORS validation.
+- **Email Notifications** — Custom branded transactional payloads delivered utilizing Brevo SMTP.
+
+---
+
+## 💻 Tech Stack
+
+| Domain                   | Technology               | Implementation Details                              |
+| ------------------------ | ------------------------ | --------------------------------------------------- |
+| **Runtime**              | Node.js 18+              | High-throughput asynchronous JS compilation         |
+| **Application Layer**    | Express.js               | Granular endpoint definitions                       |
+| **Database Systems**     | MongoDB Atlas            | Distributed NoSQL storage                           |
+| **Object Modeling**      | Mongoose                 | Typed modeling and validation protocols             |
+| **Authentication**       | JWT + Bcrypt             | Cryptographically verified tokens and keys          |
+| **Storage Architecture** | Multer + ImageKit        | Multipart transmission yielding CDN delivery        |
+| **Communications**       | Nodemailer + Brevo       | Specialized template execution and delivery routing |
+| **AI Inference**         | GPT-4.1 + Firecrawl      | NLP search indexing and organic data acquisition    |
+| **Cybersecurity**        | Helmet, CORS, Rate-limit | Middleware-injected traffic policing                |
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Node.js** 18+ ([Download](https://nodejs.org/))
-- **MongoDB** ([Local](https://docs.mongodb.com/manual/installation/) or [Atlas](https://www.mongodb.com/cloud/atlas))
-- **npm** 8+ or **yarn** 1.22+
-
-### Installation
+<details>
+<summary><strong>1. Installation & Environment Loading</strong></summary>
 
 ```bash
 # Navigate to backend directory
@@ -55,23 +56,16 @@ cd backend
 # Install dependencies
 npm install
 
-# Copy environment file
+# Copy environment template
 cp .env.example .env.local
-
-# Configure environment variables (see below)
-nano .env.local
-
-# Start development server
-npm run dev
 ```
 
-Server starts at `http://localhost:4000`
+</details>
 
-### Environment Configuration
+<details>
+<summary><strong>2. Adjust Configuration Params (.env.local)</strong></summary>
 
-Create `backend/.env.local` with these variables (see `.env.example` for the template):
-
-```bash
+```env
 PORT=4000
 NODE_ENV=development
 
@@ -90,173 +84,162 @@ EMAIL=your_sender_email@gmail.com
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=your_admin_password
 
-# Frontend URL (for CORS + email links)
+# Frontend URL (for CORS validation + email deep-linking)
 WEBSITE_URL=http://localhost:5173
 
-# ImageKit
+# ImageKit Credentials (multipart proxying)
 IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
 IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
 IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
 
-# AI Services (optional — only needed for AI Property Hub)
+# AI Service Flags (optional — needed only for local AI Property Hub testing)
 FIRECRAWL_API_KEY=your_firecrawl_api_key
 GITHUB_MODELS_API_KEY=your_github_pat_token
 ```
 
+</details>
+
+<details>
+<summary><strong>3. Boot Initialized Server</strong></summary>
+
+```bash
+# Start auto-reloading development node
+npm run dev
+```
+
+Server initializes and binds to `http://localhost:4000`
+
+</details>
+
 ---
 
-## 🏗️ Project Structure
+## 🔌 API Endpoints Reference
 
-```
+<details>
+<summary><strong>Authentication & User Routines (`/api/users`)</strong></summary>
+
+| Request | Route Namespace | Restrictions       | Purpose                                    |
+| ------- | --------------- | ------------------ | ------------------------------------------ |
+| `POST`  | `/register`     | Public             | Instantiate fresh identity record          |
+| `POST`  | `/login`        | Public             | Validate credentials and vend JWT          |
+| `POST`  | `/admin`        | Public             | Specialized admin credential validation    |
+| `GET`   | `/me`           | Valid JWT required | Recover authorized profile dataset         |
+| `POST`  | `/forgot`       | Public             | Dispatch recovery lifecycle email          |
+| `POST`  | `/reset/:token` | Public             | Validate token and overwrite password hash |
+
+</details>
+
+<details>
+<summary><strong>Property Data Stores (`/api/products`)</strong></summary>
+
+| Request | Route Namespace | Restrictions | Purpose                                            |
+| ------- | --------------- | ------------ | -------------------------------------------------- |
+| `GET`   | `/list`         | Public       | Aggregate extensive real estate catalogs           |
+| `GET`   | `/single/:id`   | Public       | Target solitary property structure map             |
+| `POST`  | `/add`          | Admin Only   | Ingest multipart property payload (up to 4 images) |
+| `POST`  | `/update`       | Admin Only   | Mutate deployed property details / replace media   |
+| `POST`  | `/remove`       | Admin Only   | Obliterate property mapping and linked data        |
+
+</details>
+
+<details>
+<summary><strong>Appointment Logic Pipelines (`/api/appointments`)</strong></summary>
+
+| Request | Route Namespace   | Restrictions       | Purpose                                             |
+| ------- | ----------------- | ------------------ | --------------------------------------------------- |
+| `POST`  | `/schedule`       | Public             | Standard generic guest-level appointment request    |
+| `POST`  | `/schedule/auth`  | Valid JWT required | Bind viewing appointment directly to profile        |
+| `GET`   | `/user`           | Public             | Validate bookings aligned to provided email keys    |
+| `GET`   | `/upcoming`       | Public             | Identify chronological upcoming events              |
+| `PUT`   | `/cancel/:id`     | Public             | Abort scheduled interaction lifecycle               |
+| `PUT`   | `/feedback/:id`   | Public             | Log interaction metrics and reviews                 |
+| `GET`   | `/all`            | Admin Only         | Full comprehensive event retrieval                  |
+| `GET`   | `/stats`          | Admin Only         | Appointment aggregation counts and statistics       |
+| `PUT`   | `/status`         | Admin Only         | Flip status identifiers (`pending`, `completed`)    |
+| `PUT`   | `/update-meeting` | Admin Only         | Inject digital interaction URIs for remote viewings |
+
+</details>
+
+<details>
+<summary><strong>Administrative Operations (`/api/admin`)</strong></summary>
+
+| Request | Route Namespace        | Restrictions | Purpose                                          |
+| ------- | ---------------------- | ------------ | ------------------------------------------------ |
+| `GET`   | `/stats`               | Admin Only   | High-level macro analytics payload               |
+| `GET`   | `/appointments`        | Admin Only   | Detailed cross-user interaction scheduling lists |
+| `PUT`   | `/appointments/status` | Admin Only   | Toggle systemic verification structures          |
+
+</details>
+
+<details>
+<summary><strong>Communication & Inference Routines</strong></summary>
+
+| Request | Route Namespace               | Restrictions | Purpose                                              |
+| ------- | ----------------------------- | ------------ | ---------------------------------------------------- |
+| `POST`  | `/api/forms/submit`           | Public       | Parse generic contact payloads into storage          |
+| `POST`  | `/api/ai/search`              | Public       | Feed user queries to GPT-4.1 NLP engine              |
+| `POST`  | `/api/properties/search`      | Public       | Basic non-AI parameterized search protocol           |
+| `GET`   | `/api/locations/:city/trends` | Public       | Execute localized scraping behavior for macro trends |
+
+</details>
+
+---
+
+## 📂 Internal Directory Architecture
+
+<details>
+<summary><strong>View Component Map</strong></summary>
+
+```text
 backend/
-├── � config/                # Configuration files
-│   ├── config.js             # App configuration
-│   ├── mongodb.js            # Database connection
-│   ├── imagekit.js           # ImageKit setup
-│   └── nodemailer.js         # Email configuration
-│
-├── 📁 controller/            # Request handlers
-│   ├── adminController.js    # Admin operations
-│   ├── appointmentController.js # Appointment management
-│   ├── formcontroller.js     # Contact forms
-│   ├── newscontroller.js     # News/blog management
-│   ├── productcontroller.js  # Legacy product controller
-│   ├── propertyController.js # Property CRUD operations
-│   └── Usercontroller.js     # User management
-│
-├── 📁 middleware/            # Custom middleware
-│   ├── authmiddleware.js     # JWT authentication
-│   ├── multer.js             # File upload handling
-│   └── statsMiddleware.js    # Analytics middleware
-│
-├── 📁 models/                # MongoDB schemas
-│   ├── appointmentModel.js   # Appointment schema
-│   ├── formmodel.js          # Contact form schema
-│   ├── newsmodel.js          # News/blog schema
-│   ├── propertymodel.js      # Property schema
-│   ├── statsModel.js         # Analytics schema
-│   └── Usermodel.js          # User schema
-│
-├── 📁 routes/                # API routes
-│   ├── adminRoute.js         # Admin API routes
-│   ├── appointmentRoute.js   # Appointment routes
-│   ├── formrouter.js         # Contact form routes
-│   ├── newsRoute.js          # News/blog routes
-│   ├── ProductRouter.js      # Legacy product routes
-│   ├── propertyRoutes.js     # Property API routes
-│   └── UserRoute.js          # User authentication routes
-│
-├── 📁 services/              # Business logic
-│   ├── aiService.js          # AI integration service
-│   └── firecrawlService.js   # Web scraping service
-│
-├── 📁 uploads/               # Temporary file uploads
-│
-├── 📄 server.js              # Main application entry
-├── 📄 serverweb.js           # Alternative server setup
-├── 📄 package.json           # Dependencies and scripts
-├── 📄 docker-compose.yml     # Docker configuration
-├── 📄 Dockerfile             # Docker image definition
-└── 📄 vercel.json            # Vercel deployment config
+├── config/                # Service Initializations (MongoDB, CDN, SMTP)
+├── controller/            # API Route Controllers (The execution core)
+├── middleware/            # Injection Rules (Auth locks, Upload configs, Rate-limiters)
+├── models/                # Schema Rulesets (Mongoose structural definitions)
+├── routes/                # Endpoint Declarations (Traffic directors)
+├── services/              # Complex Implementations (AI bindings, Scraping ops)
+├── uploads/               # Fast-cache swap directory for incoming CDNs
+├── server.js              # Primary Execution Basepoint
+├── email.js               # Branded Component Generation Engine
+├── package.json           # Definitions / Scripts
+└── vercel.json / render.yaml # Production deployment spec rules
 ```
 
----
-
-## API Endpoints
-
-### Authentication (`/api/users`)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/register` | — | Register new user |
-| POST | `/login` | — | Login (returns JWT) |
-| POST | `/admin` | — | Admin login |
-| GET | `/me` | JWT | Get current user profile |
-| POST | `/forgot` | — | Send password reset email |
-| POST | `/reset/:token` | — | Reset password with token |
-
-### Properties (`/api/products`)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/list` | — | List all properties |
-| GET | `/single/:id` | — | Get property by ID |
-| POST | `/add` | Admin | Add property (multipart: up to 4 images) |
-| POST | `/update` | Admin | Update property (multipart) |
-| POST | `/remove` | Admin | Delete property |
-
-### Appointments (`/api/appointments`)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/schedule` | — | Schedule viewing (guest) |
-| POST | `/schedule/auth` | JWT | Schedule viewing (logged in) |
-| GET | `/user` | — | Get appointments by user email |
-| GET | `/upcoming` | — | Get upcoming appointments |
-| PUT | `/cancel/:id` | — | Cancel an appointment |
-| PUT | `/feedback/:id` | — | Submit feedback |
-| GET | `/all` | Admin | Get all appointments |
-| GET | `/stats` | Admin | Appointment statistics |
-| PUT | `/status` | Admin | Update appointment status |
-| PUT | `/update-meeting` | Admin | Add meeting link |
-
-### Admin (`/api/admin`)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/stats` | Admin | Dashboard statistics |
-| GET | `/appointments` | Admin | All appointments |
-| PUT | `/appointments/status` | Admin | Update status |
-
-### Contact Forms (`/api/forms`)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/submit` | — | Submit contact form |
-
-### AI Search (`/api`)
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/ai/search` | — | AI-powered property search |
-| POST | `/properties/search` | — | Property search |
-| GET | `/locations/:city/trends` | — | Location trends data |
+</details>
 
 ---
 
-## Scripts
+## 🏗️ Multimedia Handling Workflow
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start with nodemon (auto-restart on changes) |
-| `npm start` | Start production server |
+To guarantee high scalability, image uploads follow a strict proxy lifecycle:
 
-## How Image Upload Works
-
-1. Admin panel uploads images via the form
-2. **Multer** saves files temporarily to `uploads/`
-3. Files are pushed to **ImageKit CDN** via the SDK
-4. CDN URLs are stored in MongoDB
-5. Temporary files are deleted
-
-## Deployment (Render)
-
-1. Create a **Web Service** on [Render](https://render.com)
-2. Connect your GitHub repo
-3. Set **Root Directory** to `backend`
-4. Set **Build Command** to `npm install`
-5. Set **Start Command** to `npm start`
-6. Add all env variables from `.env.example`
-7. Set `NODE_ENV=production` and `WEBSITE_URL` to your frontend URL
-
-Currently deployed at: **https://real-estate-website-backend-zfu7.onrender.com**
-
-## Related
-
-- [Admin Panel README](../admin/README.md)
-- [Frontend README](../frontend/README.md)
-- [Root README](../README.md)
+1. Operations manager (Admin) inputs high-res images to the frontend.
+2. The endpoint passes elements heavily shielded by **Multer** into deep-cache `uploads/`.
+3. The server immediately proxies payloads securely to the **ImageKit CDN** using dedicated SDK tokens.
+4. CDN access URIs are returned and definitively saved within MongoDB Atlas structure nodes.
+5. Temp `uploads/` files are wiped utilizing strict cleanup events.
 
 ---
 
-Built with ❤️ by [Aayush Vaghela](https://aayush-vaghela.vercel.app/)
+## 🌐 Deployment Mechanics (Render Instance)
+
+1. Provision a raw **Web Service** on [Render](https://render.com).
+2. Authorize standard GitHub injection.
+3. Configure **Root Directory** pointing strictly to `backend`.
+4. Command structures: Build: `npm install` | Run: `npm start`.
+5. Mirror `.env.local` accurately inside Render Environment Variables GUI.
+6. Verify `NODE_ENV=production` is assigned while pointing `WEBSITE_URL` properly to standard frontend Vercel mapping.
+
+Active Node endpoint: **https://real-estate-website-backend-zfu7.onrender.com**
+
+---
+
+<div align="center">
+
+**Associated Applications**
+
+[Frontend README](../frontend/README.md) • [Admin Panel README](../admin/README.md) • [Root Interface](../README.md)
+
+_Engineered by [Aayush Vaghela](https://aayush-vaghela.vercel.app/)_
+
+</div>

@@ -213,9 +213,11 @@ export const updateAppointmentStatus = async (req, res) => {
           html: getEmailTemplate(appointment, status)
         };
 
-        await transporter.sendMail(mailOptions);
+        transporter.sendMail(mailOptions).catch(emailErr => {
+          console.error('Background status email failed:', emailErr.message);
+        });
       } catch (emailErr) {
-        console.error('Status email failed:', emailErr.message);
+        console.error('Status email dispatch error:', emailErr.message);
       }
     }
 
@@ -296,9 +298,11 @@ export const scheduleViewing = async (req, res) => {
           subject: 'Viewing Scheduled - BuildEstate',
           html: getSchedulingEmailTemplate(appointment, date, time, notes || message || '')
         };
-        await transporter.sendMail(mailOptions);
+        transporter.sendMail(mailOptions).catch(emailErr => {
+          console.error('Background confirmation email failed:', emailErr.message);
+        });
       } catch (emailErr) {
-        console.error('Confirmation email failed:', emailErr.message);
+        console.error('Confirmation email dispatch error:', emailErr.message);
         // Don't fail the request if email fails
       }
     }
@@ -355,9 +359,11 @@ export const cancelAppointment = async (req, res) => {
           html: getEmailTemplate(appointment, 'cancelled')
         };
 
-        await transporter.sendMail(mailOptions);
+        transporter.sendMail(mailOptions).catch(emailErr => {
+          console.error('Background cancellation email failed:', emailErr.message);
+        });
       } catch (emailErr) {
-        console.error('Cancellation email failed:', emailErr.message);
+        console.error('Cancellation email dispatch error:', emailErr.message);
       }
     }
 
@@ -422,9 +428,11 @@ export const updateAppointmentMeetingLink = async (req, res) => {
           html: getEmailTemplate(appointment, 'confirmed')
         };
 
-        await transporter.sendMail(mailOptions);
+        transporter.sendMail(mailOptions).catch(emailErr => {
+            console.error('Background meeting link email failed:', emailErr.message);
+        });
       } catch (emailErr) {
-        console.error('Meeting link email failed:', emailErr.message);
+        console.error('Meeting link email dispatch error:', emailErr.message);
       }
     }
 

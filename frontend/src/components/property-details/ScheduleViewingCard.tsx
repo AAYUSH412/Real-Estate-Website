@@ -10,7 +10,7 @@ interface ScheduleViewingCardProps {
 }
 
 const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property }) => {
-  const imgBackground = "https://images.unsplash.com/photo-1695067440629-b5e513976100?w=400";
+  const imgBackground = "https://cdn-icons-png.flaticon.com/512/1067/1067566.png";
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -94,11 +94,11 @@ const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property }) =
 
       {/* Agent Info */}
       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-[#E6E0DA]">
-        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+        <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
           <img 
             src={imgBackground}
             alt="Agent"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover mt-2"
           />
         </div>
         <div>

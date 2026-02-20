@@ -55,9 +55,9 @@ const ActivityItem = ({ item }) => {
         }
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#1C1B1A] truncate">{item.title}</p>
+        <p className="text-sm font-medium text-[#1C1B1A] truncate">{item.description}</p>
         <p className="text-xs text-[#9CA3AF] mt-0.5">
-          {isProperty ? "New property listed" : "Appointment scheduled"} • {formatDate(item.date)}
+          {formatDate(item.timestamp)}
         </p>
       </div>
     </div>
@@ -130,11 +130,14 @@ const Dashboard = () => {
 
   // Chart data
   const viewsChartData = {
-    labels: stats?.viewsData?.labels ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    labels: stats?.viewsData?.labels?.map(dateStr => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
       {
         label: "Property Views",
-        data: stats?.viewsData?.data ?? [0, 0, 0, 0, 0, 0, 0],
+        data: stats?.viewsData?.datasets?.[0]?.data ?? [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: "rgba(212, 117, 91, 0.15)",
         borderColor: "#D4755B",
         borderWidth: 2,
@@ -144,17 +147,17 @@ const Dashboard = () => {
     ],
   };
 
+  // Doughnut chart representing ONLY properties status to avoid mixing totally different metrics
   const doughnutData = {
-    labels: ["Active", "Pending", "Inactive"],
+    labels: ["Active Properties", "Inactive Properties"],
     datasets: [
       {
         data: [
           stats?.activeListings ?? 0,
-          stats?.pendingAppointments ?? 0,
           Math.max(0, (stats?.totalProperties ?? 0) - (stats?.activeListings ?? 0)),
         ],
-        backgroundColor: ["#D4755B", "#F5D9D0", "#E6D5C3"],
-        borderColor: ["#C05E44", "#EBB3A1", "#D4B99A"],
+        backgroundColor: ["#D4755B", "#E6D5C3"],
+        borderColor: ["#C05E44", "#D4B99A"],
         borderWidth: 1,
         hoverOffset: 6,
       },

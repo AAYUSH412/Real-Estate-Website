@@ -13,8 +13,8 @@ Rules:
 - Never include markdown, code fences, or extra text outside the JSON.`;
 
 class AIService {
-  constructor() {
-    this.apiKey = config.githubApiKey;
+  constructor(apiKey) {
+    this.apiKey = apiKey || config.githubApiKey;
     this.client = ModelClient(
       "https://models.inference.ai.azure.com",
       new AzureKeyCredential(this.apiKey)
@@ -159,6 +159,13 @@ Respond ONLY with this JSON schema:
 
     return this.generateText(prompt);
   }
+}
+
+/**
+ * Factory — create an AIService with a caller-supplied API key.
+ */
+export function createAIService(apiKey) {
+  return new AIService(apiKey);
 }
 
 export default new AIService();

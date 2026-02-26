@@ -2,9 +2,9 @@ import FirecrawlApp from "@mendable/firecrawl-js";
 import { config } from '../config/config.js';
 
 class FirecrawlService {
-    constructor() {
+    constructor(apiKey) {
         this.firecrawl = new FirecrawlApp({
-            apiKey: config.firecrawlApiKey
+            apiKey: apiKey || config.firecrawlApiKey
         });
     }
 
@@ -136,6 +136,13 @@ class FirecrawlService {
             throw error;
         }
     }
+}
+
+/**
+ * Factory — create a FirecrawlService with a caller-supplied API key.
+ */
+export function createFirecrawlService(apiKey) {
+    return new FirecrawlService(apiKey);
 }
 
 export default new FirecrawlService();

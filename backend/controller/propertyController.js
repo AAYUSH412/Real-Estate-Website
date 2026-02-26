@@ -1,17 +1,37 @@
-import firecrawlService from '../services/firecrawlService.js';
-import aiService from '../services/aiService.js';
+import defaultFirecrawlService, { createFirecrawlService } from '../services/firecrawlService.js';
+import defaultAIService, { createAIService } from '../services/aiService.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
+
+/**
+ * Resolve per-request service instances.
+ * If the caller supplies X-Github-Key / X-Firecrawl-Key headers, use those.
+ * Otherwise fall back to the server's own env-key singletons.
+ */
+function resolveServices(req) {
+    const githubKey    = req.headers['x-github-key']?.trim();
+    const firecrawlKey = req.headers['x-firecrawl-key']?.trim();
+
+    const usingUserKeys = !!(githubKey && firecrawlKey);
+
+    return {
+        aiService:        githubKey    ? createAIService(githubKey)        : defaultAIService,
+        firecrawlService: firecrawlKey ? createFirecrawlService(firecrawlKey) : defaultFirecrawlService,
+        usingUserKeys,
+    };
+}
 
 export const searchProperties = async (req, res) => {
     try {
         const { city, maxPrice, propertyCategory, propertyType, limit = 6 } = req.body;
 
-        // Input validation
         if (!city || !maxPrice) {
             return res.status(400).json({ success: false, message: 'City and maxPrice are required' });
         }
 
-        // Step 1: Firecrawl — isolated try-catch so AI can still run on failure
+        const { firecrawlService, aiService, usingUserKeys } = resolveServices(req);
+        console.log(`[PropertyController] Using ${usingUserKeys ? 'user-provided' : 'server'} API keys`);
+
+        // Step 1: Firecrawl
         let propertiesData;
         try {
             propertiesData = await firecrawlService.findProperties(
@@ -30,7 +50,6 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        // Step 2: Handle empty results
         if (!propertiesData?.properties || propertiesData.properties.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -40,7 +59,7 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        // Step 3: AI analysis — isolated so properties still return on AI failure
+        // Step 2: AI analysis
         let analysis;
         try {
             const rawAnalysis = await aiService.analyzeProperties(
@@ -50,11 +69,9 @@ export const searchProperties = async (req, res) => {
                 propertyCategory || 'Residential',
                 propertyType || 'Flat'
             );
-            // Validate and fix the AI JSON response
             analysis = validateAndFixPropertyAnalysis(rawAnalysis, propertiesData.properties);
         } catch (aiError) {
             console.error('[AI] Property analysis failed:', aiError.message);
-            // Build a safe fallback from scraped data
             analysis = {
                 error: 'Analysis temporarily unavailable',
                 overview: propertiesData.properties.slice(0, 3).map(p => ({
@@ -69,18 +86,10 @@ export const searchProperties = async (req, res) => {
             };
         }
 
-        res.json({
-            success: true,
-            properties: propertiesData.properties,
-            analysis
-        });
+        res.json({ success: true, properties: propertiesData.properties, analysis });
     } catch (error) {
         console.error('Error searching properties:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to search properties',
-            error: error.message
-        });
+        res.status(500).json({ success: false, message: 'Failed to search properties', error: error.message });
     }
 };
 
@@ -93,7 +102,10 @@ export const getLocationTrends = async (req, res) => {
             return res.status(400).json({ success: false, message: 'City parameter is required' });
         }
 
-        // Step 1: Firecrawl — isolated try-catch
+        const { firecrawlService, aiService, usingUserKeys } = resolveServices(req);
+        console.log(`[PropertyController] Trends using ${usingUserKeys ? 'user-provided' : 'server'} API keys`);
+
+        // Step 1: Firecrawl
         let locationsData;
         try {
             locationsData = await firecrawlService.getLocationTrends(city, Math.min(limit, 5));
@@ -106,7 +118,6 @@ export const getLocationTrends = async (req, res) => {
             });
         }
 
-        // Step 2: Handle empty results
         if (!locationsData?.locations || locationsData.locations.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -116,13 +127,10 @@ export const getLocationTrends = async (req, res) => {
             });
         }
 
-        // Step 3: AI analysis — isolated
+        // Step 2: AI analysis
         let analysis;
         try {
-            const rawAnalysis = await aiService.analyzeLocationTrends(
-                locationsData.locations,
-                city
-            );
+            const rawAnalysis = await aiService.analyzeLocationTrends(locationsData.locations, city);
             analysis = validateAndFixLocationAnalysis(rawAnalysis);
         } catch (aiError) {
             console.error('[AI] Location analysis failed:', aiError.message);
@@ -135,17 +143,9 @@ export const getLocationTrends = async (req, res) => {
             };
         }
 
-        res.json({
-            success: true,
-            locations: locationsData.locations,
-            analysis
-        });
+        res.json({ success: true, locations: locationsData.locations, analysis });
     } catch (error) {
         console.error('Error getting location trends:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get location trends',
-            error: error.message
-        });
+        res.status(500).json({ success: false, message: 'Failed to get location trends', error: error.message });
     }
 };

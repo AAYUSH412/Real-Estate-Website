@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, MapPin, IndianRupee, Home, Building2, Search, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Sparkles, MapPin, IndianRupee, Home, Building2, Search, Loader2, KeyRound, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { SearchParams } from '../../pages/AIPropertyHubPage';
+import AIApiKeyModal from './AIApiKeyModal';
+import { apiKeyStorage } from '../../services/api';
 
 interface AIHeroSectionProps {
   onSearch: (params: SearchParams) => void;
@@ -44,6 +46,14 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const cityInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // API key modal + status
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keysReady, setKeysReady] = useState(apiKeyStorage.hasKeys());
+
+  const refreshKeyStatus = useCallback(() => {
+    setKeysReady(apiKeyStorage.hasKeys());
+  }, []);
 
   // Filter cities based on input
   const filteredCities = city.trim()
@@ -141,6 +151,37 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
             Our AI scrapes real listings from 99acres, analyzes market data,
             and delivers personalised recommendations.
           </p>
+        </div>
+
+        {/* ── API Key Banner ───────────────────────── */}
+        <div className="max-w-[800px] mx-auto mb-4">
+          {keysReady ? (
+            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-3">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <p className="font-manrope text-sm text-emerald-200 flex-1">
+                Your API keys are active — AI searches use your own quota.
+              </p>
+              <button
+                onClick={() => setShowKeyModal(true)}
+                className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-manrope font-semibold text-xs px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+              >
+                <KeyRound className="w-3 h-3" /> Manage Keys
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="font-manrope text-sm text-amber-200 flex-1">
+                Add your <strong className="text-amber-100">free</strong> GitHub Models &amp; Firecrawl keys — use your own quota.
+              </p>
+              <button
+                onClick={() => setShowKeyModal(true)}
+                className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-manrope font-semibold text-xs px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+              >
+                <KeyRound className="w-3 h-3" /> Set Up Keys
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Search form card ─────────────────────── */}
@@ -333,6 +374,13 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
           </form>
         </div>
       </div>
+
+      {/* API Key Modal */}
+      <AIApiKeyModal
+        isOpen={showKeyModal}
+        onClose={() => setShowKeyModal(false)}
+        onKeysChanged={refreshKeyStatus}
+      />
     </section>
   );
 };

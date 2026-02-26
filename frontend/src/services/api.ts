@@ -103,11 +103,40 @@ export const aiAPI = {
     price?: { min: number; max: number };
     type?: string;
     category?: string;
-  }) =>
-    apiClient.post('/ai/search', data),
+  }) => {
+    const githubKey    = localStorage.getItem('buildestate_github_key');
+    const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
+    return apiClient.post('/ai/search', data, {
+      headers: {
+        ...(githubKey    && { 'X-Github-Key':    githubKey }),
+        ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
+      },
+    });
+  },
 
-  locationTrends: (city: string) =>
-    apiClient.get(`/locations/${encodeURIComponent(city)}/trends`),
+  locationTrends: (city: string) => {
+    const githubKey    = localStorage.getItem('buildestate_github_key');
+    const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
+    return apiClient.get(`/locations/${encodeURIComponent(city)}/trends`, {
+      headers: {
+        ...(githubKey    && { 'X-Github-Key':    githubKey }),
+        ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
+      },
+    });
+  },
+};
+
+// Helpers to read/write user API keys in localStorage
+export const apiKeyStorage = {
+  getGithubKey:    ()    => localStorage.getItem('buildestate_github_key') || '',
+  getFirecrawlKey: ()    => localStorage.getItem('buildestate_firecrawl_key') || '',
+  setGithubKey:    (key: string) => localStorage.setItem('buildestate_github_key', key),
+  setFirecrawlKey: (key: string) => localStorage.setItem('buildestate_firecrawl_key', key),
+  hasKeys: () => !!(localStorage.getItem('buildestate_github_key') && localStorage.getItem('buildestate_firecrawl_key')),
+  clear: () => {
+    localStorage.removeItem('buildestate_github_key');
+    localStorage.removeItem('buildestate_firecrawl_key');
+  },
 };
 
 // Contact Form

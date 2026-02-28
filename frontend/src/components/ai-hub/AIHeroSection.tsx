@@ -7,6 +7,8 @@ import { apiKeyStorage } from '../../services/api';
 interface AIHeroSectionProps {
   onSearch: (params: SearchParams) => void;
   loading: boolean;
+  externalOpenModal?: boolean;   // P1-1: parent can force-open key modal (e.g. on 403)
+  onModalClosed?: () => void;    // callback to reset the flag after opening
 }
 
 const POPULAR_CITIES = [
@@ -34,7 +36,7 @@ const CATEGORIES = ['Residential', 'Commercial'];
 
 type BudgetUnit = 'Lakh' | 'Cr';
 
-const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
+const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, externalOpenModal, onModalClosed }) => {
   const [city, setCity] = useState('');
   const [maxBudget, setMaxBudget] = useState('2');
   const [budgetUnit, setBudgetUnit] = useState<BudgetUnit>('Cr');
@@ -51,6 +53,14 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [keysReady, setKeysReady] = useState(apiKeyStorage.hasKeys());
 
+  // P1-1: open modal when parent signals 403 error
+  useEffect(() => {
+    if (externalOpenModal) {
+      setShowKeyModal(true);
+      onModalClosed?.();
+    }
+  }, [externalOpenModal, onModalClosed]);
+
   const refreshKeyStatus = useCallback(() => {
     setKeysReady(apiKeyStorage.hasKeys());
   }, []);
@@ -58,8 +68,8 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
   // Filter cities based on input
   const filteredCities = city.trim()
     ? ALL_CITIES.filter(
-        (c) => c.toLowerCase().includes(city.toLowerCase()) && c.toLowerCase() !== city.toLowerCase()
-      ).slice(0, 6)
+      (c) => c.toLowerCase().includes(city.toLowerCase()) && c.toLowerCase() !== city.toLowerCase()
+    ).slice(0, 6)
     : [];
 
   // Close dropdown on outside click
@@ -111,6 +121,12 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
     e.preventDefault();
     if (!city.trim()) return;
 
+    // Guard: require API keys before firing any request
+    if (!keysReady) {
+      setShowKeyModal(true);
+      return;
+    }
+
     // Convert to Crores for the backend
     const rawValue = parseFloat(maxBudget) || 2;
     const valueInCrores = budgetUnit === 'Lakh' ? rawValue / 100 : rawValue;
@@ -124,79 +140,78 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
   };
 
   return (
-    <section className="relative bg-gradient-to-br from-[#221410] via-[#3d2519] to-[#221410] pt-32 pb-20 overflow-hidden">
-      {/* Decorative blobs */}
+    <section className="relative bg-[#FAF8F4] overflow-hidden">
+      {/* Background gradients */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div className="absolute top-20 left-10 w-72 h-72 bg-[#D4755B]/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#D4755B]/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-white/[0.04] rounded-full" />
+        <div className="absolute top-0 inset-x-0 h-[800px] bg-gradient-to-b from-[#D4755B]/10 to-transparent" />
+        <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-[#D4755B]/10 rounded-full blur-[100px]" />
+        <div className="absolute right-0 top-0 w-1/2 h-full bg-[radial-gradient(circle_at_top_right,rgba(212,117,91,0.08),transparent_60%)]" />
       </div>
 
-      <div className="relative max-w-[1200px] mx-auto px-6">
+      <div className="relative pt-32 pb-24 max-w-[1200px] mx-auto px-6">
         {/* ── Heading ──────────────────────────────── */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 mb-6">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-[#D4755B]/20 rounded-full px-4 py-2 mb-6 shadow-sm">
             <Sparkles className="w-4 h-4 text-[#D4755B]" />
-            <span className="font-space-mono text-xs text-white/80 uppercase tracking-wider">
+            <span className="font-space-mono text-xs text-[#D4755B] uppercase tracking-wider font-semibold">
               AI-Powered Search
             </span>
           </div>
 
-          <h1 className="font-fraunces text-5xl md:text-6xl leading-tight text-white mb-4">
-            Find Properties with
-            <span className="text-[#D4755B]"> AI Intelligence</span>
+          <h1 className="font-fraunces text-5xl md:text-6xl lg:text-7xl leading-tight text-[#221410] mb-6">
+            Find Properties with<br />
+            <span className="text-[#D4755B]">AI Intelligence</span>
           </h1>
 
-          <p className="font-manrope font-light text-lg text-white/60 max-w-[560px] mx-auto">
-            Our AI scrapes real listings from 99acres, analyzes market data,
-            and delivers personalised recommendations.
+          <p className="font-manrope text-lg text-[#6B7280] max-w-[600px] mx-auto leading-relaxed">
+            Our AI analyzes live market data and real listings to deliver highly personalized property recommendations in seconds.
           </p>
         </div>
 
         {/* ── API Key Banner ───────────────────────── */}
-        <div className="max-w-[800px] mx-auto mb-4">
+        <div className="max-w-[800px] mx-auto mb-6 relative z-10">
           {keysReady ? (
-            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <p className="font-manrope text-sm text-emerald-200 flex-1">
+            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 shadow-sm rounded-xl px-5 py-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <p className="font-manrope text-sm font-medium text-emerald-800 flex-1">
                 Your API keys are active — AI searches use your own quota.
               </p>
               <button
                 onClick={() => setShowKeyModal(true)}
-                className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-manrope font-semibold text-xs px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+                className="flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 text-emerald-700 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-all whitespace-nowrap"
               >
-                <KeyRound className="w-3 h-3" /> Manage Keys
+                <KeyRound className="w-3.5 h-3.5" /> Manage Keys
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-              <p className="font-manrope text-sm text-amber-200 flex-1">
-                Add your <strong className="text-amber-100">free</strong> GitHub Models &amp; Firecrawl keys — use your own quota.
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 shadow-sm rounded-xl px-5 py-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="font-manrope text-sm font-medium text-amber-800 flex-1">
+                Add your <strong className="text-amber-900 font-bold">free</strong> GitHub Models &amp; Firecrawl keys — use your own quota.
               </p>
               <button
                 onClick={() => setShowKeyModal(true)}
-                className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-manrope font-semibold text-xs px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+                className="flex items-center gap-1.5 bg-amber-100 hover:bg-amber-200 border border-amber-200 text-amber-800 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-all whitespace-nowrap"
               >
-                <KeyRound className="w-3 h-3" /> Set Up Keys
+                <KeyRound className="w-3.5 h-3.5" /> Set Up Keys
               </button>
             </div>
           )}
         </div>
 
         {/* ── Search form card ─────────────────────── */}
-        <div className="max-w-[800px] mx-auto">
+        <div className="max-w-[900px] mx-auto relative z-10">
           <form
             onSubmit={handleSubmit}
-            className="bg-white/[0.07] backdrop-blur-xl border border-white/10 rounded-2xl p-8"
+            className="bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-6 md:p-8"
           >
             {/* City */}
-            <div className="mb-5">
-              <label className="block font-space-mono text-[11px] text-white/50 uppercase tracking-widest mb-2">
-                City
+            <div className="mb-6">
+              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
+                Where do you want to live?
               </label>
               <div className="relative">
-                <div className="relative bg-white/10 rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/50 transition-all">
+                <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
                   <MapPin className="w-5 h-5 text-[#D4755B] shrink-0" />
                   <input
                     ref={cityInputRef}
@@ -205,7 +220,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
                     onChange={handleCityChange}
                     onFocus={() => setShowSuggestions(true)}
                     onKeyDown={handleCityKeyDown}
-                    className="flex-1 bg-transparent font-manrope text-sm text-white outline-none placeholder:text-white/30"
+                    className="flex-1 bg-transparent font-manrope text-base text-[#221410] outline-none placeholder:text-[#9CA3AF] placeholder:font-light"
                     placeholder="Enter city — e.g. Mumbai, Pune, Bangalore…"
                     autoComplete="off"
                     required
@@ -216,7 +231,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
                 {showSuggestions && filteredCities.length > 0 && (
                   <div
                     ref={suggestionsRef}
-                    className="absolute z-50 left-0 right-0 mt-1 bg-[#2d1a12] border border-white/15 rounded-xl shadow-2xl overflow-hidden"
+                    className="absolute z-50 left-0 right-0 mt-2 bg-white border border-[#E6E0DA] rounded-xl shadow-xl overflow-hidden"
                   >
                     {filteredCities.map((c, idx) => (
                       <button
@@ -224,14 +239,13 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
                         type="button"
                         onClick={() => selectCity(c)}
                         onMouseEnter={() => setHighlightedIndex(idx)}
-                        className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors ${
-                          idx === highlightedIndex
-                            ? 'bg-[#D4755B]/20 text-white'
-                            : 'text-white/70 hover:bg-white/5'
-                        }`}
+                        className={`w-full text-left px-5 py-3.5 flex items-center gap-3 transition-colors ${idx === highlightedIndex
+                          ? 'bg-[#FAF8F4] text-[#221410]'
+                          : 'text-[#6B7280] hover:bg-[#FAF8F4] hover:text-[#221410]'
+                          }`}
                       >
-                        <MapPin className="w-4 h-4 text-[#D4755B]/60 shrink-0" />
-                        <span className="font-manrope text-sm">{c}</span>
+                        <MapPin className="w-4 h-4 text-[#D4755B] shrink-0" />
+                        <span className="font-manrope text-sm font-medium">{c}</span>
                       </button>
                     ))}
                   </div>
@@ -239,17 +253,16 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
               </div>
 
               {/* Quick-pick city pills */}
-              <div className="flex flex-wrap gap-2 mt-3">
+              <div className="flex flex-wrap gap-2 mt-4 ml-1">
                 {POPULAR_CITIES.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => selectCity(c)}
-                    className={`font-manrope text-xs px-3 py-1.5 rounded-full border transition-all ${
-                      city === c
-                        ? 'bg-[#D4755B] border-[#D4755B] text-white'
-                        : 'border-white/20 text-white/50 hover:border-[#D4755B]/50 hover:text-white/80'
-                    }`}
+                    className={`font-manrope text-xs px-4 py-1.5 rounded-full border transition-all ${city === c
+                      ? 'bg-[#D4755B] border-[#D4755B] text-white font-medium shadow-sm'
+                      : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#D4755B]/50 hover:text-[#D4755B]'
+                      }`}
                   >
                     {c}
                   </button>
@@ -258,15 +271,15 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
             </div>
 
             {/* Budget · Type · Category */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
               {/* Budget */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="font-space-mono text-[11px] text-white/50 uppercase tracking-widest">
+                  <label className="font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest ml-1">
                     Max Budget
                   </label>
                   {/* Unit toggle */}
-                  <div className="flex items-center bg-white/10 rounded-md overflow-hidden">
+                  <div className="flex items-center bg-[#FAF8F4] border border-[#E6E0DA] rounded p-0.5">
                     {(['Lakh', 'Cr'] as BudgetUnit[]).map((unit) => (
                       <button
                         key={unit}
@@ -282,27 +295,26 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
                             setBudgetUnit(unit);
                           }
                         }}
-                        className={`font-space-mono text-[10px] px-2 py-1 transition-all ${
-                          budgetUnit === unit
-                            ? 'bg-[#D4755B] text-white'
-                            : 'text-white/50 hover:text-white/80'
-                        }`}
+                        className={`font-space-mono text-[10px] uppercase font-bold px-2.5 py-1 transition-all rounded-sm ${budgetUnit === unit
+                          ? 'bg-white shadow-sm text-[#D4755B]'
+                          : 'text-[#9CA3AF] hover:text-[#6B7280]'
+                          }`}
                       >
                         {unit}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="relative bg-white/10 rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/50 transition-all">
+                <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
                   <IndianRupee className="w-5 h-5 text-[#D4755B] shrink-0" />
                   <input
                     type="number"
                     value={maxBudget}
                     onChange={(e) => setMaxBudget(e.target.value)}
-                    className="flex-1 bg-transparent font-space-mono text-sm text-white outline-none placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="flex-1 bg-transparent font-space-mono text-base text-[#221410] outline-none placeholder:text-[#9CA3AF] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder={budgetUnit === 'Lakh' ? '50' : '2'}
                     min="0.1"
-                    step={budgetUnit === 'Lakh' ? '5' : '0.5'}
+                    step="any" // P2: Fix HTML5 validation bug, allow any increment (e.g. 2.0 when jumping by 0.5 was strictly failing)
                     required
                   />
                 </div>
@@ -310,15 +322,15 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
 
               {/* Property type */}
               <div>
-                <label className="block font-space-mono text-[11px] text-white/50 uppercase tracking-widest mb-2">
+                <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
                   Property Type
                 </label>
-                <div className="relative bg-white/10 rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/50 transition-all">
+                <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
                   <Home className="w-5 h-5 text-[#D4755B] shrink-0" />
                   <select
                     value={propertyType}
                     onChange={(e) => setPropertyType(e.target.value)}
-                    className="flex-1 bg-transparent font-manrope text-sm text-white outline-none cursor-pointer [&>option]:text-[#221410]"
+                    className="flex-1 bg-transparent font-manrope text-base text-[#221410] outline-none cursor-pointer"
                   >
                     {PROPERTY_TYPES.map((t) => (
                       <option key={t} value={t}>{t}</option>
@@ -329,15 +341,15 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
 
               {/* Category */}
               <div>
-                <label className="block font-space-mono text-[11px] text-white/50 uppercase tracking-widest mb-2">
+                <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
                   Category
                 </label>
-                <div className="relative bg-white/10 rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/50 transition-all">
+                <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
                   <Building2 className="w-5 h-5 text-[#D4755B] shrink-0" />
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="flex-1 bg-transparent font-manrope text-sm text-white outline-none cursor-pointer [&>option]:text-[#221410]"
+                    className="flex-1 bg-transparent font-manrope text-base text-[#221410] outline-none cursor-pointer"
                   >
                     {CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -348,27 +360,42 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading }) => {
             </div>
 
             {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading || !city.trim()}
-              className="w-full bg-[#D4755B] hover:bg-[#C05621] disabled:opacity-50 disabled:cursor-not-allowed text-white font-manrope font-semibold text-base py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#D4755B]/20"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Searching properties…
-                </>
-              ) : (
-                <>
-                  <Search className="w-5 h-5" />
-                  Search with AI
-                </>
+            <div className="relative group mt-2">
+              <button
+                type="submit"
+                disabled={loading || !city.trim() || !keysReady}
+                className="w-full bg-[#D4755B] hover:bg-[#C05621] disabled:opacity-50 disabled:cursor-not-allowed text-white font-manrope font-semibold text-lg py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#D4755B]/20 hover:shadow-xl hover:shadow-[#D4755B]/30"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Searching properties…
+                  </>
+                ) : !keysReady ? (
+                  <>
+                    <KeyRound className="w-5 h-5" />
+                    Set API Keys to Search
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-5 h-5" />
+                    Search with AI
+                  </>
+                )}
+              </button>
+              {/* Tooltip shown when keys are missing */}
+              {!keysReady && !loading && (
+                <div className="absolute -top-12 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#221410] border border-[#E6E0DA]/20 text-white font-manrope text-xs rounded-lg px-4 py-2 whitespace-nowrap pointer-events-none shadow-xl z-10 transition-opacity">
+                  Add your GitHub Models &amp; Firecrawl keys first
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#221410] border-b border-r border-[#E6E0DA]/20 rotate-45" />
+                </div>
               )}
-            </button>
+            </div>
 
             {loading && (
-              <p className="font-manrope text-xs text-white/40 text-center mt-3">
-                Scraping live data from 99acres &amp; running AI analysis — this may take 15-30 seconds
+              <p className="flex items-center justify-center gap-2 font-manrope text-sm text-[#6B7280] font-medium mt-4 animate-pulse">
+                <Sparkles className="w-4 h-4 text-[#D4755B]" />
+                Scraping live data & running AI analysis — this may take 15-30s
               </p>
             )}
           </form>

@@ -1,22 +1,37 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
-import { config } from '../config/config.js';
+
+// Firecrawl can be slow on large pages — cap at 60 seconds per call
+const FIRECRAWL_TIMEOUT_MS = 60_000;
+
+/**
+ * Wraps a promise with a timeout. Rejects if the promise doesn't resolve in time.
+ */
+function withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`[Firecrawl] ${label} timed out after ${ms / 1000}s`)), ms)
+        ),
+    ]);
+}
 
 class FirecrawlService {
     constructor(apiKey) {
-        this.firecrawl = new FirecrawlApp({
-            apiKey: apiKey || config.firecrawlApiKey
-        });
+        if (!apiKey) {
+            throw new Error('[FirecrawlService] API key is required — no fallback allowed.');
+        }
+        this.firecrawl = new FirecrawlApp({ apiKey });
     }
 
     async findProperties(city, maxPrice, propertyCategory = "Residential", propertyType = "Flat", limit = 6) {
         try {
             const formattedLocation = city.toLowerCase().replace(/\s+/g, '-');
-            
+
             // Use specific listing page URL — NO wildcard to avoid crawling hundreds of pages
             const url = `https://www.99acres.com/property-in-${formattedLocation}-ffid`;
 
             const propertyTypePrompt = propertyType === "Flat" ? "Flats" : "Individual Houses";
-            
+
             const propertySchema = {
                 type: "object",
                 properties: {
@@ -54,6 +69,10 @@ class FirecrawlService {
                                 area_sqft: {
                                     type: "string",
                                     description: "Area in square feet"
+                                },
+                                property_url: {
+                                    type: "string",
+                                    description: "Direct URL link to this specific property listing on 99acres"
                                 }
                             },
                             required: ["building_name", "property_type", "location_address", "price"]
@@ -62,13 +81,17 @@ class FirecrawlService {
                 },
                 required: ["properties"]
             };
-            
-            const extractResult = await this.firecrawl.extract(
-                [url],
-                {
-                    prompt: `From this single page, extract ${limit} ${propertyCategory} ${propertyTypePrompt} in ${city} priced under ${maxPrice} crores. Return exactly ${limit} properties, no more.`,
-                    schema: propertySchema
-                }
+
+            const extractResult = await withTimeout(
+                this.firecrawl.extract(
+                    [url],
+                    {
+                        prompt: `From this single page, extract ${limit} ${propertyCategory} ${propertyTypePrompt} in ${city} priced under ${maxPrice} crores. Return exactly ${limit} properties, no more.`,
+                        schema: propertySchema
+                    }
+                ),
+                FIRECRAWL_TIMEOUT_MS,
+                `findProperties(${city})`
             );
 
             if (!extractResult.success) {
@@ -89,7 +112,7 @@ class FirecrawlService {
     async getLocationTrends(city, limit = 5) {
         try {
             const formattedLocation = city.toLowerCase().replace(/\s+/g, '-');
-            
+
             // Use specific trends page URL — NO wildcard
             const url = `https://www.99acres.com/property-rates-and-price-trends-in-${formattedLocation}-prffid`;
 
@@ -113,13 +136,17 @@ class FirecrawlService {
                 },
                 required: ["locations"]
             };
-            
-            const extractResult = await this.firecrawl.extract(
-                [url],
-                {
-                    prompt: `From this page, extract price trend data for ${limit} major localities in ${city}. Include: location name, price per sqft, yearly percent increase, and rental yield.`,
-                    schema: locationSchema
-                }
+
+            const extractResult = await withTimeout(
+                this.firecrawl.extract(
+                    [url],
+                    {
+                        prompt: `From this page, extract price trend data for ${limit} major localities in ${city}. Include: location name, price per sqft, yearly percent increase, and rental yield.`,
+                        schema: locationSchema
+                    }
+                ),
+                FIRECRAWL_TIMEOUT_MS,
+                `getLocationTrends(${city})`
             );
 
             if (!extractResult.success) {
@@ -129,7 +156,7 @@ class FirecrawlService {
             // Enforce limit in code
             const locations = extractResult.data.locations.slice(0, limit);
             console.log(`[Firecrawl] Extracted ${extractResult.data.locations.length} locations, returning ${locations.length}`);
-            
+
             return { locations };
         } catch (error) {
             console.error('Error fetching location trends:', error);
@@ -140,9 +167,9 @@ class FirecrawlService {
 
 /**
  * Factory — create a FirecrawlService with a caller-supplied API key.
+ * The default-singleton export is intentionally removed:
+ * server env-var keys MUST NOT be used as a fallback.
  */
 export function createFirecrawlService(apiKey) {
     return new FirecrawlService(apiKey);
 }
-
-export default new FirecrawlService();

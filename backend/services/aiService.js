@@ -5,6 +5,9 @@ import { AzureKeyCredential } from "@azure/core-auth";
 const PRIMARY_MODEL = "gpt-4.1-mini";
 const FALLBACK_MODEL = "gpt-4.1-nano";
 
+// Request timeout for GitHub Models calls (30 seconds)
+const AI_TIMEOUT_MS = 30_000;
+
 const SYSTEM_PROMPT = `You are a concise Indian real estate expert assistant.
 Rules:
 - Always respond with valid JSON matching the requested schema.
@@ -14,7 +17,10 @@ Rules:
 
 class AIService {
   constructor(apiKey) {
-    this.apiKey = apiKey || config.githubApiKey;
+    if (!apiKey) {
+      throw new Error('[AIService] API key is required — no fallback allowed.');
+    }
+    this.apiKey = apiKey;
     this.client = ModelClient(
       "https://models.inference.ai.azure.com",
       new AzureKeyCredential(this.apiKey)
@@ -38,6 +44,12 @@ class AIService {
   }
 
   async _callModel(model, prompt, systemPrompt) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      console.warn(`[AI] ${model} timed out after ${AI_TIMEOUT_MS / 1000}s`);
+    }, AI_TIMEOUT_MS);
+
     try {
       console.log(`[AI] Calling ${model} at ${new Date().toISOString()}`);
       const startTime = Date.now();
@@ -50,9 +62,11 @@ class AIService {
           ],
           model,
           temperature: 0.3,
-          max_tokens: 800,
+          max_tokens: 1500,   // increased from 800 — prevents JSON truncation
           top_p: 1
-        }
+        },
+        // Pass abort signal if the SDK supports it
+        ...(controller.signal ? { signal: controller.signal } : {}),
       });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -65,10 +79,17 @@ class AIService {
 
       return response.body.choices[0].message.content;
     } catch (error) {
-      console.error(`[AI] ${model} exception:`, error.message);
+      if (error.name === 'AbortError') {
+        console.error(`[AI] ${model} aborted — timeout exceeded`);
+      } else {
+        console.error(`[AI] ${model} exception:`, error.message);
+      }
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
+
 
   // ── Data Preparation ──────────────────────────────────────────
 
@@ -163,9 +184,9 @@ Respond ONLY with this JSON schema:
 
 /**
  * Factory — create an AIService with a caller-supplied API key.
+ * The default-singleton export is intentionally removed:
+ * server env-var keys MUST NOT be used as a fallback.
  */
 export function createAIService(apiKey) {
   return new AIService(apiKey);
 }
-
-export default new AIService();

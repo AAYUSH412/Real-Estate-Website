@@ -1,24 +1,54 @@
-import defaultFirecrawlService, { createFirecrawlService } from '../services/firecrawlService.js';
-import defaultAIService, { createAIService } from '../services/aiService.js';
+import { createFirecrawlService } from '../services/firecrawlService.js';
+import { createAIService } from '../services/aiService.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
 
+// ── Simple in-memory cache (10-minute TTL) ────────────────────────────────────
+const _cache = new Map();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getCached(key) {
+    const entry = _cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > CACHE_TTL_MS) { _cache.delete(key); return null; }
+    return entry.data;
+}
+
+function setCache(key, data) {
+    // Keep cache bounded — evict oldest entry if over 100 keys
+    if (_cache.size >= 100) {
+        const oldest = _cache.keys().next().value;
+        _cache.delete(oldest);
+    }
+    _cache.set(key, { data, ts: Date.now() });
+}
+
+// ── Key validation ────────────────────────────────────────────────────────────
+
 /**
- * Resolve per-request service instances.
- * If the caller supplies X-Github-Key / X-Firecrawl-Key headers, use those.
- * Otherwise fall back to the server's own env-key singletons.
+ * Strict gate: both user-provided keys MUST be present.
+ * Throws a structured 403 error object if either is missing.
+ * The server's own env-var keys are NEVER used as a fallback.
  */
 function resolveServices(req) {
-    const githubKey    = req.headers['x-github-key']?.trim();
+    const githubKey = req.headers['x-github-key']?.trim();
     const firecrawlKey = req.headers['x-firecrawl-key']?.trim();
 
-    const usingUserKeys = !!(githubKey && firecrawlKey);
+    if (!githubKey || !firecrawlKey) {
+        const err = new Error(
+            'API keys required. Please add your free GitHub Models and Firecrawl API keys to use the AI Hub.'
+        );
+        err.statusCode = 403;
+        err.code = 'KEYS_REQUIRED';
+        throw err;
+    }
 
     return {
-        aiService:        githubKey    ? createAIService(githubKey)        : defaultAIService,
-        firecrawlService: firecrawlKey ? createFirecrawlService(firecrawlKey) : defaultFirecrawlService,
-        usingUserKeys,
+        aiService: createAIService(githubKey),
+        firecrawlService: createFirecrawlService(firecrawlKey),
     };
 }
+
+// ── Handlers ─────────────────────────────────────────────────────────────────
 
 export const searchProperties = async (req, res) => {
     try {
@@ -28,8 +58,27 @@ export const searchProperties = async (req, res) => {
             return res.status(400).json({ success: false, message: 'City and maxPrice are required' });
         }
 
-        const { firecrawlService, aiService, usingUserKeys } = resolveServices(req);
-        console.log(`[PropertyController] Using ${usingUserKeys ? 'user-provided' : 'server'} API keys`);
+        // Gate: require user API keys
+        let services;
+        try {
+            services = resolveServices(req);
+        } catch (keyErr) {
+            return res.status(keyErr.statusCode || 403).json({
+                success: false,
+                message: keyErr.message,
+                error: keyErr.code || 'KEYS_REQUIRED',
+            });
+        }
+
+        const { firecrawlService, aiService } = services;
+        const cacheKey = `search:${city}:${maxPrice}:${propertyCategory}:${propertyType}`;
+        const cached = getCached(cacheKey);
+        if (cached) {
+            console.log(`[Cache] HIT for ${cacheKey}`);
+            return res.json({ success: true, ...cached, fromCache: true });
+        }
+
+        console.log(`[PropertyController] search — city=${city} maxPrice=${maxPrice}`);
 
         // Step 1: Firecrawl
         let propertiesData;
@@ -86,7 +135,10 @@ export const searchProperties = async (req, res) => {
             };
         }
 
-        res.json({ success: true, properties: propertiesData.properties, analysis });
+        const payload = { properties: propertiesData.properties, analysis };
+        setCache(cacheKey, payload);
+        res.json({ success: true, ...payload });
+
     } catch (error) {
         console.error('Error searching properties:', error);
         res.status(500).json({ success: false, message: 'Failed to search properties', error: error.message });
@@ -102,8 +154,27 @@ export const getLocationTrends = async (req, res) => {
             return res.status(400).json({ success: false, message: 'City parameter is required' });
         }
 
-        const { firecrawlService, aiService, usingUserKeys } = resolveServices(req);
-        console.log(`[PropertyController] Trends using ${usingUserKeys ? 'user-provided' : 'server'} API keys`);
+        // Gate: require user API keys
+        let services;
+        try {
+            services = resolveServices(req);
+        } catch (keyErr) {
+            return res.status(keyErr.statusCode || 403).json({
+                success: false,
+                message: keyErr.message,
+                error: keyErr.code || 'KEYS_REQUIRED',
+            });
+        }
+
+        const { firecrawlService, aiService } = services;
+        const cacheKey = `trends:${city}`;
+        const cached = getCached(cacheKey);
+        if (cached) {
+            console.log(`[Cache] HIT for ${cacheKey}`);
+            return res.json({ success: true, ...cached, fromCache: true });
+        }
+
+        console.log(`[PropertyController] trends — city=${city}`);
 
         // Step 1: Firecrawl
         let locationsData;
@@ -143,7 +214,10 @@ export const getLocationTrends = async (req, res) => {
             };
         }
 
-        res.json({ success: true, locations: locationsData.locations, analysis });
+        const payload = { locations: locationsData.locations, analysis };
+        setCache(cacheKey, payload);
+        res.json({ success: true, ...payload });
+
     } catch (error) {
         console.error('Error getting location trends:', error);
         res.status(500).json({ success: false, message: 'Failed to get location trends', error: error.message });

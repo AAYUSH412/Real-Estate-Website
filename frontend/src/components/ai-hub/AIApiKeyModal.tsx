@@ -9,13 +9,13 @@ interface AIApiKeyModalProps {
 }
 
 const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysChanged }) => {
-  const [githubKey, setGithubKey]         = useState('');
-  const [firecrawlKey, setFirecrawlKey]   = useState('');
-  const [showGithub, setShowGithub]       = useState(false);
+  const [githubKey, setGithubKey] = useState('');
+  const [firecrawlKey, setFirecrawlKey] = useState('');
+  const [showGithub, setShowGithub] = useState(false);
   const [showFirecrawl, setShowFirecrawl] = useState(false);
-  const [toast, setToast]                 = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  const hasGithub    = !!apiKeyStorage.getGithubKey();
+  const hasGithub = !!apiKeyStorage.getGithubKey();
   const hasFirecrawl = !!apiKeyStorage.getFirecrawlKey();
 
   useEffect(() => {
@@ -36,8 +36,24 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
       showToast('error', 'Enter at least one key to save.');
       return;
     }
-    if (githubKey.trim())    apiKeyStorage.setGithubKey(githubKey.trim());
-    if (firecrawlKey.trim()) apiKeyStorage.setFirecrawlKey(firecrawlKey.trim());
+
+    // P2-3: Lightweight format validation
+    if (githubKey.trim()) {
+      const ghk = githubKey.trim();
+      if (!ghk.startsWith('ghp_') && !ghk.startsWith('github_pat_')) {
+        showToast('error', 'GitHub key should start with ghp_ or github_pat_');
+        return;
+      }
+      apiKeyStorage.setGithubKey(ghk);
+    }
+    if (firecrawlKey.trim()) {
+      if (!firecrawlKey.trim().startsWith('fc-')) {
+        showToast('error', 'Firecrawl key should start with fc-');
+        return;
+      }
+      apiKeyStorage.setFirecrawlKey(firecrawlKey.trim());
+    }
+
     setGithubKey('');
     setFirecrawlKey('');
     showToast('success', 'Keys saved! They are stored only in your browser.');
@@ -78,11 +94,10 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
 
         {/* Toast */}
         {toast && (
-          <div className={`mx-6 mt-4 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-manrope ${
-            toast.type === 'success'
+          <div className={`mx-6 mt-4 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-manrope ${toast.type === 'success'
               ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
               : 'bg-red-500/15 border border-red-500/30 text-red-300'
-          }`}>
+            }`}>
             {toast.type === 'success'
               ? <CheckCircle2 className="w-4 h-4 shrink-0" />
               : <AlertCircle className="w-4 h-4 shrink-0" />}
@@ -157,12 +172,11 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
 /* ── Sub-components ─────────────────────────────────────── */
 
 const StatusBadge: React.FC<{ label: string; active: boolean }> = ({ label, active }) => (
-  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
-    active ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.04] border-white/10'
-  }`}>
+  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${active ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/[0.04] border-white/10'
+    }`}>
     {active
       ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-      : <AlertCircle  className="w-3.5 h-3.5 text-white/30 shrink-0" />}
+      : <AlertCircle className="w-3.5 h-3.5 text-white/30 shrink-0" />}
     <span className={`font-manrope text-xs ${active ? 'text-emerald-300' : 'text-white/40'}`}>{label}</span>
     <span className={`ml-auto font-space-mono text-[10px] ${active ? 'text-emerald-400' : 'text-white/30'}`}>
       {active ? '✓ set' : 'not set'}

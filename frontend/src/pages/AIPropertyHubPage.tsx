@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -28,6 +28,7 @@ export interface ScrapedProperty {
   description: string;
   amenities: string[];
   area_sqft: string;
+  property_url?: string;
 }
 
 export interface PropertyOverview {
@@ -144,7 +145,7 @@ const AIHubProductionPage: React.FC = () => {
                 rel="noopener noreferrer"
                 className="bg-[#D4755B] text-white font-manrope font-bold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-[#B86851] transition-all hover:shadow-xl inline-flex items-center gap-3"
               >
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
                 View on GitHub
               </a>
               <Link
@@ -233,7 +234,7 @@ const AIHubProductionPage: React.FC = () => {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 bg-[#221410] text-white font-manrope font-bold px-8 py-4 rounded-xl hover:bg-[#3a2419] transition-all shadow-lg hover:shadow-xl"
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
               Download from GitHub
             </a>
           </div>
@@ -269,6 +270,18 @@ const AIPropertyHubPage: React.FC = () => {
 /* ── Dev-only component (full AI functionality) ─────────── */
 
 const AIHubDevPage: React.FC = () => {
+  // ── P3-1: Resolve aiAPI via useEffect to avoid race condition ────────────────────────────────
+  const [apiReady, setApiReady] = useState(false);
+  const [aiApiRef, setAiApiRef] = useState<any>(null);
+
+  useEffect(() => {
+    if (!AI_HUB_ENABLED) return;
+    import('../services/api').then((mod) => {
+      setAiApiRef(() => mod.aiAPI);
+      setApiReady(true);
+    });
+  }, []);
+
   // Search
   const [searchParams, setSearchParams] = useState<SearchParams>({
     city: '',
@@ -289,23 +302,52 @@ const AIHubDevPage: React.FC = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [trendsError, setTrendsError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [hasLoadedTrends, setHasLoadedTrends] = useState(false);
+  // For P1-1: auto-open key modal on 403
+  const [openKeyModal, setOpenKeyModal] = useState(false);
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
+
   /* ── Handlers ────────────────────────────────────────── */
 
+  /** P1-1 — Turn an axios error into a user-friendly message. */
+  const friendlyError = (err: any, fallback: string): { msg: string; isKeyError: boolean } => {
+    const status = err?.response?.status;
+    const serverMsg = err?.response?.data?.message || '';
+    const serverCode = err?.response?.data?.error || '';
+
+    if (status === 403 || serverCode === 'KEYS_REQUIRED') {
+      return { msg: 'Your API keys are missing or invalid. Please add your GitHub Models and Firecrawl keys.', isKeyError: true };
+    }
+    if (status === 429 || serverCode === 'RATE_LIMIT_EXCEEDED') {
+      return { msg: 'Rate limit reached — you’ve used 10 AI searches this hour. Please wait before searching again.', isKeyError: false };
+    }
+    if (status === 503 || serverCode === 'FIRECRAWL_ERROR') {
+      return { msg: 'The property scraping service is temporarily unavailable. Please try again in a few minutes.', isKeyError: false };
+    }
+    if (status === 404) {
+      return { msg: serverMsg || 'No results found for your search criteria.', isKeyError: false };
+    }
+    return { msg: serverMsg || fallback, isKeyError: false };
+  };
+
   const handleSearch = async (params: SearchParams) => {
-    if (!aiAPI) return;
+    if (!apiReady || !aiApiRef) return;
     setSearchParams(params);
     setSearchLoading(true);
     setSearchError(null);
     setProperties([]);
     setAnalysis(null);
     setHasSearched(true);
+    // Reset trends on new search
+    setLocations([]);
+    setLocationAnalysis(null);
+    setHasLoadedTrends(false);
 
     try {
       const maxPriceInRupees = params.maxBudget * 10_000_000; // Cr → ₹
-      const response = await aiAPI.search({
+      const response = await aiApiRef.search({
         city: params.city,
         price: { min: 0, max: maxPriceInRupees },
         type: params.propertyType,
@@ -320,38 +362,38 @@ const AIHubDevPage: React.FC = () => {
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-
-      // Also fetch location trends for the same city
-      fetchTrends(params.city);
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message || 'Search failed. Please try again.';
+      const { msg, isKeyError } = friendlyError(err, 'Search failed. Please try again.');
       setSearchError(msg);
+      if (isKeyError) setOpenKeyModal(true); // P1-1: auto-open key modal on 403
     } finally {
       setSearchLoading(false);
     }
   };
 
+  // P2-2: Trends are NOT auto-fired. User explicitly clicks "Load Location Trends".
   const fetchTrends = async (city: string) => {
-    if (!aiAPI) return;
+    if (!apiReady || !aiApiRef) return;
     setTrendsLoading(true);
     setTrendsError(null);
     setLocations([]);
     setLocationAnalysis(null);
+    setHasLoadedTrends(true);
 
     try {
-      const response = await aiAPI.locationTrends(city);
+      const response = await aiApiRef.locationTrends(city);
       const data = response.data;
       setLocations(data.locations || []);
       setLocationAnalysis(data.analysis || null);
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message || 'Failed to load location trends.';
+      const { msg, isKeyError } = friendlyError(err, 'Failed to load location trends.');
       setTrendsError(msg);
+      if (isKeyError) setOpenKeyModal(true);
     } finally {
       setTrendsLoading(false);
     }
   };
+
 
   /* ── Render ──────────────────────────────────────────── */
 
@@ -362,7 +404,12 @@ const AIHubDevPage: React.FC = () => {
       {/* Hero — search form */}
       {AIHeroSection && (
         <React.Suspense fallback={<div className="h-96 flex items-center justify-center"><div className="w-12 h-12 border-4 border-[#D4755B] border-t-transparent rounded-full animate-spin" /></div>}>
-          <AIHeroSection onSearch={handleSearch} loading={searchLoading} />
+          <AIHeroSection
+            onSearch={handleSearch}
+            loading={searchLoading}
+            externalOpenModal={openKeyModal}
+            onModalClosed={() => setOpenKeyModal(false)}
+          />
         </React.Suspense>
       )}
 
@@ -387,16 +434,33 @@ const AIHubDevPage: React.FC = () => {
         )}
       </div>
 
-      {/* Location trends (after successful search) */}
+      {/* P2-2: Location trends — explicit button, not auto-fired */}
       {hasSearched && !searchLoading && properties.length > 0 && AILocationTrends && (
         <React.Suspense fallback={null}>
-          <AILocationTrends
-            locations={locations}
-            analysis={locationAnalysis}
-            loading={trendsLoading}
-            error={trendsError}
-            city={searchParams.city}
-          />
+          {!hasLoadedTrends ? (
+            <section className="bg-[#FAF8F4] py-10 border-t border-[#E6E0DA]">
+              <div className="max-w-[1200px] mx-auto px-6 text-center">
+                <p className="font-manrope text-sm text-[#6b7280] mb-4">
+                  Want to see price trends and rental yields for {searchParams.city}?
+                </p>
+                <button
+                  onClick={() => fetchTrends(searchParams.city)}
+                  className="inline-flex items-center gap-2 bg-[#D4755B] hover:bg-[#C05621] text-white font-manrope font-semibold text-sm px-6 py-3 rounded-xl transition-all shadow-md shadow-[#D4755B]/20"
+                >
+                  <span className="text-base">&#x1F4C8;</span>
+                  Load Location Trends
+                </button>
+              </div>
+            </section>
+          ) : (
+            <AILocationTrends
+              locations={locations}
+              analysis={locationAnalysis}
+              loading={trendsLoading}
+              error={trendsError}
+              city={searchParams.city}
+            />
+          )}
         </React.Suspense>
       )}
 
@@ -411,3 +475,4 @@ const AIHubDevPage: React.FC = () => {
 };
 
 export default AIPropertyHubPage;
+

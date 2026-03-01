@@ -78,7 +78,7 @@ export const searchProperties = async (req, res) => {
             return res.json({ success: true, ...cached, fromCache: true });
         }
 
-        console.log(`[PropertyController] search — city=${city} maxPrice=${maxPrice}`);
+        console.log(`[PropertyController] search — city=${city} maxPrice=${maxPrice} type=${propertyType} category=${propertyCategory}`);
 
         // Step 1: Firecrawl
         let propertiesData;
@@ -102,7 +102,7 @@ export const searchProperties = async (req, res) => {
         if (!propertiesData?.properties || propertiesData.properties.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: `No properties found in ${city} within the given budget`,
+                message: `No ${propertyType || ''} properties found in ${city} within ₹${maxPrice < 1 ? Math.round(maxPrice * 100) + ' Lakhs' : maxPrice + ' Crores'}. Try increasing the budget or choosing a different property type.`,
                 properties: [],
                 analysis: null
             });
@@ -192,7 +192,7 @@ export const getLocationTrends = async (req, res) => {
         if (!locationsData?.locations || locationsData.locations.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: `No location trend data found for ${city}`,
+                message: `No location trend data available for ${city} at the moment. Please try again later.`,
                 locations: [],
                 analysis: null
             });

@@ -1,4 +1,4 @@
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:F97316,100:FB923C&height=200&section=header&text=BuildEstate&fontSize=70&fontColor=ffffff&fontAlignY=38&animation=fadeIn&desc=AI-Powered+Real+Estate+Platform&descAlignY=60&descSize=22" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:F97316,100:FB923C&height=220&section=header&text=BuildEstate&fontSize=80&fontColor=ffffff&fontAlignY=35&animation=fadeIn&desc=AI-Powered+Real+Estate+Platform&descAlignY=58&descSize=24" width="100%"/>
 
 <div align="center">
 
@@ -6,31 +6,34 @@
 
 <br/><br/>
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&duration=3000&pause=1000&color=F97316&center=true&vCenter=true&width=700&lines=Find+Your+Dream+Home+%F0%9F%8F%A1;AI-Powered+Property+Search+%F0%9F%A4%96;Smart+Investment+Insights+%F0%9F%93%8A;Book+Appointments+Instantly+%F0%9F%93%85)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&duration=3000&pause=1000&color=F97316&center=true&vCenter=true&width=700&lines=Find+Your+Dream+Home+%F0%9F%8F%A1;AI+Scrapes+99acres+in+Real-Time+%F0%9F%A4%96;Smart+Investment+Insights+%F0%9F%93%8A;30%2B+Indian+Cities+Covered+%F0%9F%87%AE%F0%9F%87%B3;Book+Appointments+Instantly+%F0%9F%93%85)](https://git.io/typing-svg)
 
-  <br/>
+<br/>
 
-  <p><em>A full-stack real estate platform combining seamless property browsing, intelligent AI-driven search, and a powerful admin dashboard — all in one place.</em></p>
+<p><strong>A full-stack real estate platform that scrapes live property data from 99acres.com using Firecrawl, analyzes it with GPT-4.1, and serves filtered results — all with user-owned API keys.</strong></p>
 
-  <br/>
+<br/>
 
 [![React](https://img.shields.io/badge/React_18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript_5.5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Node.js](https://img.shields.io/badge/Node.js_18+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![GPT-4.1](https://img.shields.io/badge/GPT--4.1-412991?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/marketplace/models)
+[![Firecrawl](https://img.shields.io/badge/Firecrawl-FF6600?style=for-the-badge&logo=fire&logoColor=white)](https://firecrawl.dev)
 
-  <br/>
+<br/>
 
 [![Live Demo](https://img.shields.io/badge/%F0%9F%9A%80_Live_Demo-buildestate.vercel.app-4285F4?style=for-the-badge)](https://buildestate.vercel.app)
 [![Backend API](https://img.shields.io/badge/%E2%9A%99%EF%B8%8F_Backend_API-Render-46E3B7?style=for-the-badge)](https://real-estate-website-backend-zfu7.onrender.com)
 
-  <br/>
+<br/>
 
 [![Stars](https://img.shields.io/github/stars/AAYUSH412/Real-Estate-Website?style=social)](https://github.com/AAYUSH412/Real-Estate-Website)
 [![Forks](https://img.shields.io/github/forks/AAYUSH412/Real-Estate-Website?style=social)](https://github.com/AAYUSH412/Real-Estate-Website/fork)
 [![License](https://img.shields.io/github/license/AAYUSH412/Real-Estate-Website?color=green)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/AAYUSH412/Real-Estate-Website?color=orange)](https://github.com/AAYUSH412/Real-Estate-Website/commits)
+[![Issues](https://img.shields.io/github/issues/AAYUSH412/Real-Estate-Website)](https://github.com/AAYUSH412/Real-Estate-Website/issues)
 
 </div>
 
@@ -52,17 +55,19 @@
 
 <div align="center">
 
-|     | Section                                  |
-| :-: | :--------------------------------------- |
-| 🌟  | [Features](#-features)                   |
-| 💻  | [Tech Stack](#-tech-stack)               |
-| 🚀  | [Getting Started](#-getting-started)     |
-| 🔌  | [API Endpoints](#-api-endpoints)         |
-| 🤖  | [AI Property Hub](#-ai-property-hub)     |
-| 🌐  | [Deployment](#-deployment)               |
-| 📂  | [Project Structure](#-project-structure) |
-| 🤝  | [Contributing](#-contributing)           |
-| 👨‍💻  | [Author](#-author)                       |
+|     | Section                                          |
+| :-: | :----------------------------------------------- |
+| 🧠  | [Why BuildEstate?](#-why-buildestate)            |
+| 🤖  | [AI Property Hub](#-ai-property-hub)             |
+| 🌟  | [Features](#-features)                           |
+| 🏗️  | [Architecture](#%EF%B8%8F-architecture)          |
+| 💻  | [Tech Stack](#-tech-stack)                       |
+| 🚀  | [Getting Started](#-getting-started)             |
+| 🔌  | [API Endpoints](#-api-endpoints)                 |
+| 🌐  | [Deployment](#-deployment)                       |
+| 📂  | [Project Structure](#-project-structure)         |
+| 🤝  | [Contributing](#-contributing)                   |
+| 👨‍💻 | [Author](#-author)                               |
 
 </div>
 
@@ -70,13 +75,27 @@
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## 🌟 Features
+## 🧠 Why BuildEstate?
+
+Most real-estate aggregators show you generic listings. BuildEstate is different:
+
+| Problem | BuildEstate Solution |
+|---|---|
+| Generic search results with no real filtering | **Deterministic 99acres URLs** — city ID + property-type slug + budget index → pre-filtered pages |
+| No AI intelligence in traditional portals | **GPT-4.1 analysis** — best-value picks, investment tips, market comparison |
+| API costs borne by the developer | **User-owned API keys** — users bring their own free GitHub Models + Firecrawl keys |
+| Scraping returns empty/broken data | **Smart scraping via scrapeUrl + JSON format** — full browser render → LLM extraction |
+| Search breaks on proxy/rate errors | **Auto-retry with exponential backoff** — proxy → rate-limit → server errors all handled |
+
+> **TL;DR** — This is not another property listing site. It's an AI-first platform that turns raw web data into actionable real estate insights.
 
 <br/>
 
-### 🤖 AI Property Hub
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-> Powered by **GPT-4.1** (GitHub Models) + **Firecrawl** — the smartest way to find and evaluate properties.
+## 🤖 AI Property Hub
+
+> **The headline feature.** Search any Indian city + property type + budget → get live scraped properties with AI analysis.
 
 <div align="center">
   <img src="./Image/aihub-1.png" alt="AI Hub - Natural Language Search" width="48%"/>
@@ -94,19 +113,84 @@
 
 <br/>
 
-<div align="center">
+### How It Works
 
-| Capability | Description                                                      |
-| :--------: | :--------------------------------------------------------------- |
-|     🔍     | Natural language property search across Indian cities            |
-|     📊     | AI-powered market analysis & best value picks                    |
-|     📈     | Location appreciation rates & rental yields                      |
-|     💡     | Smart investment tips & recommendations                          |
-|     🔑     | **User-owned API keys** — add your free keys, use your own quota |
+```
+┌─────────────────┐     POST /api/ai/search        ┌──────────────────┐
+│                  │─────────────────────────────────▶│                  │
+│   React Frontend │     X-Github-Key header         │  Express Backend │
+│   (TypeScript)   │     X-Firecrawl-Key header      │   (Node.js)      │
+│                  │◀─────────────────────────────────│                  │
+└─────────────────┘     { properties, analysis }     └────────┬─────────┘
+                                                              │
+                              ┌────────────────────────────────┤
+                              │                                │
+                              ▼                                ▼
+                   ┌─────────────────────┐        ┌─────────────────────┐
+                   │   Firecrawl API     │        │   GitHub Models     │
+                   │   (scrapeUrl+JSON)  │        │   (GPT-4.1-mini)   │
+                   │                     │        │                     │
+                   │ 1. Build 99acres    │        │ 1. Receive scraped  │
+                   │    deterministic URL│        │    properties       │
+                   │ 2. Full browser     │        │ 2. Analyze best     │
+                   │    render (10s wait)│        │    value picks      │
+                   │ 3. LLM extracts    │        │ 3. Return investment│
+                   │    structured JSON  │        │    recommendations  │
+                   └─────────────────────┘        └─────────────────────┘
+```
 
-</div>
+### Smart URL Construction
+
+The backend doesn't just pass a generic URL to Firecrawl. It builds **deterministic, pre-filtered** URLs:
+
+```
+User searches: "Ahmedabad + House + 50 Lakhs"
+                         ↓
+City ID lookup:    CITY_IDS['ahmedabad'] → 45
+Property slug:     PROPERTY_TYPE_SLUGS['House'] → 'independent-house'
+Budget index:      50 Lakhs → getBudgetMaxIndex(0.5) → 7
+                         ↓
+https://www.99acres.com/search/property/buy/independent-house/ahmedabad?city=45&budget_max=7
+```
+
+This means the scraper hits a page that **already shows filtered results** — no wasted tokens parsing irrelevant listings.
+
+### Supported Coverage
+
+| Category | Coverage |
+|---|---|
+| 🏙️ Cities | 30+ — Mumbai, Delhi, Bangalore, Pune, Chennai, Hyderabad, Ahmedabad, Kolkata, Jaipur, Lucknow, and more |
+| 🏠 Property Types | Flat, House, Villa, Plot, Penthouse, Studio, Commercial |
+| 💰 Budget Range | ₹5 Lakhs → ₹25+ Crores (17 budget tiers mapped to 99acres indices) |
+| 🔄 Retry Logic | Auto-retry on proxy failures, rate limits (429), and server errors (502/503) |
+
+### 🔑 User-Owned API Keys
+
+Users provide their **own free keys** in the browser. Keys are stored in localStorage only — never on the server.
+
+```
+User's browser (localStorage)
+  buildestate_github_key   = "ghp_xxx"
+  buildestate_firecrawl_key = "fc-xxx"
+         │
+         │  X-Github-Key / X-Firecrawl-Key headers
+         ▼
+  Backend creates per-request service instances
+  (Server env keys are NEVER used as fallback)
+```
+
+**Get your free keys in ~2 minutes:**
+
+| Service | Link | Free Tier |
+|---|---|---|
+| GitHub Models (GPT-4.1) | [github.com/marketplace/models](https://github.com/marketplace/models) | Free with any GitHub account |
+| Firecrawl (web scraping) | [firecrawl.dev](https://firecrawl.dev) | 500 free credits/month |
 
 <br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🌟 Features
 
 ### 🏡 Property Browsing & Booking
 
@@ -120,12 +204,14 @@
 
 <div align="center">
 
-| Feature | Description                                           |
-| :-----: | :---------------------------------------------------- |
-|   🔎    | Advanced filter sidebar (price, type, location, area) |
-|   🖼️    | Multi-image gallery with ImageKit CDN delivery        |
-|   📅    | Appointment booking — guest & authenticated users     |
-|   🔐    | JWT-secured auth with password reset via email        |
+| Feature | Description |
+| :-----: | :--- |
+| 🔎 | Advanced filter sidebar — price, type, location, area, amenities |
+| 🖼️ | Multi-image gallery delivered via ImageKit CDN |
+| 📅 | Appointment booking — works for both guest and authenticated users |
+| 🔐 | JWT authentication with bcrypt hashing + email-based password reset |
+| 🎨 | Fluid page transitions powered by Framer Motion |
+| 🔍 | SEO-optimized — structured data, sitemap, robots.txt, per-page meta tags |
 
 </div>
 
@@ -133,16 +219,16 @@
 
 ### 📊 Admin Dashboard
 
-> Complete platform control — manage listings, track appointments, monitor analytics, and upload images with drag-and-drop.
+> Full control — manage listings, track appointments, monitor analytics, and upload images with drag-and-drop.
 
 <div align="center">
 
-| Capability | Description                                                |
-| :--------: | :--------------------------------------------------------- |
-|     ➕     | Add / Edit / Delete property listings                      |
-|     📁     | Multi-image upload via ImageKit                            |
-|     📅     | Appointment management with status updates & meeting links |
-|     📈     | Real-time platform analytics with Chart.js                 |
+| Capability | Description |
+| :--------: | :--- |
+| ➕ | Add / Edit / Delete property listings with multi-image upload |
+| 📅 | Appointment management with status updates & meeting link generation |
+| 📈 | Real-time analytics dashboard with Chart.js visualizations |
+| 👥 | User management and platform activity monitoring |
 
 </div>
 
@@ -150,14 +236,53 @@
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## 💻 Tech Stack
+## 🏗️ Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                                    │
+├─────────────────────────┬────────────────────────────────────────────────────┤
+│  Frontend (Vercel)      │  Admin Panel (Render)                              │
+│  React 18 + TypeScript  │  React 18 + JavaScript                            │
+│  Tailwind CSS v4        │  Tailwind CSS v3 + Chart.js                        │
+│  Vite 6 + React Router  │  Vite 6                                            │
+│  Framer Motion          │  Sonner notifications                              │
+└────────────┬────────────┴──────────────┬─────────────────────────────────────┘
+             │ HTTPS (Axios)             │ HTTPS (Axios)
+             ▼                           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           API LAYER (Render)                                 │
+│  Express.js + Helmet + CORS + Rate Limiter                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Routes:  /api/users  /api/products  /api/appointments  /api/ai  /api/forms │
+│  Middleware: JWT auth · Multer uploads · Request transform · Stats tracking  │
+├──────────┬───────────────┬──────────────────┬────────────────────────────────┤
+│          │               │                  │                                │
+│          ▼               ▼                  ▼                                │
+│  ┌──────────────┐ ┌────────────┐  ┌─────────────────┐                       │
+│  │ MongoDB Atlas│ │ ImageKit   │  │ Firecrawl API   │                       │
+│  │ (Database)   │ │ (CDN)      │  │ (Web Scraping)  │                       │
+│  └──────────────┘ └────────────┘  └────────┬────────┘                       │
+│                                            │                                │
+│                                            ▼                                │
+│                                   ┌─────────────────┐                       │
+│                                   │ GitHub Models    │                       │
+│                                   │ (GPT-4.1-mini)  │                       │
+│                                   └─────────────────┘                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Services: Nodemailer (Brevo SMTP) · bcrypt hashing · In-memory cache (10m) │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
 <br/>
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 💻 Tech Stack
 
 <div align="center">
 
 ### Frontend
-
 [![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite_6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
@@ -166,7 +291,6 @@
 [![React Router](https://img.shields.io/badge/React_Router_v7-CA4245?style=for-the-badge&logo=reactrouter&logoColor=white)](https://reactrouter.com)
 
 ### Backend
-
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
 [![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com)
@@ -174,8 +298,8 @@
 [![Nodemailer](https://img.shields.io/badge/Nodemailer-0F9DCE?style=for-the-badge&logo=gmail&logoColor=white)](https://nodemailer.com)
 
 ### AI & Infrastructure
-
-[![OpenAI](https://img.shields.io/badge/GPT--4.1-412991?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/marketplace/models)
+[![GPT-4.1](https://img.shields.io/badge/GPT--4.1-412991?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/marketplace/models)
+[![Firecrawl](https://img.shields.io/badge/Firecrawl-FF6600?style=for-the-badge&logo=fire&logoColor=white)](https://firecrawl.dev)
 [![ImageKit](https://img.shields.io/badge/ImageKit_CDN-FF6F00?style=for-the-badge&logoColor=white)](https://imagekit.io)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
 [![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com)
@@ -241,10 +365,6 @@ WEBSITE_URL=http://localhost:5173
 IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
 IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
 IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
-
-# AI Services — optional, only needed for AI Property Hub
-FIRECRAWL_API_KEY=your_firecrawl_api_key
-GITHUB_MODELS_API_KEY=your_github_pat_token
 ```
 
 ```bash
@@ -311,14 +431,14 @@ npm run dev   # http://localhost:5174
 
 <br/>
 
-| Method | Endpoint                  | Description                     |
-| ------ | ------------------------- | ------------------------------- |
-| `POST` | `/api/users/register`     | Register new user               |
-| `POST` | `/api/users/login`        | Login (returns JWT)             |
-| `POST` | `/api/users/admin`        | Admin login                     |
-| `GET`  | `/api/users/me`           | Get current user (JWT required) |
-| `POST` | `/api/users/forgot`       | Send password reset email       |
-| `POST` | `/api/users/reset/:token` | Reset password                  |
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/users/register | Register new user |
+| POST | /api/users/login | Login (returns JWT) |
+| POST | /api/users/admin | Admin login |
+| GET | /api/users/me | Get current user (JWT required) |
+| POST | /api/users/forgot | Send password reset email |
+| POST | /api/users/reset/:token | Reset password |
 
 </details>
 
@@ -327,13 +447,13 @@ npm run dev   # http://localhost:5174
 
 <br/>
 
-| Method | Endpoint                   | Description                      |
-| ------ | -------------------------- | -------------------------------- |
-| `GET`  | `/api/products/list`       | List all properties              |
-| `GET`  | `/api/products/single/:id` | Get property by ID               |
-| `POST` | `/api/products/add`        | Add property with images (admin) |
-| `POST` | `/api/products/update`     | Update property (admin)          |
-| `POST` | `/api/products/remove`     | Delete property (admin)          |
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /api/products/list | List all properties |
+| GET | /api/products/single/:id | Get property by ID |
+| POST | /api/products/add | Add property with images (admin) |
+| POST | /api/products/update | Update property (admin) |
+| POST | /api/products/remove | Delete property (admin) |
 
 </details>
 
@@ -342,70 +462,31 @@ npm run dev   # http://localhost:5174
 
 <br/>
 
-| Method | Endpoint                           | Description               |
-| ------ | ---------------------------------- | ------------------------- |
-| `POST` | `/api/appointments/schedule`       | Book viewing (guest)      |
-| `POST` | `/api/appointments/schedule/auth`  | Book viewing (logged in)  |
-| `GET`  | `/api/appointments/user`           | Get appointments by email |
-| `PUT`  | `/api/appointments/cancel/:id`     | Cancel appointment        |
-| `GET`  | `/api/appointments/all`            | All appointments (admin)  |
-| `PUT`  | `/api/appointments/status`         | Update status (admin)     |
-| `PUT`  | `/api/appointments/update-meeting` | Add meeting link (admin)  |
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/appointments/schedule | Book viewing (guest) |
+| POST | /api/appointments/schedule/auth | Book viewing (logged in) |
+| GET | /api/appointments/user | Get appointments by email |
+| PUT | /api/appointments/cancel/:id | Cancel appointment |
+| GET | /api/appointments/all | All appointments (admin) |
+| PUT | /api/appointments/status | Update status (admin) |
+| PUT | /api/appointments/update-meeting | Add meeting link (admin) |
 
 </details>
 
 <details>
-<summary><strong>⚡ Other Services</strong></summary>
+<summary><strong>🤖 AI & Other Services</strong></summary>
 
 <br/>
 
-| Method | Endpoint                      | Description                  |
-| ------ | ----------------------------- | ---------------------------- |
-| `POST` | `/api/forms/submit`           | Contact form submission      |
-| `GET`  | `/api/admin/stats`            | Dashboard statistics (admin) |
-| `POST` | `/api/ai/search`              | AI property search           |
-| `GET`  | `/api/locations/:city/trends` | Location market trends       |
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | /api/ai/search | AI property search (requires user API keys) |
+| GET | /api/locations/:city/trends | Location market trends (requires user API keys) |
+| POST | /api/forms/submit | Contact form submission |
+| GET | /api/admin/stats | Dashboard statistics (admin) |
 
 </details>
-
-<br/>
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🤖 AI Property Hub
-
-The AI Property Hub uses **GPT-4.1** (GitHub Models) and **Firecrawl** to provide:
-
-- 🔍 Smart natural-language property search across 30+ Indian cities
-- 🏆 AI-powered analysis with best value picks
-- 📈 Location trends — appreciation rates and rental yields
-- 💡 Investment tips and personalized recommendations
-- 🔑 **User-owned API keys** — each user adds their own free keys in the browser; your server quota is never consumed
-
-### 🔑 How User API Keys Work
-
-When users open the AI Hub, they see a banner to add their own free keys.
-The keys are stored **only in their browser** (localStorage) and sent with every AI request — they are never stored on your server or in your database.
-
-```
-User's browser (localStorage)
-  buildestate_github_key   = "ghp_xxx"
-  buildestate_firecrawl_key = "fc-xxx"
-         │
-         │  sent as X-Github-Key / X-Firecrawl-Key headers
-         ▼
-  Backend uses these keys for the request
-  Falls back to server env keys if none provided
-```
-
-**Getting free keys (takes ~2 minutes):**
-
-| Service                  | Link                                                                   | Free Tier                      |
-| ------------------------ | ---------------------------------------------------------------------- | ------------------------------ |
-| GitHub Models (GPT-4.1)  | [github.com/marketplace/models](https://github.com/marketplace/models) | Completely free via GitHub PAT |
-| Firecrawl (web scraping) | [firecrawl.dev](https://firecrawl.dev)                                 | 500 free credits/month         |
-
-> **Deployment note:** The AI Hub can now be **enabled in production** (`VITE_ENABLE_AI_HUB=true`) since users supply their own keys. Your server only needs fallback keys in `.env` for requests without user-provided keys.
 
 <br/>
 
@@ -422,7 +503,7 @@ User's browser (localStorage)
 2. Set **Root Directory** → `frontend`
 3. Add env vars:
    - `VITE_API_BASE_URL` = your Render backend URL
-   - `VITE_ENABLE_AI_HUB=true` ← AI Hub can now be enabled in production!
+   - `VITE_ENABLE_AI_HUB=true`
 4. Deploy
 
 </details>
@@ -433,13 +514,11 @@ User's browser (localStorage)
 <br/>
 
 **Backend Web Service:**
-
 1. Create a **Web Service** on [Render](https://render.com)
 2. Set **Root Directory** → `backend`
 3. Build: `npm install` | Start: `npm start`
 4. Add all env vars from `backend/.env.example`
 5. Set `NODE_ENV=production` and `WEBSITE_URL` to your Vercel frontend URL
-6. Add `FIRECRAWL_API_KEY` and `GITHUB_MODELS_API_KEY` as fallback keys (used only when a user hasn't set their own)
 
 **Admin Panel:**
 Same steps with **Root Directory** → `admin` and `VITE_BACKEND_URL` = your Render backend URL.
@@ -454,12 +533,11 @@ Same steps with **Root Directory** → `admin` and `VITE_BACKEND_URL` = your Ren
 - [ ] MongoDB Atlas cluster created and connection string added
 - [ ] ImageKit account created (for property images)
 - [ ] Brevo SMTP credentials added (for email notifications)
-- [ ] `JWT_SECRET` set to a random 32-byte hex string
-- [ ] `ADMIN_EMAIL` and `ADMIN_PASSWORD` set
-- [ ] `WEBSITE_URL` points to your Vercel frontend
-- [ ] `FIRECRAWL_API_KEY` and `GITHUB_MODELS_API_KEY` added as fallback keys
-- [ ] `VITE_ENABLE_AI_HUB=true` set in frontend (optional — show AI Hub)
-- [ ] `VITE_API_BASE_URL` points to your Render backend
+- [ ] JWT_SECRET set to a random 32-byte hex string
+- [ ] ADMIN_EMAIL and ADMIN_PASSWORD set
+- [ ] WEBSITE_URL points to your Vercel frontend
+- [ ] VITE_ENABLE_AI_HUB=true set in frontend env vars
+- [ ] VITE_API_BASE_URL points to your Render backend
 
 </details>
 
@@ -483,41 +561,44 @@ Real-Estate-Website/
 └── .github/           → Issue templates, PR template, CODEOWNERS
 ```
 
-**Frontend `src/`**
+**Frontend src/**
 
 ```text
 ├── components/
-│   ├── ai-hub/            → AI Property Hub UI
+│   ├── ai-hub/            → AI Property Hub (search form, results, trends)
 │   ├── common/            → Navbar, Footer, SEO, PageTransition
 │   ├── home/              → Homepage sections
 │   ├── properties/        → Filter sidebar, property cards
 │   ├── property-details/  → Gallery, amenities, booking form
 │   ├── about/             → About page sections
 │   └── contact/           → Contact page sections
-├── contexts/              → AuthContext
+├── contexts/              → AuthContext (JWT state management)
 ├── hooks/                 → useSEO
-├── pages/                 → All pages (lazy loaded)
-└── services/              → api.ts (Axios client)
+├── pages/                 → All pages (lazy loaded via React.lazy)
+└── services/              → api.ts (Axios client + API key injection)
 ```
 
 **Backend**
 
 ```text
-├── config/         → MongoDB, ImageKit, Nodemailer, AI config
-├── controller/     → Route handlers
-├── middleware/     → Auth (JWT), Multer, stats tracking
-├── models/         → Mongoose schemas
+├── config/         → MongoDB, ImageKit, Nodemailer config
+├── controller/     → Route handlers (property, appointment, AI search)
+├── middleware/      → JWT auth, Multer uploads, stats tracking, request transform
+├── models/         → Mongoose schemas (Property, User, Appointment, Stats)
 ├── routes/         → Express route definitions
-├── services/       → AI and Firecrawl integrations
-└── server.js       → Entry point
+├── services/
+│   ├── firecrawlService.js  → Smart 99acres scraping (30+ cities, URL construction, retry logic)
+│   └── aiService.js         → GPT-4.1 property analysis + location trends
+├── utils/          → AI response validation & safe parsing
+└── server.js       → Entry point (Helmet, CORS, rate limiting)
 ```
 
-**Admin `src/`**
+**Admin src/**
 
 ```text
-├── components/     → Login, Navbar
+├── components/     → Login, Navbar, ProtectedRoute
 ├── config/         → Property types, amenities constants
-├── contexts/       → AdminContext
+├── contexts/       → AuthContext (admin JWT state)
 └── pages/          → Dashboard, Add, List, Update, Appointments
 ```
 
@@ -527,14 +608,14 @@ Real-Estate-Website/
 
 ### 📜 Available Scripts
 
-| Directory   | Command         | Description                      |
-| ----------- | --------------- | -------------------------------- |
-| `backend/`  | `npm run dev`   | Start with nodemon (auto-reload) |
-| `backend/`  | `npm start`     | Start production server          |
-| `frontend/` | `npm run dev`   | Start Vite dev server            |
-| `frontend/` | `npm run build` | Production build                 |
-| `admin/`    | `npm run dev`   | Start Vite dev server            |
-| `admin/`    | `npm run build` | Production build                 |
+| Directory | Command | Description |
+|---|---|---|
+| backend/ | npm run dev | Start with nodemon (auto-reload) |
+| backend/ | npm start | Start production server |
+| frontend/ | npm run dev | Start Vite dev server |
+| frontend/ | npm run build | Production build |
+| admin/ | npm run dev | Start Vite dev server |
+| admin/ | npm run build | Production build |
 
 <br/>
 
@@ -580,9 +661,9 @@ MIT License — see [LICENSE](LICENSE) for details.
 [![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=firefox&logoColor=white)](https://aayush-vaghela.vercel.app/)
 [![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:aayushvaghela412@gmail.com)
 
-  <br/>
+<br/>
 
-If you find this project helpful, please give it a star! ⭐
+If this project helped you, please give it a ⭐
 
 [![Star](https://img.shields.io/github/stars/AAYUSH412/Real-Estate-Website?style=for-the-badge&logo=github&color=FFD700)](https://github.com/AAYUSH412/Real-Estate-Website)
 

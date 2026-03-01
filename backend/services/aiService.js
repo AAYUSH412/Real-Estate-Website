@@ -116,7 +116,25 @@ class AIService {
   async analyzeProperties(properties, city, maxPrice, propertyCategory, propertyType) {
     const preparedProperties = this._preparePropertyData(properties);
 
-    const prompt = `Analyze these ${propertyCategory} ${propertyType} properties in ${city} (budget: ≤${maxPrice} Cr):
+    // Format budget in human-readable form
+    const priceNum = parseFloat(maxPrice);
+    const budgetLabel = priceNum < 1
+      ? `${Math.round(priceNum * 100)} Lakhs`
+      : `${priceNum} Crores`;
+
+    // Map property type to readable label
+    const typeLabels = {
+      'Flat': 'Flats/Apartments',
+      'House': 'Independent Houses',
+      'Villa': 'Villas',
+      'Plot': 'Plots/Land',
+      'Penthouse': 'Penthouses',
+      'Studio': 'Studio Apartments',
+      'Commercial': 'Commercial Properties',
+    };
+    const typeLabel = typeLabels[propertyType] || propertyType;
+
+    const prompt = `Analyze these ${propertyCategory} ${typeLabel} in ${city} (budget: ≤ ₹${budgetLabel}):
 
 ${JSON.stringify(preparedProperties)}
 

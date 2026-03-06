@@ -47,6 +47,13 @@ const register = async (req, res) => {
     if (!validator.isEmail(email)) {
       return res.json({ message: "Invalid email", success: false });
     }
+
+    // Check for existing account before attempting insert
+    const existing = await userModel.findOne({ email });
+    if (existing) {
+      return res.json({ message: "An account with this email already exists.", success: false });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new userModel({ name, email, password: hashedPassword });
     await newUser.save();
@@ -64,6 +71,10 @@ const register = async (req, res) => {
 
     return res.json({ token, user: { name: newUser.name, email: newUser.email }, success: true });
   } catch (error) {
+    // Handle race-condition duplicate inserts (two simultaneous requests)
+    if (error.code === 11000) {
+      return res.json({ message: "An account with this email already exists.", success: false });
+    }
     console.error(error);
     return res.json({ message: "Server error", success: false });
   }

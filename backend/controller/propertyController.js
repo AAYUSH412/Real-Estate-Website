@@ -1,6 +1,9 @@
+import fs from 'fs';
 import { createFirecrawlService } from '../services/firecrawlService.js';
 import { createAIService } from '../services/aiService.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
+import imagekit from '../config/imagekit.js';
+import Property from '../models/propertymodel.js';
 
 // ── Simple in-memory cache (10-minute TTL) ────────────────────────────────────
 const _cache = new Map();
@@ -221,5 +224,177 @@ export const getLocationTrends = async (req, res) => {
     } catch (error) {
         console.error('Error getting location trends:', error);
         res.status(500).json({ success: false, message: 'Failed to get location trends', error: error.message });
+    }
+};
+
+// ── User property listing CRUD ────────────────────────────────────────────────
+// These endpoints are protected by the `protect` middleware.
+// All user-submitted listings start as 'pending' and require admin approval.
+
+const EXPIRY_DAYS = 45;
+
+/**
+ * Upload files in req.files (from multer array) to ImageKit.
+ * Returns an array of public URLs.
+ * Deletes each temp file after uploading.
+ */
+async function uploadImages(files) {
+    return Promise.all(
+        files.map(async (file) => {
+            const result = await imagekit.upload({
+                file: fs.readFileSync(file.path),
+                fileName: file.originalname,
+                folder: 'Property',
+            });
+            fs.unlink(file.path, (err) => {
+                if (err) console.error('Error deleting temp file:', err);
+            });
+            return result.url;
+        })
+    );
+}
+
+/** POST /api/user/properties — create a new listing (pending approval) */
+export const createUserListing = async (req, res) => {
+    try {
+        const { title, location, price, beds, baths, sqft, type, availability, description, phone, googleMapLink } = req.body;
+
+        // Parse amenities — frontend sends as JSON string in FormData
+        let amenities = [];
+        try {
+            amenities = req.body.amenities ? JSON.parse(req.body.amenities) : [];
+        } catch {
+            amenities = Array.isArray(req.body.amenities) ? req.body.amenities : [];
+        }
+
+        // Required field validation
+        const missing = ['title', 'location', 'price', 'beds', 'baths', 'sqft', 'type', 'availability', 'description', 'phone']
+            .filter((f) => !req.body[f]);
+        if (missing.length) {
+            return res.status(400).json({ success: false, message: `Missing required fields: ${missing.join(', ')}` });
+        }
+
+        const files = req.files || [];
+        if (files.length === 0) {
+            return res.status(400).json({ success: false, message: 'At least one image is required' });
+        }
+
+        const imageUrls = await uploadImages(files);
+
+        const expiresAt = new Date(Date.now() + EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+        const property = await Property.create({
+            title,
+            location,
+            price: Number(price),
+            beds: Number(beds),
+            baths: Number(baths),
+            sqft: Number(sqft),
+            type,
+            availability,
+            description,
+            amenities,
+            image: imageUrls,
+            phone,
+            googleMapLink: googleMapLink || '',
+            status: 'pending',
+            postedBy: req.user._id,
+            expiresAt,
+        });
+
+        res.status(201).json({ success: true, message: 'Listing submitted for review', property });
+    } catch (error) {
+        console.error('Error creating user listing:', error);
+        res.status(500).json({ success: false, message: 'Failed to create listing', error: error.message });
+    }
+};
+
+/** GET /api/user/properties — get all listings by the logged-in user */
+export const getUserListings = async (req, res) => {
+    try {
+        const properties = await Property.find({ postedBy: req.user._id }).sort({ createdAt: -1 });
+        res.json({ success: true, properties });
+    } catch (error) {
+        console.error('Error fetching user listings:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch listings', error: error.message });
+    }
+};
+
+/** PUT /api/user/properties/:id — edit an owned listing (resets to pending) */
+export const updateUserListing = async (req, res) => {
+    try {
+        const property = await Property.findById(req.params.id);
+
+        if (!property) {
+            return res.status(404).json({ success: false, message: 'Listing not found' });
+        }
+
+        if (!property.postedBy || property.postedBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorised to edit this listing' });
+        }
+
+        const { title, location, price, beds, baths, sqft, type, availability, description, phone, googleMapLink } = req.body;
+
+        let amenities = property.amenities;
+        if (req.body.amenities) {
+            try {
+                amenities = JSON.parse(req.body.amenities);
+            } catch {
+                amenities = Array.isArray(req.body.amenities) ? req.body.amenities : property.amenities;
+            }
+        }
+
+        // If new images uploaded, replace the existing set
+        let imageUrls = property.image;
+        const files = req.files || [];
+        if (files.length > 0) {
+            imageUrls = await uploadImages(files);
+        }
+
+        const updates = {
+            ...(title && { title }),
+            ...(location && { location }),
+            ...(price && { price: Number(price) }),
+            ...(beds && { beds: Number(beds) }),
+            ...(baths && { baths: Number(baths) }),
+            ...(sqft && { sqft: Number(sqft) }),
+            ...(type && { type }),
+            ...(availability && { availability }),
+            ...(description && { description }),
+            ...(phone && { phone }),
+            googleMapLink: googleMapLink ?? property.googleMapLink,
+            amenities,
+            image: imageUrls,
+            // Any edit resets to pending so admin re-reviews
+            status: 'pending',
+            rejectionReason: '',
+        };
+
+        const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true });
+        res.json({ success: true, message: 'Listing updated and resubmitted for review', property: updated });
+    } catch (error) {
+        console.error('Error updating user listing:', error);
+        res.status(500).json({ success: false, message: 'Failed to update listing', error: error.message });
+    }
+};
+
+/** DELETE /api/user/properties/:id — delete an owned listing */
+export const deleteUserListing = async (req, res) => {
+    try {
+        const property = await Property.findById(req.params.id);
+
+        if (!property) {
+            return res.status(404).json({ success: false, message: 'Listing not found' });
+        }
+
+        if (!property.postedBy || property.postedBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorised to delete this listing' });
+        }
+
+        await Property.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: 'Listing deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting user listing:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete listing', error: error.message });
     }
 };

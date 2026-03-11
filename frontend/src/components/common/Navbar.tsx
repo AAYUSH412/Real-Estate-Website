@@ -73,12 +73,25 @@ const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center gap-4">
           {isAuthenticated && user ? (
             <>
-              <span className="font-manrope text-sm text-[#374151]">
-                Hi, <span className="font-semibold">{user.name}</span>
-              </span>
+              <Link
+                to="/my-listings"
+                className={`font-manrope transition-colors ${
+                  isActive('/my-listings')
+                    ? 'text-[#D4755B] font-semibold'
+                    : 'text-[#374151] hover:text-[#D4755B]'
+                }`}
+              >
+                My Listings
+              </Link>
+              <Link
+                to="/add-property"
+                className="bg-[#D4755B] text-white font-manrope font-bold px-5 py-2 rounded-lg hover:bg-[#B86851] transition-all hover:shadow-lg"
+              >
+                + List Property
+              </Link>
               <button
                 onClick={handleLogout}
-                className="bg-[#D4755B] text-white font-manrope font-bold px-6 py-2 rounded-lg hover:bg-[#B86851] transition-all hover:shadow-lg"
+                className="font-manrope font-semibold text-[#374151] hover:text-[#D4755B] transition-colors px-4 py-2"
               >
                 Logout
               </button>
@@ -135,9 +148,23 @@ const Navbar: React.FC = () => {
                 <span className="font-manrope text-sm text-[#374151]">
                   Signed in as <span className="font-semibold">{user.name}</span>
                 </span>
+                <Link
+                  to="/my-listings"
+                  className="font-manrope font-semibold text-[#374151] hover:text-[#D4755B] transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  My Listings
+                </Link>
+                <Link
+                  to="/add-property"
+                  className="bg-[#D4755B] text-white font-manrope font-bold px-6 py-3 rounded-lg hover:bg-[#B86851] transition-all hover:shadow-lg text-center"
+                  onClick={closeMobileMenu}
+                >
+                  + List Property
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="bg-[#D4755B] text-white font-manrope font-bold px-6 py-3 rounded-lg hover:bg-[#B86851] transition-all hover:shadow-lg text-center"
+                  className="font-manrope font-semibold text-[#374151] hover:text-[#D4755B] transition-colors py-2 text-left"
                 >
                   Logout
                 </button>

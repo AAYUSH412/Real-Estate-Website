@@ -14,6 +14,7 @@ import appointmentRouter from './routes/appointmentRoute.js';
 import adminRouter from './routes/adminRoute.js';
 import propertyRoutes from './routes/propertyRoutes.js';
 import getStatusPage from './serverweb.js';
+import { startExpireListingsJob } from './utils/expireListings.js';
 
 
 dotenv.config({ path: './.env.local' });  // local dev
@@ -95,6 +96,7 @@ app.use(cors({
 // Database connection
 connectdb().then(() => {
   console.log('Database connected successfully');
+  startExpireListingsJob();
 }).catch(err => {
   console.error('Database connection error:', err);
 });

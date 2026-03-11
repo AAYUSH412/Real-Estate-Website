@@ -57,7 +57,12 @@ const addproperty = async (req, res) => {
 
 const listproperty = async (req, res) => {
     try {
-        const property = await Property.find();
+        // Only return active properties publicly.
+        // Legacy admin-added documents that pre-date the status field are also
+        // included via the $exists check so they are not accidentally hidden.
+        const property = await Property.find({
+            $or: [{ status: 'active' }, { status: { $exists: false } }],
+        });
         res.json({ property, success: true });
     } catch (error) {
         console.log("Error listing products: ", error);
@@ -156,6 +161,11 @@ const singleproperty = async (req, res) => {
         const { id } = req.params;
         const property = await Property.findById(id);
         if (!property) {
+            return res.status(404).json({ message: "Property not found", success: false });
+        }
+        // Block public access to listings that are not yet approved or have been
+        // rejected/expired. Legacy docs without a status field are always visible.
+        if (property.status && property.status !== 'active') {
             return res.status(404).json({ message: "Property not found", success: false });
         }
         res.json({ property, success: true });

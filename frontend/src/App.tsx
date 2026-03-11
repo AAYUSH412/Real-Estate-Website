@@ -18,6 +18,8 @@ const SignInPage = lazy(() => import('./pages/SignInPage'));
 const SignUpPage = lazy(() => import('./pages/SignUpPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const AddPropertyPage = lazy(() => import('./pages/AddPropertyPage'));
+const MyListingsPage = lazy(() => import('./pages/MyListingsPage'));
 
 function NotFoundPage() {
   return (
@@ -57,6 +59,8 @@ function AnimatedRoutes() {
         <Route path="/signup" element={<PageTransition><SignUpPage /></PageTransition>} />
         <Route path="/forgot-password" element={<PageTransition><ForgotPasswordPage /></PageTransition>} />
         <Route path="/reset/:token" element={<PageTransition><ResetPasswordPage /></PageTransition>} />
+        <Route path="/add-property" element={<PageTransition><AddPropertyPage /></PageTransition>} />
+        <Route path="/my-listings" element={<PageTransition><MyListingsPage /></PageTransition>} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AnimatePresence>

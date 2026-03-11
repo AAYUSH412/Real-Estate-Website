@@ -75,6 +75,25 @@ export const propertiesAPI = {
     apiClient.get(`/products/single/${id}`),
 };
 
+// User-submitted property listings (require auth)
+export const userListingsAPI = {
+  create: (formData: FormData) =>
+    apiClient.post('/user/properties', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  getMyListings: () =>
+    apiClient.get('/user/properties'),
+
+  update: (id: string, formData: FormData) =>
+    apiClient.put(`/user/properties/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  delete: (id: string) =>
+    apiClient.delete(`/user/properties/${id}`),
+};
+
 // Appointments (supports guest + auth bookings)
 export const appointmentsAPI = {
   schedule: (data: {

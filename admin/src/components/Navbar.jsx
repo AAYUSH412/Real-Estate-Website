@@ -14,6 +14,7 @@ import {
   User,
   ChevronDown,
   Settings,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -53,6 +54,7 @@ const Navbar = () => {
     { path: '/list', label: 'Properties', icon: List },
     { path: '/add', label: 'Add Property', icon: PlusSquare },
     { path: '/appointments', label: 'Appointments', icon: Calendar },
+    { path: '/pending-listings', label: 'Review Queue', icon: ClipboardList },
   ];
 
   return (

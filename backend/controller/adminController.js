@@ -3,7 +3,7 @@ import Property from "../models/propertymodel.js";
 import Appointment from "../models/appointmentModel.js";
 import User from "../models/Usermodel.js";
 import transporter from "../config/nodemailer.js";
-import { getEmailTemplate } from "../email.js";
+import { getEmailTemplate, getListingApprovedTemplate, getListingRejectedTemplate } from "../email.js";
 
 const formatRecentProperties = (properties) => {
   return properties.map((property) => ({
@@ -220,5 +220,95 @@ export const updateAppointmentStatus = async (req, res) => {
       success: false,
       message: "Error updating appointment",
     });
+  }
+};
+
+// ── Admin listing review ──────────────────────────────────────────────────────
+
+/** GET /api/admin/properties/pending — FIFO queue of user-submitted listings */
+export const getPendingListings = async (req, res) => {
+  try {
+    const properties = await Property.find({ status: "pending" })
+      .populate("postedBy", "name email")
+      .sort({ createdAt: 1 }); // oldest first
+
+    res.json({ success: true, properties });
+  } catch (error) {
+    console.error("Error fetching pending listings:", error);
+    res.status(500).json({ success: false, message: "Error fetching pending listings" });
+  }
+};
+
+/** PUT /api/admin/properties/:id/approve — approve a pending listing */
+export const approveListing = async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id).populate("postedBy", "name email");
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: "Listing not found" });
+    }
+
+    property.status = "active";
+    property.rejectionReason = "";
+    await property.save();
+
+    // Email the submitter
+    if (property.postedBy?.email) {
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL,
+          to: property.postedBy.email,
+          subject: "Your property listing is now live! — BuildEstate",
+          html: getListingApprovedTemplate(property.title, property._id.toString()),
+        });
+      } catch (mailErr) {
+        console.error("Approval email failed (non-fatal):", mailErr.message);
+      }
+    }
+
+    res.json({ success: true, message: "Listing approved", property });
+  } catch (error) {
+    console.error("Error approving listing:", error);
+    res.status(500).json({ success: false, message: "Error approving listing" });
+  }
+};
+
+/** PUT /api/admin/properties/:id/reject — reject a pending listing */
+export const rejectListing = async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ success: false, message: "Rejection reason is required" });
+    }
+
+    const property = await Property.findById(req.params.id).populate("postedBy", "name email");
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: "Listing not found" });
+    }
+
+    property.status = "rejected";
+    property.rejectionReason = reason.trim();
+    await property.save();
+
+    // Email the submitter
+    if (property.postedBy?.email) {
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL,
+          to: property.postedBy.email,
+          subject: "Update on your property listing — BuildEstate",
+          html: getListingRejectedTemplate(property.title, reason.trim()),
+        });
+      } catch (mailErr) {
+        console.error("Rejection email failed (non-fatal):", mailErr.message);
+      }
+    }
+
+    res.json({ success: true, message: "Listing rejected", property });
+  } catch (error) {
+    console.error("Error rejecting listing:", error);
+    res.status(500).json({ success: false, message: "Error rejecting listing" });
   }
 };

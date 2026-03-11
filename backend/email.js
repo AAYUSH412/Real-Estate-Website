@@ -163,3 +163,48 @@ export const getPasswordResetTemplate = (resetUrl) => wrap(
     <strong>Didn't request this?</strong> You can safely ignore this email — your password will remain unchanged.
   </div>`
 );
+
+// ─── 6. Listing Approved ────────────────────────────────
+
+export const getListingApprovedTemplate = (propertyTitle, propertyId) => wrap(
+  'Your Listing is Now Live!',
+  `<p style="margin:0 0 20px;font-size:15px;">Great news — your property listing has been reviewed and <strong style="color:#16a34a;">approved</strong>!</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('Listing', propertyTitle)}
+      ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#dcfce7;color:#166534;">Live</span>')}
+    </table>
+  </div>
+
+  <div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:14px 16px;border-radius:6px;font-size:14px;color:#166534;margin-bottom:24px;">
+    Your listing is now visible to all buyers and renters on BuildEstate.
+  </div>
+
+  ${btn(BRAND.site + '/property/' + propertyId, 'View Your Listing')}
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:0;">Your listing will remain active for 45 days. You can manage it from <a href="${BRAND.site}/my-listings" style="color:${BRAND.color};text-decoration:none;">My Listings</a>.</p>`
+);
+
+// ─── 7. Listing Rejected ───────────────────────────────
+
+export const getListingRejectedTemplate = (propertyTitle, reason) => wrap(
+  'Update on Your Property Listing',
+  `<p style="margin:0 0 20px;font-size:15px;">Thank you for submitting your property listing. After review, we were unable to approve it at this time.</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('Listing', propertyTitle)}
+      ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#fee2e2;color:#991b1b;">Not Approved</span>')}
+      ${row('Reason', reason || 'Please contact us for more details.')}
+    </table>
+  </div>
+
+  <div style="background:#fef2f2;border-left:3px solid #dc2626;padding:14px 16px;border-radius:6px;font-size:14px;color:#991b1b;margin-bottom:24px;">
+    You are welcome to revise your listing and resubmit it for review.
+  </div>
+
+  ${btn(BRAND.site + '/my-listings', 'Edit &amp; Resubmit')}
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:0;">If you have questions, reply to this email or visit our <a href="${BRAND.site}/contact" style="color:${BRAND.color};text-decoration:none;">contact page</a>.</p>`
+);

@@ -12,56 +12,56 @@ const log = {
     error: (...args) => console.error(...args),
 };
 
-// ── 99acres City ID Map ──────────────────────────────────────────────────────
-// These are the internal numeric IDs 99acres uses in query parameters.
-// Without the correct ID, filtered URLs return error pages.
-const CITY_IDS = {
-    'mumbai': 1,
-    'delhi': 2,
-    'bangalore': 3,
-    'bengaluru': 3,
-    'pune': 5,
-    'chennai': 8,
-    'hyderabad': 17,
-    'kolkata': 25,
-    'noida': 32,
-    'ahmedabad': 45,
-    'gurgaon': 75,
-    'gurugram': 75,
-    'thane': 41,
-    'navi mumbai': 43,
-    'ghaziabad': 11,
-    'faridabad': 60,
-    'greater noida': 74,
-    'lucknow': 218,
-    'jaipur': 100,
-    'chandigarh': 12,
-    'indore': 125,
-    'nagpur': 98,
-    'bhopal': 112,
-    'kochi': 152,
-    'coimbatore': 140,
-    'vadodara': 88,
-    'surat': 87,
-    'mysore': 147,
-    'vizag': 176,        // Visakhapatnam
-    'visakhapatnam': 176,
-    'patna': 200,
-    'dehradun': 197,
-    'mohali': 76,
-    'zirakpur': 292,
-    'panchkula': 95,
+// ── 99acres City Data Map ────────────────────────────────────────────────────
+// id  = the ?city= query parameter value (verified from live 99acres URLs)
+// slug = the URL path segment used in /search/property/buy/{slug}/
+// These were verified manually — wrong IDs cause results from the wrong city.
+const CITY_DATA = {
+    'mumbai':        { id: 12,  slug: 'mumbai' },
+    'delhi':         { id: 1,   slug: 'delhi-ncr' },
+    'bangalore':     { id: 20,  slug: 'bangalore' },
+    'bengaluru':     { id: 20,  slug: 'bangalore' },
+    'pune':          { id: 19,  slug: 'pune' },
+    'chennai':       { id: 32,  slug: 'chennai' },
+    'hyderabad':     { id: 269, slug: 'hyderabad' },
+    'kolkata':       { id: 25,  slug: 'kolkata' },
+    'noida':         { id: 7,   slug: 'noida' },
+    'ahmedabad':     { id: 45,  slug: 'ahmedabad' },
+    'gurgaon':       { id: 8,   slug: 'gurgaon' },
+    'gurugram':      { id: 8,   slug: 'gurugram' },
+    'thane':         { id: 219, slug: 'thane' },
+    'navi mumbai':   { id: 15,  slug: 'navi-mumbai' },
+    'ghaziabad':     { id: 9,   slug: 'ghaziabad' },
+    'faridabad':     { id: 10,  slug: 'faridabad' },
+    'lucknow':       { id: 205, slug: 'lucknow' },
+    'jaipur':        { id: 177, slug: 'jaipur' },
+    'chandigarh':    { id: 73,  slug: 'chandigarh' },
+    'indore':        { id: 142, slug: 'indore' },
+    'nagpur':        { id: 150, slug: 'nagpur' },
+    'bhopal':        { id: 140, slug: 'bhopal' },
+    'kochi':         { id: 131, slug: 'kochi' },
+    'coimbatore':    { id: 185, slug: 'coimbatore' },
+    'vadodara':      { id: 96,  slug: 'vadodara' },
+    'surat':         { id: 95,  slug: 'surat' },
+    'mysore':        { id: 126, slug: 'mysore' },
+    'vizag':         { id: 62,  slug: 'visakhapatnam' },
+    'visakhapatnam': { id: 62,  slug: 'visakhapatnam' },
+    'patna':         { id: 71,  slug: 'patna' },
+    'dehradun':      { id: 211, slug: 'dehradun' },
+    'mohali':        { id: 172, slug: 'mohali' },
+    'zirakpur':      { id: 73,  slug: 'zirakpur' },
+    'panchkula':     { id: 256, slug: 'panchkula' },
 };
 
 // ── City name aliases ────────────────────────────────────────────────────────
-// Maps user-friendly / alternate names to the canonical key used in CITY_IDS.
+// Maps user-friendly / alternate names to the canonical key used in CITY_DATA.
 const CITY_ALIASES = {
     'bombay': 'mumbai',
     'new delhi': 'delhi',
+    'ncr': 'delhi',
     'bengaluru': 'bangalore',
     'gurugram': 'gurgaon',
     'navimumbai': 'navi mumbai',
-    'visakhapatnam': 'vizag',
 };
 
 // ── Property Type → 99acres URL Slug ────────────────────────────────────────
@@ -127,39 +127,134 @@ function getBudgetMaxIndex(maxPriceCrores) {
     return null;
 }
 
+// ── Runtime cache for API-resolved cities ───────────────────────────────────
+// Avoids calling the 99acres autocomplete API more than once per city per
+// process lifetime.  Null entries mean the city wasn't found (also cached to
+// prevent hammering the API for the same bad input).
+const cityResolutionCache = new Map();
+
 /**
- * Resolve user-entered city name to the canonical key used in CITY_IDS.
- * Handles aliases and case-insensitive matching.
+ * Derive the 99acres search URL slug from the LOC_URL field returned by the
+ * autocomplete API.  e.g.:
+ *   "/vadodara-overview-ciffid"  → "vadodara"
+ *   "/delhi-ncr-overview-ciffid" → "delhi-ncr"
+ */
+function slugFromLocUrl(locUrl) {
+    return locUrl.replace(/^\//, '').replace(/-overview-ciffid$/, '');
+}
+
+/**
+ * Resolve user-entered city name from the static CITY_DATA map first.
+ * Returns { key, id, urlSlug } — id/urlSlug are null when unmapped.
  */
 function resolveCity(city) {
     const normalized = city.toLowerCase().trim();
-    const aliased = CITY_ALIASES[normalized] || normalized;
-    return { key: aliased, id: CITY_IDS[aliased] || null };
+    const key = CITY_ALIASES[normalized] || normalized;
+    const data = CITY_DATA[key] || null;
+    return { key, id: data?.id || null, urlSlug: data?.slug || null };
+}
+
+/**
+ * Look up a city via the 99acres internal autocomplete API.
+ * Only called when the city is NOT in the static CITY_DATA map.
+ * Results (including misses) are cached for the process lifetime.
+ *
+ * Returns { id, urlSlug } on success, or null on failure / no match.
+ *
+ * Why this is safe to call from the backend:
+ *  - We use the city name as a search term only (no user-controlled URLs)
+ *  - The target domain is hardcoded — no SSRF risk
+ *  - AbortController caps latency at 5 s
+ *  - All errors are caught and return null, so callers always get a fallback
+ */
+async function resolveCityFromAPI(cityName) {
+    const cacheKey = cityName.toLowerCase().trim();
+    if (cityResolutionCache.has(cacheKey)) return cityResolutionCache.get(cacheKey);
+
+    try {
+        const params = new URLSearchParams({
+            term:       cacheKey,
+            PREFERENCE: 'S',
+            RESCOM:     'R',
+            FORMAT:     'APP',
+            SEARCH_TYPE: 'COWORKING',
+            CITY:       '',
+            landmarkRequired: 'true',
+            needFT:     'true',
+            pageName:   'SRP',
+            platform:   'DESKTOP',
+        });
+
+        const apiUrl = `https://s.99acres.com/api/autocomplete/suggest?${params.toString()}`;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5_000);
+
+        const res = await fetch(apiUrl, {
+            signal:  controller.signal,
+            headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+        });
+        clearTimeout(timer);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        // Pick the first result that is a City-level match (not a Locality/Project)
+        const match = data.suggest?.find(s => s.E_TYPE === 'City' && s.LOC_URL && s.CITY);
+
+        if (!match) {
+            cityResolutionCache.set(cacheKey, null);
+            return null;
+        }
+
+        const result = {
+            id:      parseInt(match.CITY, 10),
+            urlSlug: slugFromLocUrl(match.LOC_URL),
+        };
+        cityResolutionCache.set(cacheKey, result);
+        log.info(`[CityResolver] API resolved "${cityName}" → id=${result.id} slug=${result.urlSlug}`);
+        return result;
+    } catch (err) {
+        log.warn(`[CityResolver] API lookup failed for "${cityName}": ${err.message}`);
+        cityResolutionCache.set(cacheKey, null);  // cache the miss
+        return null;
+    }
 }
 
 /**
  * Build the best possible 99acres URL for the given search parameters.
- * - Known city → deterministic filtered URL
- * - Unknown city → generic city listing page (fallback)
+ *
+ * Resolution order:
+ *   1. Static CITY_DATA map (instant, no network)
+ *   2. 99acres autocomplete API (only for unmapped cities, result is cached)
+ *   3. Generic city listing page fallback
  */
-function build99acresURL(city, maxPrice, propertyType) {
-    const { key: cityKey, id: cityId } = resolveCity(city);
-    const slug = PROPERTY_TYPE_SLUGS[propertyType] || null;
+async function build99acresURL(city, maxPrice, propertyType) {
+    let { id: cityId, urlSlug: citySlug } = resolveCity(city);
+
+    // If the static map didn't have this city, try the live autocomplete API
+    if (!cityId || !citySlug) {
+        const apiResult = await resolveCityFromAPI(city);
+        if (apiResult) {
+            cityId   = apiResult.id;
+            citySlug = apiResult.urlSlug;
+        }
+    }
+
+    const slug        = PROPERTY_TYPE_SLUGS[propertyType] || null;
     const budgetIndex = getBudgetMaxIndex(maxPrice);
 
-    // ── Deterministic path: city ID is known ──
-    if (cityId && slug) {
-        const formattedCity = cityKey.replace(/\s+/g, '-');
+    // ── Deterministic path: city ID and slug are both known ──
+    if (cityId && citySlug && slug) {
         const params = new URLSearchParams();
         params.set('city', String(cityId));
         if (budgetIndex !== null) params.set('budget_max', String(budgetIndex));
 
-        const url = `https://www.99acres.com/search/property/buy/${slug}/${formattedCity}?${params.toString()}`;
+        const url = `https://www.99acres.com/search/property/buy/${slug}/${citySlug}?${params.toString()}`;
         log.info(`[Firecrawl] Deterministic URL: ${url}`);
         return { url, isDeterministic: true };
     }
 
-    // ── Fallback: unknown city or property type ──
+    // ── Fallback: city truly unknown or property type unmapped ──
     const formattedLocation = city.toLowerCase().replace(/\s+/g, '-');
     const url = `https://www.99acres.com/property-in-${formattedLocation}-ffid`;
     log.info(`[Firecrawl] Fallback URL (city/type not mapped): ${url}`);
@@ -227,7 +322,9 @@ class FirecrawlService {
             if (!city) throw new Error('City name is required');
 
             // Build the best possible URL (deterministic if city is known, fallback otherwise)
-            const { url, isDeterministic } = build99acresURL(city, maxPrice, propertyType);
+            // build99acresURL is async: it may call the 99acres autocomplete API for
+            // cities not in the static map, but only once per city (result is cached).
+            const { url, isDeterministic } = await build99acresURL(city, maxPrice, propertyType);
 
             // Use a precise, type-aware prompt label
             const propertyTypeLabel = PROPERTY_TYPE_LABELS[propertyType] || propertyType;

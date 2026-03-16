@@ -81,10 +81,10 @@ Most real-estate aggregators show you generic listings. BuildEstate is different
 
 | Problem | BuildEstate Solution |
 |---|---|
-| Generic search results with no real filtering | **Deterministic 99acres URLs** — city ID + property-type slug + budget index → pre-filtered pages |
-| No AI intelligence in traditional portals | **GPT-4.1 analysis** — best-value picks, investment tips, market comparison |
+| Generic search results with mixed content | **Multi-source search** — 99acres, MagicBricks, Housing.com results deduplicated & ranked |
+| No AI intelligence in traditional portals | **GPT-4.1 analysis** — best-value picks, investment insights, red flag detection |
 | API costs borne by the developer | **User-owned API keys** — users bring their own free GitHub Models + Firecrawl keys |
-| Scraping returns empty/broken data | **Smart scraping via scrapeUrl + JSON format** — full browser render → LLM extraction |
+| Search-page bot protection ruins results | **Individual listing scraping** — firecrawl.search() → per-property URLs → clean data |
 | Search breaks on proxy/rate errors | **Auto-retry with exponential backoff** — proxy → rate-limit → server errors all handled |
 
 > **TL;DR** — This is not another property listing site. It's an AI-first platform that turns raw web data into actionable real estate insights.
@@ -115,45 +115,69 @@ Most real-estate aggregators show you generic listings. BuildEstate is different
 
 ### How It Works
 
-```
-┌─────────────────┐     POST /api/ai/search        ┌──────────────────┐
-│                  │─────────────────────────────────▶│                  │
-│   React Frontend │     X-Github-Key header         │  Express Backend │
-│   (TypeScript)   │     X-Firecrawl-Key header      │   (Node.js)      │
-│                  │◀─────────────────────────────────│                  │
-└─────────────────┘     { properties, analysis }     └────────┬─────────┘
-                                                              │
-                              ┌────────────────────────────────┤
-                              │                                │
-                              ▼                                ▼
-                   ┌─────────────────────┐        ┌─────────────────────┐
-                   │   Firecrawl API     │        │   GitHub Models     │
-                   │   (scrapeUrl+JSON)  │        │   (GPT-4.1-mini)   │
-                   │                     │        │                     │
-                   │ 1. Build 99acres    │        │ 1. Receive scraped  │
-                   │    deterministic URL│        │    properties       │
-                   │ 2. Full browser     │        │ 2. Analyze best     │
-                   │    render (10s wait)│        │    value picks      │
-                   │ 3. LLM extracts    │        │ 3. Return investment│
-                   │    structured JSON  │        │    recommendations  │
-                   └─────────────────────┘        └─────────────────────┘
+The new search pipeline uses **Google-indexed URLs** as the filter, scraping individual property pages in parallel:
+
+```mermaid
+sequenceDiagram
+    participant User as User<br/>(Browser)
+    participant Backend as Express<br/>Backend
+    participant Firecrawl as Firecrawl API
+    participant Sources as 99acres<br/>MagicBricks<br/>Housing.com
+    participant AI as GitHub Models<br/>(GPT-4.1)
+    
+    User->>Backend: POST /api/ai/search<br/>(city, locality, bhk, budget, possession)
+    Backend->>Backend: Build 3 search queries
+    
+    par Multi-Source Search
+        Backend->>Firecrawl: Search: "2BHK flat for sale in Powai<br/>Mumbai under ₹2Cr site:99acres.com"
+        Backend->>Firecrawl: Search: "...site:magicbricks.com"
+        Backend->>Firecrawl: Search: "...site:housing.com"
+    end
+    
+    Firecrawl->>Sources: Google API returns listing URLs
+    Sources->>Firecrawl: Returns 8-10 URLs per source
+    
+    par Parallel Scraping
+        Firecrawl->>Sources: Full browser render of each URL
+        Firecrawl->>Sources: LLM extracts structured JSON
+    end
+    
+    Backend->>Backend: Deduplicate by address + building name<br/>Code-side filter: reject rentals/PG
+    
+    Backend->>AI: Send clean properties for ranking
+    AI->>Backend: Return ranked with insights
+    
+    Backend->>User: { properties, analysis, source_badges }
 ```
 
-### Smart URL Construction
+### Search Query Construction
 
-The backend doesn't just pass a generic URL to Firecrawl. It builds **deterministic, pre-filtered** URLs:
+The backend builds rich search queries that leverage Google's index as the filter:
 
 ```
-User searches: "Ahmedabad + House + 50 Lakhs"
+User fills form:
+  City: Mumbai
+  Locality: Powai
+  BHK: 2BHK
+  Budget: ₹1.5 - ₹2.5 Cr
+  Possession: Ready
                          ↓
-City ID lookup:    CITY_IDS['ahmedabad'] → 45
-Property slug:     PROPERTY_TYPE_SLUGS['House'] → 'independent-house'
-Budget index:      50 Lakhs → getBudgetMaxIndex(0.5) → 7
+Search query:
+  "2BHK flat for sale in Powai Mumbai ready
+   under 2.5 crore site:99acres.com"
                          ↓
-https://www.99acres.com/search/property/buy/independent-house/ahmedabad?city=45&budget_max=7
+firecrawl.search() → returns 10 individual property listing URLs
+                         ↓
+Scrape each URL in parallel (each = exactly ONE property)
+                         ↓
+Code-side filter: reject anything with "/month" or "rental"
 ```
 
-This means the scraper hits a page that **already shows filtered results** — no wasted tokens parsing irrelevant listings.
+**Why this works:**
+- Individual listing pages have **light bot protection** (not heavily scraped)
+- Google's index is the **filtering engine** — query says "ready" so only ready properties return
+- One page = one property = **zero mixed-content problem**
+- URL of the page you scraped **IS the property listing URL** — always correct
 
 ### Supported Coverage
 
@@ -161,8 +185,26 @@ This means the scraper hits a page that **already shows filtered results** — n
 |---|---|
 | 🏙️ Cities | 30+ — Mumbai, Delhi, Bangalore, Pune, Chennai, Hyderabad, Ahmedabad, Kolkata, Jaipur, Lucknow, and more |
 | 🏠 Property Types | Flat, House, Villa, Plot, Penthouse, Studio, Commercial |
-| 💰 Budget Range | ₹5 Lakhs → ₹25+ Crores (17 budget tiers mapped to 99acres indices) |
+| 💰 Budget Range | ₹5 Lakhs → ₹25+ Crores (user-defined min/max) |
+| 📍 Multi-Source | **99acres.com**, **MagicBricks.com**, **Housing.com** searched in parallel |
+| 🏷️ Deduplication | Same property across portals = shown once with source badges |
 | 🔄 Retry Logic | Auto-retry on proxy failures, rate limits (429), and server errors (502/503) |
+| 🔧 Advanced Filters | Locality, BHK (1/2/3/4/Any), Possession status (Ready/Under Const/Any) |
+
+### Advanced Search Form Fields
+
+The redesigned form captures buyer intent more precisely:
+
+| Field | Type | Values | Impact |
+|-------|------|--------|--------|
+| **City** | Dropdown | 30+ Indian cities | Primary market |
+| **Locality** ✨ | Text autocomplete | "Powai", "Andheri West", etc. | **Highest relevance gain** |
+| **Property Type** | Pill buttons | Flat / House / Villa / Plot | Property category |
+| **BHK Config** ✨ | Pill selector | 1BHK / 2BHK / 3BHK / 4BHK+ / Any | Unit size |
+| **Budget** | Dual slider | ₹X Lakhs → ₹Y Crores | Price range |
+| **Possession** ✨ | Radio group | Ready / Under Const / Any | Timeline preference |
+
+> **Locality** is the biggest improvement — Indians buy in **neighborhoods**, not cities. "Powai" → 10x better results than just "Mumbai".
 
 ### 🔑 User-Owned API Keys
 
@@ -191,6 +233,27 @@ User's browser (localStorage)
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
 ## 🌟 Features
+
+### ✨ AI Property Hub (Redesigned)
+
+> **Search across 3+ property portals in parallel, get deduplicated results ranked by AI insights.**
+
+<div align="center">
+
+| Feature | Description |
+| :-----: | :--- |
+| 🔍 | **Multi-source search** — 99acres, MagicBricks, Housing.com simultaneously |
+| 🏷️ | **Source badges** — know which portal each listing comes from |
+| 📍 | **Locality-first searching** — "Powai" not just "Mumbai" |
+| 🎯 | **Advanced filters** — BHK, possession status, min/max budget |
+| 🤖 | **Per-property AI insights** — specific not generic ("8% below area avg, metro in 800m") |
+| ⚠️ | **Red flags detection** — no RERA, delayed builder, overpriced alerts |
+| 🎨 | **Two-column layout** — results + AI analysis side-by-side |
+| 💾 | **Compare tool** — select up to 3 properties, compare specs |
+
+</div>
+
+<br/>
 
 ### 🏡 Property Browsing & Booking
 
@@ -238,40 +301,74 @@ User's browser (localStorage)
 
 ## 🏗️ Architecture
 
+**Multi-source AI Property Search Pipeline:**
+
+```mermaid
+graph TD
+    A["React Frontend<br/>(TypeScript + Vite)"] -->|POST /api/ai/search| B["Express Backend<br/>(Node.js + Helmet + CORS)"]
+    
+    B -->|Build 3 parallel queries| C["Firecrawl API"]
+    
+    C -->|Query 1:<br/>site:99acres.com| D1["99acres"]  
+    C -->|Query 2:<br/>site:magicbricks.com| D2["MagicBricks"]
+    C -->|Query 3:<br/>site:housing.com| D3["Housing.com"]
+    
+    D1 -->|8-10 URLs| E["Parallel<br/>Scraping"]
+    D2 -->|8-10 URLs| E
+    D3 -->|8-10 URLs| E
+    
+    E -->|Full browser render<br/>per property| F["Firecrawl<br/>scrapeUrl"] 
+    F -->|Structured JSON| G["Backend<br/>Processing"]
+    
+    G -->|Deduplicate<br/>by address| H["Code-side Filter<br/>Reject rentals/PG"]
+    H -->|Clean properties| I["GitHub Models<br/>GPT-4.1"]
+    
+    I -->|Ranked + Insights| J["Response<br/>to Frontend"]
+    
+    J -->|Display with<br/>source badges| K["Rich Property<br/>Cards"]
+    
+    B --> L[("MongoDB<br/>Atlas")]
+    C --> M["User API Keys<br/>(localStorage)"]
+    F --> N["ImageKit CDN<br/>(Images)"]
+    
+    style B fill:#4A90E2
+    style E fill:#FF6B6B
+    style I fill:#7C3AED
+    style K fill:#10B981
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT LAYER                                    │
-├─────────────────────────┬────────────────────────────────────────────────────┤
-│  Frontend (Vercel)      │  Admin Panel (Render)                              │
-│  React 18 + TypeScript  │  React 18 + JavaScript                            │
-│  Tailwind CSS v4        │  Tailwind CSS v3 + Chart.js                        │
-│  Vite 6 + React Router  │  Vite 6                                            │
-│  Framer Motion          │  Sonner notifications                              │
-└────────────┬────────────┴──────────────┬─────────────────────────────────────┘
-             │ HTTPS (Axios)             │ HTTPS (Axios)
-             ▼                           ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           API LAYER (Render)                                 │
-│  Express.js + Helmet + CORS + Rate Limiter                                   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  Routes:  /api/users  /api/products  /api/appointments  /api/ai  /api/forms │
-│  Middleware: JWT auth · Multer uploads · Request transform · Stats tracking  │
-├──────────┬───────────────┬──────────────────┬────────────────────────────────┤
-│          │               │                  │                                │
-│          ▼               ▼                  ▼                                │
-│  ┌──────────────┐ ┌────────────┐  ┌─────────────────┐                       │
-│  │ MongoDB Atlas│ │ ImageKit   │  │ Firecrawl API   │                       │
-│  │ (Database)   │ │ (CDN)      │  │ (Web Scraping)  │                       │
-│  └──────────────┘ └────────────┘  └────────┬────────┘                       │
-│                                            │                                │
-│                                            ▼                                │
-│                                   ┌─────────────────┐                       │
-│                                   │ GitHub Models    │                       │
-│                                   │ (GPT-4.1-mini)  │                       │
-│                                   └─────────────────┘                       │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  Services: Nodemailer (Brevo SMTP) · bcrypt hashing · In-memory cache (10m) │
-└──────────────────────────────────────────────────────────────────────────────┘
+
+**Complete System Architecture:**
+
+```mermaid
+flowchart LR
+    subgraph Client["CLIENT LAYER"]
+        FE["Frontend<br/>React 18 + TS<br/>Vercel"]
+        AD["Admin Panel<br/>React + JS<br/>Render"]
+    end
+    
+    subgraph API["API LAYER (Render)"]
+        BE["Express.js<br/>Helmet + CORS<br/>Rate Limiter"]
+    end
+    
+    subgraph Data["DATA & SERVICES"]
+        DB[("MongoDB Atlas<br/>Database")]
+        IK["ImageKit CDN<br/>Images"]
+        FC["Firecrawl API<br/>Web Scraping<br/>Multi-source"]
+        AI["GitHub Models<br/>GPT-4.1<br/>AI Ranking"]
+        EMAIL["Brevo SMTP<br/>Email Service"]
+    end
+    
+    FE -->|Axios| BE
+    AD -->|Axios| BE
+    BE -->|JWT Auth| DB
+    BE -->|Upload| IK
+    BE -->|Scrape| FC
+    BE -->|Rank Props| AI
+    BE -->|Send Mail| EMAIL
+    
+    style Client fill:#E8F4F8
+    style API fill:#F0E8FF
+    style Data fill:#FFF4E8
 ```
 
 <br/>

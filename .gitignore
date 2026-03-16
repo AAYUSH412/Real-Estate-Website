@@ -74,6 +74,12 @@ coverage/
 out/
 .storybook-out/
 
+# Claude Code internal files
+.claude/
+backend/.agent/
+backend/.agents/
+backend/skills-lock.json
+
 # Do NOT ignore these important files
 !package-lock.json
 !yarn.lock

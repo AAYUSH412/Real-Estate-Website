@@ -62,7 +62,7 @@ class AIService {
           ],
           model,
           temperature: 0.3,
-          max_tokens: 1500,   // increased from 800 — prevents JSON truncation
+          max_tokens: 2000,   // increased for richer per-property fields in Phase 3
           top_p: 1
         },
         // Pass abort signal if the SDK supports it
@@ -93,17 +93,27 @@ class AIService {
 
   // ── Data Preparation ──────────────────────────────────────────
 
-  _preparePropertyData(properties, maxProperties = 3) {
+  _preparePropertyData(properties, maxProperties = 20) {
     return properties.slice(0, maxProperties).map(p => ({
-      building_name: p.building_name,
-      property_type: p.property_type,
-      location_address: p.location_address,
-      price: p.price,
-      area_sqft: p.area_sqft,
-      amenities: Array.isArray(p.amenities) ? p.amenities.slice(0, 5) : [],
-      description: p.description
+      building_name:     p.building_name,
+      builder_name:      p.builder_name      || '',
+      property_type:     p.property_type,
+      bhk_config:        p.bhk_config        || '',
+      location_address:  p.location_address,
+      price:             p.price             || p.total_price || '',
+      price_per_sqft:    p.price_per_sqft    || '',
+      area_sqft:         p.carpet_area_sqft  || p.area_sqft  || '',
+      possession_status: p.possession_status || '',
+      rera_number:       p.rera_number       || '',
+      parking:           p.parking           || '',
+      floor_number:      p.floor_number      || '',
+      nearby_landmarks:  Array.isArray(p.nearby_landmarks)
+        ? p.nearby_landmarks.slice(0, 3).join(', ')
+        : (p.nearby_landmarks || ''),
+      amenities:         Array.isArray(p.amenities) ? p.amenities.slice(0, 5) : [],
+      description:       p.description
         ? p.description.substring(0, 150) + (p.description.length > 150 ? '...' : '')
-        : ''
+        : '',
     }));
   }
 
@@ -113,32 +123,48 @@ class AIService {
 
   // ── Analysis Methods ──────────────────────────────────────────
 
-  async analyzeProperties(properties, city, maxPrice, propertyCategory, propertyType) {
+  async analyzeProperties(properties, { city, locality, bhk, minPrice, maxPrice, propertyType, propertyCategory }) {
     const preparedProperties = this._preparePropertyData(properties);
 
-    // Format budget in human-readable form
-    const priceNum = parseFloat(maxPrice);
-    const budgetLabel = priceNum < 1
-      ? `${Math.round(priceNum * 100)} Lakhs`
-      : `${priceNum} Crores`;
+    const minNum   = parseFloat(minPrice) || 0;
+    const maxNum   = parseFloat(maxPrice);
+    const minLabel = minNum > 0
+      ? (minNum < 1 ? `₹${Math.round(minNum * 100)}L` : `₹${minNum}Cr`)
+      : null;
+    const maxLabel = maxNum < 1
+      ? `₹${Math.round(maxNum * 100)}L`
+      : `₹${maxNum}Cr`;
+    const budgetRange = minLabel ? `${minLabel}–${maxLabel}` : `up to ${maxLabel}`;
 
-    // Map property type to readable label
     const typeLabels = {
-      'Flat': 'Flats/Apartments',
-      'House': 'Independent Houses',
-      'Villa': 'Villas',
-      'Plot': 'Plots/Land',
-      'Penthouse': 'Penthouses',
-      'Studio': 'Studio Apartments',
-      'Commercial': 'Commercial Properties',
+      'Flat': 'flat', 'House': 'independent house', 'Villa': 'villa',
+      'Plot': 'plot', 'Penthouse': 'penthouse', 'Studio': 'studio apartment',
+      'Commercial': 'commercial property',
     };
-    const typeLabel = typeLabels[propertyType] || propertyType;
+    const typeLabel = typeLabels[propertyType] || (propertyType || 'property').toLowerCase();
 
-    const prompt = `Analyze these ${propertyCategory} ${typeLabel} in ${city} (budget: ≤ ₹${budgetLabel}):
+    const locationStr = locality ? `${locality}, ${city}` : city;
 
-${JSON.stringify(preparedProperties)}
+    const prompt = `You are an expert Indian real estate advisor.
+Rank these ${preparedProperties.length} ${typeLabel}s in ${locationStr} for a buyer with budget ${budgetRange}.
 
-Respond ONLY with this JSON schema:
+Properties:
+${JSON.stringify(preparedProperties, null, 2)}
+
+Rank each property based on:
+1. Price vs locality average (value for money) — use price_per_sqft if available
+2. Builder reputation — known builders (Godrej, Lodha, Prestige, Sobha, DLF, Tata, etc.) score higher; unknown builders are a risk
+3. Possession status — Ready to Move > possession within 1 year > 2026 > 2027+
+4. RERA registration — rera_number present means legally safe; missing is a red flag
+5. Connectivity — metro station, school, hospital in nearby_landmarks scores higher
+
+For EACH property provide all of these fields:
+- match_score: integer 0–100 (fit for buyer's stated criteria)
+- one_line_insight: max 20 words, SPECIFIC — use real data e.g. "₹8,200/sqft below SG Highway avg, RERA ✓, metro 600m"
+- red_flags: array of specific concerns e.g. ["No RERA number", "Possession far at 2027", "Unknown builder"] — empty array [] if none
+- value_verdict: exactly one of "good_deal" | "fair" | "overpriced"
+
+Respond ONLY with this exact JSON (no markdown, no extra text):
 {
   "overview": [
     {
@@ -146,17 +172,21 @@ Respond ONLY with this JSON schema:
       "price": "price string",
       "area": "sqft string",
       "location": "address",
-      "highlight": "one-line standout feature"
+      "highlight": "one specific standout feature using actual data",
+      "match_score": 85,
+      "one_line_insight": "specific insight max 20 words",
+      "red_flags": [],
+      "value_verdict": "good_deal"
     }
   ],
   "best_value": {
-    "name": "building name",
-    "reason": "why it offers the best value in 1-2 sentences"
+    "name": "building name of top pick",
+    "reason": "why it is the best value — reference price_per_sqft, possession, RERA, or connectivity"
   },
   "recommendations": [
-    "actionable recommendation 1",
-    "actionable recommendation 2",
-    "actionable recommendation 3"
+    "actionable tip 1 for this specific search",
+    "actionable tip 2",
+    "actionable tip 3"
   ]
 }`;
 

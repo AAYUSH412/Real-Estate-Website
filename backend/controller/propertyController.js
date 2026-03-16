@@ -55,7 +55,18 @@ function resolveServices(req) {
 
 export const searchProperties = async (req, res) => {
     try {
-        const { city, maxPrice, propertyCategory, propertyType, limit = 6 } = req.body;
+        const {
+            city,
+            locality        = '',
+            bhk             = 'Any',
+            minPrice        = '0',
+            maxPrice,
+            propertyCategory,
+            propertyType,
+            possession      = 'any',
+            includeNoBroker = false,
+            limit           = 6,
+        } = req.body;
 
         if (!city || !maxPrice) {
             return res.status(400).json({ success: false, message: 'City and maxPrice are required' });
@@ -74,40 +85,47 @@ export const searchProperties = async (req, res) => {
         }
 
         const { firecrawlService, aiService } = services;
-        const cacheKey = `search:${city}:${maxPrice}:${propertyCategory}:${propertyType}`;
+
+        // Cache key includes all search dimensions
+        const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:nb${includeNoBroker}:limit${limit}`;
         const cached = getCached(cacheKey);
         if (cached) {
             console.log(`[Cache] HIT for ${cacheKey}`);
             return res.json({ success: true, ...cached, fromCache: true });
         }
 
-        console.log(`[PropertyController] search — city=${city} maxPrice=${maxPrice} type=${propertyType} category=${propertyCategory}`);
+        console.log(`[PropertyController] search — city=${city} locality=${locality} bhk=${bhk} maxPrice=${maxPrice} type=${propertyType} possession=${possession}`);
 
-        // Step 1: Firecrawl
+        // Step 1: Firecrawl — search then scrape individual pages
         let propertiesData;
         try {
-            propertiesData = await firecrawlService.findProperties(
+            propertiesData = await firecrawlService.findProperties({
                 city,
+                locality,
+                bhk,
+                minPrice,
                 maxPrice,
-                propertyCategory || 'Residential',
-                propertyType || 'Flat',
-                Math.min(limit, 6)
-            );
+                propertyType:     propertyType || 'Flat',
+                propertyCategory: propertyCategory || 'Residential',
+                possession,
+                includeNoBroker,
+                limit:            Math.min(limit, 20),
+            });
         } catch (firecrawlError) {
             console.error('[Firecrawl] Property search failed:', firecrawlError.message);
             return res.status(503).json({
                 success: false,
                 message: 'Property search service temporarily unavailable. Please try again later.',
-                error: 'FIRECRAWL_ERROR'
+                error: 'FIRECRAWL_ERROR',
             });
         }
 
         if (!propertiesData?.properties || propertiesData.properties.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: `No ${propertyType || ''} properties found in ${city} within ₹${maxPrice < 1 ? Math.round(maxPrice * 100) + ' Lakhs' : maxPrice + ' Crores'}. Try increasing the budget or choosing a different property type.`,
+                message: `No ${propertyType || ''} properties found in ${locality ? locality + ', ' : ''}${city} within ₹${parseFloat(maxPrice) < 1 ? Math.round(parseFloat(maxPrice) * 100) + ' Lakhs' : maxPrice + ' Crores'}. Try adjusting your budget or area.`,
                 properties: [],
-                analysis: null
+                analysis: null,
             });
         }
 
@@ -116,25 +134,30 @@ export const searchProperties = async (req, res) => {
         try {
             const rawAnalysis = await aiService.analyzeProperties(
                 propertiesData.properties,
-                city,
-                maxPrice,
-                propertyCategory || 'Residential',
-                propertyType || 'Flat'
+                {
+                    city,
+                    locality,
+                    bhk,
+                    minPrice,
+                    maxPrice,
+                    propertyType:     propertyType     || 'Flat',
+                    propertyCategory: propertyCategory || 'Residential',
+                }
             );
             analysis = validateAndFixPropertyAnalysis(rawAnalysis, propertiesData.properties);
         } catch (aiError) {
             console.error('[AI] Property analysis failed:', aiError.message);
             analysis = {
                 error: 'Analysis temporarily unavailable',
-                overview: propertiesData.properties.slice(0, 3).map(p => ({
-                    name: p.building_name || 'Unknown',
-                    price: p.price || 'Contact for price',
-                    area: p.area_sqft || 'N/A',
-                    location: p.location_address || '',
-                    highlight: 'Property details available'
+                overview: propertiesData.properties.slice(0, limit).map(p => ({
+                    name:      p.building_name || 'Unknown',
+                    price:     p.total_price || p.price || 'Contact for price',
+                    area:      p.carpet_area_sqft || p.area_sqft || 'N/A',
+                    location:  p.location_address || '',
+                    highlight: 'Property details available',
                 })),
-                best_value: null,
-                recommendations: ['Contact us for more details']
+                best_value:      null,
+                recommendations: ['Contact us for more details'],
             };
         }
 

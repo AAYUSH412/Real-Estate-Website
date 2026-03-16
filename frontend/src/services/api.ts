@@ -119,6 +119,10 @@ export const appointmentsAPI = {
 export const aiAPI = {
   search: (data: {
     city?: string;
+    locality?: string;
+    bhk?: string;
+    possession?: string;
+    includeNoBroker?: boolean;
     price?: { min: number; max: number };
     type?: string;
     category?: string;

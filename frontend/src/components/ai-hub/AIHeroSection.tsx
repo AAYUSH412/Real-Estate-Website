@@ -34,10 +34,20 @@ const ALL_CITIES = [
 const PROPERTY_TYPES = ['Flat', 'Villa', 'House', 'Penthouse', 'Plot', 'Studio'];
 const CATEGORIES = ['Residential', 'Commercial'];
 
+const LOAD_STEPS = [
+  { label: 'Searching listings',        desc: 'Querying MagicBricks, Housing & 99acres' },
+  { label: 'Reading property details',  desc: 'Extracting data from live listing pages'  },
+  { label: 'Getting AI insights',       desc: 'Ranking & analysing by your criteria'     },
+];
+
 type BudgetUnit = 'Lakh' | 'Cr';
 
 const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, externalOpenModal, onModalClosed }) => {
   const [city, setCity] = useState('');
+  const [locality, setLocality] = useState('');
+  const [bhk, setBhk] = useState('Any');
+  const [possession, setPossession] = useState('any');
+  const [loadStep, setLoadStep] = useState(0); // 0=idle, 1=searching, 2=reading, 3=analyzing
   const [maxBudget, setMaxBudget] = useState('2');
   const [budgetUnit, setBudgetUnit] = useState<BudgetUnit>('Cr');
   const [propertyType, setPropertyType] = useState('Flat');
@@ -60,6 +70,15 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
       onModalClosed?.();
     }
   }, [externalOpenModal, onModalClosed]);
+
+  // Advance loading steps on a timer so the user sees progress while waiting
+  useEffect(() => {
+    if (!loading) { setLoadStep(0); return; }
+    setLoadStep(1);
+    const t2 = setTimeout(() => setLoadStep(2), 8_000);
+    const t3 = setTimeout(() => setLoadStep(3), 25_000);
+    return () => { clearTimeout(t2); clearTimeout(t3); };
+  }, [loading]);
 
   const refreshKeyStatus = useCallback(() => {
     setKeysReady(apiKeyStorage.hasKeys());
@@ -132,8 +151,11 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
     const valueInCrores = budgetUnit === 'Lakh' ? rawValue / 100 : rawValue;
 
     onSearch({
-      city: city.trim(),
-      maxBudget: valueInCrores,
+      city:         city.trim(),
+      locality:     locality.trim(),
+      bhk,
+      possession,
+      maxBudget:    valueInCrores,
       propertyType,
       category,
     });
@@ -270,6 +292,23 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
               </div>
             </div>
 
+            {/* ── Locality / Area ─────────────────────────────── */}
+            <div className="mb-6">
+              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
+                Specific Area <span className="font-normal normal-case text-[#9CA3AF]">(optional — highest impact on results)</span>
+              </label>
+              <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
+                <MapPin className="w-5 h-5 text-[#9CA3AF] shrink-0" />
+                <input
+                  type="text"
+                  value={locality}
+                  onChange={(e) => setLocality(e.target.value)}
+                  className="flex-1 bg-transparent font-manrope text-base text-[#221410] outline-none placeholder:text-[#9CA3AF] placeholder:font-light"
+                  placeholder="e.g. Powai, Andheri West, Koramangala, SG Highway…"
+                />
+              </div>
+            </div>
+
             {/* Budget · Type · Category */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
               {/* Budget */}
@@ -359,6 +398,56 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
               </div>
             </div>
 
+            {/* ── BHK Configuration ───────────────────────────── */}
+            <div className="mb-6">
+              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-3 ml-1">
+                BHK Configuration
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {(['Any', '1BHK', '2BHK', '3BHK', '4BHK+'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setBhk(option)}
+                    className={`font-manrope text-sm font-medium px-5 py-2.5 rounded-xl border transition-all ${
+                      bhk === option
+                        ? 'bg-[#D4755B] border-[#D4755B] text-white shadow-sm'
+                        : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#D4755B]/50 hover:text-[#D4755B]'
+                    }`}
+                  >
+                    {option === 'Any' ? 'Any BHK' : option}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Possession ──────────────────────────────────── */}
+            <div className="mb-8">
+              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-3 ml-1">
+                Possession
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { value: 'any',               label: 'Any' },
+                  { value: 'ready',             label: 'Ready to Move' },
+                  { value: 'underconstruction', label: 'Under Construction' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setPossession(opt.value)}
+                    className={`font-manrope text-sm font-medium px-5 py-2.5 rounded-xl border transition-all ${
+                      possession === opt.value
+                        ? 'bg-[#221410] border-[#221410] text-white shadow-sm'
+                        : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#221410]/30 hover:text-[#221410]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Submit */}
             <div className="relative group mt-2">
               <button
@@ -393,10 +482,41 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
             </div>
 
             {loading && (
-              <p className="flex items-center justify-center gap-2 font-manrope text-sm text-[#6B7280] font-medium mt-4 animate-pulse">
-                <Sparkles className="w-4 h-4 text-[#D4755B]" />
-                Scraping live data & running AI analysis — this may take 15-30s
-              </p>
+              <div className="mt-5 bg-[#FAF8F4] border border-[#E6E0DA] rounded-xl p-5">
+                {/* 3-step progress */}
+                <div className="space-y-4">
+                  {LOAD_STEPS.map((s, i) => {
+                    const stepNum = i + 1;
+                    const isDone    = loadStep > stepNum;
+                    const isActive  = loadStep === stepNum;
+                    const isPending = loadStep < stepNum;
+                    return (
+                      <div key={s.label} className={`flex items-start gap-3 transition-opacity duration-500 ${isPending ? 'opacity-35' : 'opacity-100'}`}>
+                        <div className="mt-0.5 shrink-0 w-5 h-5 flex items-center justify-center">
+                          {isDone   ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          : isActive ? <Loader2 className="w-5 h-5 text-[#D4755B] animate-spin" />
+                          :            <div className="w-4 h-4 rounded-full border-2 border-[#D4755B]/30" />}
+                        </div>
+                        <div>
+                          <p className={`font-manrope text-sm font-semibold ${isDone ? 'text-[#6B7280] line-through decoration-[#9CA3AF]' : isActive ? 'text-[#221410]' : 'text-[#9CA3AF]'}`}>
+                            {s.label}{isActive ? '…' : ''}
+                          </p>
+                          {isActive && (
+                            <p className="font-manrope text-xs text-[#9CA3AF] mt-0.5">{s.desc}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Search context summary */}
+                <p className="font-manrope text-xs text-[#9CA3AF] text-center mt-5 leading-relaxed">
+                  {bhk !== 'Any' ? `${bhk} ` : ''}{propertyType.toLowerCase()}s
+                  {locality ? ` in ${locality},` : ' in'} <span className="font-semibold text-[#6B7280]">{city}</span>
+                  {' '}· under ₹{maxBudget} {budgetUnit} · usually takes 15–30 s
+                </p>
+              </div>
             )}
           </form>
         </div>

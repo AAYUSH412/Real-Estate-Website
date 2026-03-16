@@ -22,26 +22,36 @@ function safeParse(raw) {
 /**
  * Validate and fix a property analysis response.
  * Expected schema: { overview[], best_value, recommendations[] }
+ * Phase 3 adds per-item: match_score, one_line_insight, red_flags, value_verdict
  */
 export function validateAndFixPropertyAnalysis(rawResponse, properties = []) {
   try {
     const parsed = safeParse(rawResponse);
 
-    // Ensure overview is an array with correct shape
+    // Ensure overview is an array with correct shape — preserve all Phase 3 fields
     const overview = Array.isArray(parsed.overview)
       ? parsed.overview.map(item => ({
-          name: item.name || 'Unknown',
-          price: item.price || 'Contact for price',
-          area: item.area || 'N/A',
-          location: item.location || '',
-          highlight: item.highlight || '',
+          name:             item.name             || 'Unknown',
+          price:            item.price            || 'Contact for price',
+          area:             item.area             || 'N/A',
+          location:         item.location         || '',
+          highlight:        item.highlight        || '',
+          match_score:      typeof item.match_score === 'number' ? item.match_score : null,
+          one_line_insight: item.one_line_insight  || '',
+          red_flags:        Array.isArray(item.red_flags) ? item.red_flags : [],
+          value_verdict:    ['good_deal', 'fair', 'overpriced'].includes(item.value_verdict)
+                              ? item.value_verdict : null,
         }))
-      : properties.slice(0, 3).map(p => ({
-          name: p.building_name || 'Unknown',
-          price: p.price || 'Contact for price',
-          area: p.area_sqft || 'N/A',
-          location: p.location_address || '',
-          highlight: 'Property details available',
+      : properties.slice(0, 6).map(p => ({
+          name:             p.building_name || 'Unknown',
+          price:            p.price         || 'Contact for price',
+          area:             p.area_sqft     || 'N/A',
+          location:         p.location_address || '',
+          highlight:        'Property details available',
+          match_score:      null,
+          one_line_insight: '',
+          red_flags:        [],
+          value_verdict:    null,
         }));
 
     return {
@@ -53,15 +63,18 @@ export function validateAndFixPropertyAnalysis(rawResponse, properties = []) {
     };
   } catch (error) {
     console.error('[Validation] Property analysis parse failed:', error.message);
-    // Return safe fallback built from scraped data
     return {
       error: 'Analysis format issue',
-      overview: properties.slice(0, 3).map(p => ({
-        name: p.building_name || 'Unknown',
-        price: p.price || 'Contact for price',
-        area: p.area_sqft || 'N/A',
-        location: p.location_address || '',
-        highlight: 'Property details available',
+      overview: properties.slice(0, 6).map(p => ({
+        name:             p.building_name || 'Unknown',
+        price:            p.price         || 'Contact for price',
+        area:             p.area_sqft     || 'N/A',
+        location:         p.location_address || '',
+        highlight:        'Property details available',
+        match_score:      null,
+        one_line_insight: '',
+        red_flags:        [],
+        value_verdict:    null,
       })),
       best_value: null,
       recommendations: ['Please contact us for detailed analysis'],

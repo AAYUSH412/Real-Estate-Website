@@ -22,13 +22,22 @@ if (AI_HUB_ENABLED) {
 
 export interface ScrapedProperty {
   building_name: string;
+  builder_name?: string;
   property_type: string;
+  bhk_config?: string;
   location_address: string;
   price: string;
+  price_per_sqft?: string;
   description: string;
   amenities: string[];
   area_sqft: string;
+  floor_number?: string;
+  total_floors?: string;
+  possession_status?: string;
+  rera_number?: string;
+  parking?: string;
   property_url?: string;
+  source?: string;
 }
 
 export interface PropertyOverview {
@@ -37,6 +46,10 @@ export interface PropertyOverview {
   area: string;
   location: string;
   highlight: string;
+  match_score?: number | null;
+  one_line_insight?: string;
+  red_flags?: string[];
+  value_verdict?: 'good_deal' | 'fair' | 'overpriced' | null;
 }
 
 export interface PropertyAnalysis {
@@ -71,6 +84,9 @@ export interface LocationAnalysis {
 
 export interface SearchParams {
   city: string;
+  locality: string;        // specific area within city e.g. "Powai", "Koramangala"
+  bhk: string;             // 'Any' | '1BHK' | '2BHK' | '3BHK' | '4BHK+'
+  possession: string;      // 'any' | 'ready' | 'underconstruction'
   maxBudget: number;       // value in Crores
   propertyType: string;
   category: string;
@@ -285,6 +301,9 @@ const AIHubDevPage: React.FC = () => {
   // Search
   const [searchParams, setSearchParams] = useState<SearchParams>({
     city: '',
+    locality: '',
+    bhk: 'Any',
+    possession: 'any',
     maxBudget: 2,
     propertyType: 'Flat',
     category: 'Residential',
@@ -348,10 +367,13 @@ const AIHubDevPage: React.FC = () => {
     try {
       const maxPriceInRupees = params.maxBudget * 10_000_000; // Cr → ₹
       const response = await aiApiRef.search({
-        city: params.city,
-        price: { min: 0, max: maxPriceInRupees },
-        type: params.propertyType,
-        category: params.category,
+        city:           params.city,
+        locality:       params.locality,
+        bhk:            params.bhk,
+        possession:     params.possession,
+        price:          { min: 0, max: maxPriceInRupees },
+        type:           params.propertyType,
+        category:       params.category,
       });
 
       const data = response.data;
@@ -413,23 +435,36 @@ const AIHubDevPage: React.FC = () => {
         </React.Suspense>
       )}
 
-      {/* Results (only shown after first search) */}
+      {/* Results — two-column layout */}
       <div ref={resultsRef}>
         {hasSearched && AISearchResults && AIAnalysisPanel && (
           <React.Suspense fallback={null}>
-            <AISearchResults
-              properties={properties}
-              loading={searchLoading}
-              error={searchError}
-              city={searchParams.city}
-            />
+            <section className="bg-[#FAF8F4] py-14 border-t border-[#E6E0DA]/50">
+              <div className="max-w-7xl mx-auto px-6">
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                  {/* Left col: property cards — grows to fill remaining space */}
+                  <div className="w-full lg:flex-1 min-w-0 order-2 lg:order-1">
+                    <AISearchResults
+                      properties={properties}
+                      loading={searchLoading}
+                      error={searchError}
+                      city={searchParams.city}
+                      analysis={analysis}
+                    />
+                  </div>
 
-            <AIAnalysisPanel
-              analysis={analysis}
-              loading={searchLoading}
-              error={searchError}
-              city={searchParams.city}
-            />
+                  {/* Right col: sticky AI analysis sidebar — fixed 340px width */}
+                  <div className="w-full lg:w-[340px] shrink-0 order-1 lg:order-2 lg:sticky lg:top-8">
+                    <AIAnalysisPanel
+                      analysis={analysis}
+                      loading={searchLoading}
+                      error={searchError}
+                      city={searchParams.city}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
           </React.Suspense>
         )}
       </div>

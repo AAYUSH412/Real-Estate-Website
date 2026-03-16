@@ -1,268 +1,241 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
 
-// Firecrawl can be slow on large pages — cap at 60 seconds per call
+// Per-page scrape cap and search timeout
 const FIRECRAWL_TIMEOUT_MS = 60_000;
-const MAX_RETRIES = 2;
-const IS_PROD = process.env.NODE_ENV === 'production';
+const SEARCH_TIMEOUT_MS    = 90_000; // search + inline scraping takes longer than a bare search
+const MAX_RETRIES          = 2;
+const IS_PROD              = process.env.NODE_ENV === 'production';
 
 /** Conditional logger — suppresses verbose output in production */
 const log = {
-    info: (...args) => { if (!IS_PROD) console.log(...args); },
-    warn: (...args) => console.warn(...args),
+    info:  (...args) => { if (!IS_PROD) console.log(...args); },
+    warn:  (...args) => console.warn(...args),
     error: (...args) => console.error(...args),
 };
 
-// ── 99acres City Data Map ────────────────────────────────────────────────────
-// id  = the ?city= query parameter value (verified from live 99acres URLs)
-// slug = the URL path segment used in /search/property/buy/{slug}/
-// These were verified manually — wrong IDs cause results from the wrong city.
-const CITY_DATA = {
-    'mumbai':        { id: 12,  slug: 'mumbai' },
-    'delhi':         { id: 1,   slug: 'delhi-ncr' },
-    'bangalore':     { id: 20,  slug: 'bangalore' },
-    'bengaluru':     { id: 20,  slug: 'bangalore' },
-    'pune':          { id: 19,  slug: 'pune' },
-    'chennai':       { id: 32,  slug: 'chennai' },
-    'hyderabad':     { id: 269, slug: 'hyderabad' },
-    'kolkata':       { id: 25,  slug: 'kolkata' },
-    'noida':         { id: 7,   slug: 'noida' },
-    'ahmedabad':     { id: 45,  slug: 'ahmedabad' },
-    'gurgaon':       { id: 8,   slug: 'gurgaon' },
-    'gurugram':      { id: 8,   slug: 'gurugram' },
-    'thane':         { id: 219, slug: 'thane' },
-    'navi mumbai':   { id: 15,  slug: 'navi-mumbai' },
-    'ghaziabad':     { id: 9,   slug: 'ghaziabad' },
-    'faridabad':     { id: 10,  slug: 'faridabad' },
-    'lucknow':       { id: 205, slug: 'lucknow' },
-    'jaipur':        { id: 177, slug: 'jaipur' },
-    'chandigarh':    { id: 73,  slug: 'chandigarh' },
-    'indore':        { id: 142, slug: 'indore' },
-    'nagpur':        { id: 150, slug: 'nagpur' },
-    'bhopal':        { id: 140, slug: 'bhopal' },
-    'kochi':         { id: 131, slug: 'kochi' },
-    'coimbatore':    { id: 185, slug: 'coimbatore' },
-    'vadodara':      { id: 96,  slug: 'vadodara' },
-    'surat':         { id: 95,  slug: 'surat' },
-    'mysore':        { id: 126, slug: 'mysore' },
-    'vizag':         { id: 62,  slug: 'visakhapatnam' },
-    'visakhapatnam': { id: 62,  slug: 'visakhapatnam' },
-    'patna':         { id: 71,  slug: 'patna' },
-    'dehradun':      { id: 211, slug: 'dehradun' },
-    'mohali':        { id: 172, slug: 'mohali' },
-    'zirakpur':      { id: 73,  slug: 'zirakpur' },
-    'panchkula':     { id: 256, slug: 'panchkula' },
+// ── Property type → natural-language search term ─────────────────────────────
+const PROPERTY_TYPE_SEARCH_TERMS = {
+    'Flat':       'flat',
+    'House':      'independent house',
+    'Villa':      'villa',
+    'Plot':       'plot',
+    'Penthouse':  'penthouse',
+    'Studio':     'studio apartment',
+    'Commercial': 'commercial property',
 };
 
-// ── City name aliases ────────────────────────────────────────────────────────
-// Maps user-friendly / alternate names to the canonical key used in CITY_DATA.
-const CITY_ALIASES = {
-    'bombay': 'mumbai',
-    'new delhi': 'delhi',
-    'ncr': 'delhi',
-    'bengaluru': 'bangalore',
-    'gurugram': 'gurgaon',
-    'navimumbai': 'navi mumbai',
+// ── Multi-source search config ────────────────────────────────────────────────
+// Each source contributes up to `limit` URLs per search.
+// NoBroker is opt-in (owner-direct, no brokerage listings).
+const SEARCH_SOURCES = {
+    '99acres':     { domain: '99acres.com',     limit: 6 },
+    'magicbricks': { domain: 'magicbricks.com', limit: 6 },
+    'housing':     { domain: 'housing.com',     limit: 6 },
+    'nobroker':    { domain: 'nobroker.in',      limit: 5 },
 };
 
-// ── Property Type → 99acres URL Slug ────────────────────────────────────────
-// The URL path must contain the exact slug for the property type.
-const PROPERTY_TYPE_SLUGS = {
-    'Flat': 'flat',
-    'House': 'independent-house',
-    'Villa': 'villa',
-    'Plot': 'residential-land',
-    'Penthouse': 'penthouse',
-    'Studio': 'studio-apartment',
-    'Commercial': 'commercial-property',
+// ── Extraction schema (array-based) ──────────────────────────────────────────
+// Works for both category pages (many listings) AND individual detail pages.
+// The AI fills the array with however many FOR SALE properties it finds.
+const SEARCH_RESULT_SCHEMA = {
+    type: "object",
+    properties: {
+        properties: {
+            type: "array",
+            description: "All FOR SALE property listings found on this page. Skip PG and rentals.",
+            items: {
+                type: "object",
+                properties: {
+                    building_name:          { type: "string", description: "Society or project name" },
+                    builder_name:           { type: "string", description: "Developer or builder name" },
+                    property_type:          { type: "string", description: "Flat / House / Villa / Plot etc." },
+                    bhk_config:             { type: "string", description: "e.g. 2 BHK, 3 BHK" },
+                    location_address:       { type: "string", description: "Full address with locality and city" },
+                    total_price:            { type: "string", description: "Total purchase price e.g. ₹1.65 Cr" },
+                    price_per_sqft:         { type: "string", description: "Price per sq ft e.g. ₹12,500/sqft" },
+                    carpet_area_sqft:       { type: "string", description: "Carpet area in sqft" },
+                    superbuiltup_area_sqft: { type: "string", description: "Super built-up area in sqft" },
+                    floor_number:           { type: "string", description: "Floor number e.g. 5" },
+                    total_floors:           { type: "string", description: "Total floors in building" },
+                    possession_status:      { type: "string", description: "Ready to Move / Under Construction / possession date" },
+                    facing_direction:       { type: "string", description: "East / West / North / South" },
+                    parking:                { type: "string", description: "Covered / Open / None" },
+                    rera_number:            { type: "string", description: "RERA registration number, blank if absent" },
+                    amenities:              { type: "array", items: { type: "string" }, description: "Top 5 amenities" },
+                    nearby_landmarks:       { type: "array", items: { type: "string" }, description: "Nearby metro, school, hospital" },
+                    description:            { type: "string", description: "Brief description max 50 words" },
+                },
+                required: ["building_name", "property_type", "location_address", "total_price"],
+            },
+        },
+    },
+    required: ["properties"],
 };
 
-// ── Property Type → Human-readable prompt label ─────────────────────────────
-const PROPERTY_TYPE_LABELS = {
-    'Flat': 'Flats/Apartments',
-    'House': 'Independent Houses',
-    'Villa': 'Villas',
-    'Plot': 'Residential Plots/Land',
-    'Penthouse': 'Penthouses',
-    'Studio': 'Studio Apartments',
-    'Commercial': 'Commercial Properties',
-};
+const SEARCH_RESULT_PROMPT =
+    "Extract all FOR SALE (purchase) property listings from this page. " +
+    "Each property must have a total purchase price in Crores or Lakhs — NOT a rental price in /month or /bed. " +
+    "Skip PG, paying guest, and rental listings entirely. " +
+    "If this is a category page with multiple listings, extract each one (up to 6). " +
+    "If this is a single property detail page, extract that one property.";
 
-// ── Budget → 99acres budget_max Index ────────────────────────────────────────
-// 99acres uses a non-linear index scale for the budget_max query parameter.
-// The thresholds are in Lakhs. We find the highest threshold ≤ user's budget.
-const BUDGET_THRESHOLDS = [
-    { lakhs: 5,    index: 2 },
-    { lakhs: 10,   index: 3 },
-    { lakhs: 20,   index: 4 },
-    { lakhs: 30,   index: 5 },
-    { lakhs: 40,   index: 6 },
-    { lakhs: 50,   index: 7 },
-    { lakhs: 60,   index: 8 },
-    { lakhs: 70,   index: 17 },
-    { lakhs: 80,   index: 18 },
-    { lakhs: 90,   index: 19 },
-    { lakhs: 100,  index: 9 },   // 1 Crore
-    { lakhs: 150,  index: 10 },  // 1.5 Crores
-    { lakhs: 200,  index: 11 },  // 2 Crores
-    { lakhs: 300,  index: 12 },  // 3 Crores
-    { lakhs: 500,  index: 13 },  // 5 Crores
-    { lakhs: 1000, index: 14 },  // 10 Crores
-    { lakhs: 2500, index: 15 },  // 25 Crores
-];
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Convert maxPrice (in Crores string) to the 99acres budget_max index.
- * Returns the index for the smallest threshold that is ≥ the user's budget,
- * or null if the budget exceeds all thresholds.
+ * Build the base search query (no site: filter — each source appends its own).
+ * e.g. "2BHK flat for sale in Powai Mumbai under 2 crore ready to move"
  */
-function getBudgetMaxIndex(maxPriceCrores) {
-    const budgetInLakhs = parseFloat(maxPriceCrores) * 100;
-    if (isNaN(budgetInLakhs) || budgetInLakhs <= 0) return null;
+function buildSearchQuery({ city, locality, bhk, maxPrice, propertyType, possession }) {
+    const parts = [];
 
-    // Find the smallest threshold >= user budget
-    for (const { lakhs, index } of BUDGET_THRESHOLDS) {
-        if (lakhs >= budgetInLakhs) return index;
+    if (bhk && bhk !== 'Any') parts.push(bhk);
+
+    const typeTerm = PROPERTY_TYPE_SEARCH_TERMS[propertyType] || 'flat';
+    parts.push(typeTerm, 'for sale in');
+
+    if (locality) parts.push(locality);
+    parts.push(city);
+
+    if (maxPrice) {
+        const priceNum = parseFloat(maxPrice);
+        const budgetLabel = priceNum < 1
+            ? `${Math.round(priceNum * 100)} lakh`
+            : `${priceNum} crore`;
+        parts.push(`under ${budgetLabel}`);
     }
-    // Budget exceeds all thresholds — omit parameter (no cap)
+
+    if (possession === 'ready') parts.push('ready to move');
+
+    return parts.join(' ');
+}
+
+/**
+ * Parse an Indian price string to a float in Crores.
+ * Handles: "₹1.65 Cr", "₹45 L", "₹45 Lakh", raw numbers.
+ * Returns null if the string looks like a rental price or can't be parsed.
+ */
+function parsePriceToCrores(priceStr) {
+    if (!priceStr || typeof priceStr !== 'string') return null;
+    const s = priceStr.replace(/[₹,\s]/g, '').toLowerCase();
+
+    // Reject rental/PG price patterns
+    if (/\/bed|\/bedroom|\/month|\/day/.test(s)) return null;
+
+    const croreMatch = s.match(/^([\d.]+)cr/);
+    if (croreMatch) return parseFloat(croreMatch[1]);
+
+    const lakhMatch = s.match(/^([\d.]+)l/);
+    if (lakhMatch) return parseFloat(lakhMatch[1]) / 100;
+
+    // Raw absolute number (e.g. 16500000) — assume INR
+    const numMatch = s.match(/^([\d.]+)$/);
+    if (numMatch) {
+        const n = parseFloat(numMatch[1]);
+        if (n > 100000) return n / 10_000_000;
+    }
+
     return null;
 }
 
-// ── Runtime cache for API-resolved cities ───────────────────────────────────
-// Avoids calling the 99acres autocomplete API more than once per city per
-// process lifetime.  Null entries mean the city wasn't found (also cached to
-// prevent hammering the API for the same bad input).
-const cityResolutionCache = new Map();
-
 /**
- * Derive the 99acres search URL slug from the LOC_URL field returned by the
- * autocomplete API.  e.g.:
- *   "/vadodara-overview-ciffid"  → "vadodara"
- *   "/delhi-ncr-overview-ciffid" → "delhi-ncr"
+ * Deduplicate scraped properties.
+ * Two properties are considered duplicates when they share the same
+ * building name (case-insensitive) AND the same BHK config.
+ * When duplicates exist, the one with more populated fields wins.
  */
-function slugFromLocUrl(locUrl) {
-    return locUrl.replace(/^\//, '').replace(/-overview-ciffid$/, '');
-}
+function deduplicateProperties(properties) {
+    const best = new Map();
 
-/**
- * Resolve user-entered city name from the static CITY_DATA map first.
- * Returns { key, id, urlSlug } — id/urlSlug are null when unmapped.
- */
-function resolveCity(city) {
-    const normalized = city.toLowerCase().trim();
-    const key = CITY_ALIASES[normalized] || normalized;
-    const data = CITY_DATA[key] || null;
-    return { key, id: data?.id || null, urlSlug: data?.slug || null };
-}
+    for (const p of properties) {
+        const key = [
+            (p.building_name || '').toLowerCase().trim(),
+            (p.bhk_config    || '').toLowerCase().trim(),
+        ].join('::');
 
-/**
- * Look up a city via the 99acres internal autocomplete API.
- * Only called when the city is NOT in the static CITY_DATA map.
- * Results (including misses) are cached for the process lifetime.
- *
- * Returns { id, urlSlug } on success, or null on failure / no match.
- *
- * Why this is safe to call from the backend:
- *  - We use the city name as a search term only (no user-controlled URLs)
- *  - The target domain is hardcoded — no SSRF risk
- *  - AbortController caps latency at 5 s
- *  - All errors are caught and return null, so callers always get a fallback
- */
-async function resolveCityFromAPI(cityName) {
-    const cacheKey = cityName.toLowerCase().trim();
-    if (cityResolutionCache.has(cacheKey)) return cityResolutionCache.get(cacheKey);
-
-    try {
-        const params = new URLSearchParams({
-            term:       cacheKey,
-            PREFERENCE: 'S',
-            RESCOM:     'R',
-            FORMAT:     'APP',
-            SEARCH_TYPE: 'COWORKING',
-            CITY:       '',
-            landmarkRequired: 'true',
-            needFT:     'true',
-            pageName:   'SRP',
-            platform:   'DESKTOP',
-        });
-
-        const apiUrl = `https://s.99acres.com/api/autocomplete/suggest?${params.toString()}`;
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5_000);
-
-        const res = await fetch(apiUrl, {
-            signal:  controller.signal,
-            headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
-        });
-        clearTimeout(timer);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        // Pick the first result that is a City-level match (not a Locality/Project)
-        const match = data.suggest?.find(s => s.E_TYPE === 'City' && s.LOC_URL && s.CITY);
-
-        if (!match) {
-            cityResolutionCache.set(cacheKey, null);
-            return null;
-        }
-
-        const result = {
-            id:      parseInt(match.CITY, 10),
-            urlSlug: slugFromLocUrl(match.LOC_URL),
-        };
-        cityResolutionCache.set(cacheKey, result);
-        log.info(`[CityResolver] API resolved "${cityName}" → id=${result.id} slug=${result.urlSlug}`);
-        return result;
-    } catch (err) {
-        log.warn(`[CityResolver] API lookup failed for "${cityName}": ${err.message}`);
-        cityResolutionCache.set(cacheKey, null);  // cache the miss
-        return null;
-    }
-}
-
-/**
- * Build the best possible 99acres URL for the given search parameters.
- *
- * Resolution order:
- *   1. Static CITY_DATA map (instant, no network)
- *   2. 99acres autocomplete API (only for unmapped cities, result is cached)
- *   3. Generic city listing page fallback
- */
-async function build99acresURL(city, maxPrice, propertyType) {
-    let { id: cityId, urlSlug: citySlug } = resolveCity(city);
-
-    // If the static map didn't have this city, try the live autocomplete API
-    if (!cityId || !citySlug) {
-        const apiResult = await resolveCityFromAPI(city);
-        if (apiResult) {
-            cityId   = apiResult.id;
-            citySlug = apiResult.urlSlug;
+        if (!best.has(key)) {
+            best.set(key, p);
+        } else {
+            // Keep whichever has more non-empty fields
+            const existing     = best.get(key);
+            const countFilled  = obj => Object.values(obj).filter(v => v && v !== '').length;
+            if (countFilled(p) > countFilled(existing)) best.set(key, p);
         }
     }
 
-    const slug        = PROPERTY_TYPE_SLUGS[propertyType] || null;
-    const budgetIndex = getBudgetMaxIndex(maxPrice);
-
-    // ── Deterministic path: city ID and slug are both known ──
-    if (cityId && citySlug && slug) {
-        const params = new URLSearchParams();
-        params.set('city', String(cityId));
-        if (budgetIndex !== null) params.set('budget_max', String(budgetIndex));
-
-        const url = `https://www.99acres.com/search/property/buy/${slug}/${citySlug}?${params.toString()}`;
-        log.info(`[Firecrawl] Deterministic URL: ${url}`);
-        return { url, isDeterministic: true };
-    }
-
-    // ── Fallback: city truly unknown or property type unmapped ──
-    const formattedLocation = city.toLowerCase().replace(/\s+/g, '-');
-    const url = `https://www.99acres.com/property-in-${formattedLocation}-ffid`;
-    log.info(`[Firecrawl] Fallback URL (city/type not mapped): ${url}`);
-    return { url, isDeterministic: false };
+    return Array.from(best.values());
 }
 
 /**
- * Wraps a promise with a timeout. Rejects if the promise doesn't resolve in time.
+ * Round-robin interleave properties from different sources so the final
+ * slice contains a proportional mix (e.g. 6 99acres + 6 magicbricks)
+ * rather than all properties from the first source.
+ */
+function interleaveBySource(properties, limit) {
+    const queues = {};
+    for (const p of properties) {
+        const src = p.source || 'unknown';
+        if (!queues[src]) queues[src] = [];
+        queues[src].push(p);
+    }
+    const groups = Object.values(queues);
+    const result = [];
+    let round = 0;
+    while (result.length < limit) {
+        let added = 0;
+        for (const group of groups) {
+            if (result.length >= limit) break;
+            if (round < group.length) { result.push(group[round]); added++; }
+        }
+        if (added === 0) break;
+        round++;
+    }
+    return result;
+}
+
+/**
+ * Drop PG/rental listings and properties outside the user's budget.
+ * Allows ±15 % tolerance so rounding in displayed prices doesn't incorrectly
+ * reject a valid listing.
+ */
+function filterValidProperties(properties, minPrice, maxPrice) {
+    return properties.filter(p => {
+        const price = p.total_price || '';
+
+        // Reject price strings that look like rentals
+        if (/\/bed|\/bedroom|\/month|\/day/i.test(price)) return false;
+
+        // Reject URLs that are clearly rentals/PG
+        const url = p.property_url || '';
+        if (/paying.guest|pg-for-rent|for-rent/.test(url)) return false;
+
+        // Parse and validate against budget
+        const priceInCr = parsePriceToCrores(price);
+        if (priceInCr === null) return false;
+
+        const max = parseFloat(maxPrice) || 0;
+        const min = parseFloat(minPrice) || 0;
+
+        if (max > 0 && priceInCr > max * 1.15) return false;
+        if (min > 0 && priceInCr < min * 0.85) return false;
+
+        return true;
+    });
+}
+
+/**
+ * Sanitize user-input strings before embedding in queries or logs.
+ */
+function sanitize(input, maxLen = 60) {
+    if (typeof input !== 'string') return '';
+    return input
+        .replace(/[\x00-\x1F\x7F]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, maxLen);
+}
+
+/**
+ * Wraps a promise with a hard timeout.
  */
 function withTimeout(promise, ms, label) {
     return Promise.race([
@@ -274,167 +247,172 @@ function withTimeout(promise, ms, label) {
 }
 
 /**
- * Check whether a Firecrawl error is a transient failure that can be retried.
- * Covers proxy tunnel failures, rate limits, and temporary server errors.
+ * Classify a Firecrawl error as retryable and return the reason, or null.
  */
 function isRetryableError(err) {
-    const msg = String(err?.message || '').toLowerCase();
+    const msg  = String(err?.message || '').toLowerCase();
     const code = err?.statusCode || err?.status || 0;
-    // Proxy / tunnel failures
-    if (msg.includes('err_tunnel_connection_failed')
-        || msg.includes('proxy error')
-        || msg.includes('internal proxy')) return 'proxy';
-    // Rate-limited
+    if (msg.includes('err_tunnel_connection_failed') || msg.includes('proxy error') || msg.includes('internal proxy')) return 'proxy';
     if (code === 429 || msg.includes('rate limit')) return 'rate_limit';
-    // Temporary server error
     if (code === 503 || code === 502 || msg.includes('temporarily unavailable')) return 'server';
     return null;
 }
 
-/**
- * Sanitize user-input strings before embedding in URLs or logs.
- * Strips control chars, trims, collapses whitespace, limits length.
- */
-function sanitize(input, maxLen = 60) {
-    if (typeof input !== 'string') return '';
-    return input
-        .replace(/[\x00-\x1F\x7F]/g, '')   // strip control chars
-        .trim()
-        .replace(/\s+/g, ' ')                // collapse whitespace
-        .slice(0, maxLen);
-}
+// ── Service class ─────────────────────────────────────────────────────────────
 
 class FirecrawlService {
     constructor(apiKey) {
-        if (!apiKey) {
-            throw new Error('[FirecrawlService] API key is required — no fallback allowed.');
-        }
+        if (!apiKey) throw new Error('[FirecrawlService] API key is required — no fallback allowed.');
         this.firecrawl = new FirecrawlApp({ apiKey });
     }
 
-    async findProperties(city, maxPrice, propertyCategory = "Residential", propertyType = "Flat", limit = 6) {
+    /**
+     * Find properties matching the user's criteria.
+     *
+     * Flow:
+     *   1. Build base query (no site: filter)
+     *   2. Search all active sources in parallel with inline JSON extraction (scrapeOptions)
+     *      — Firecrawl searches + extracts structured data in one call, no separate scrapes
+     *   3. Collect property objects directly from search result items (.json field)
+     *   4. Code-side filter (reject PG / rental / out-of-budget)
+     *   5. Deduplicate properties (same building + BHK across sites)
+     *   6. Return top `limit` results
+     */
+    async findProperties({
+        city,
+        locality       = '',
+        bhk            = 'Any',
+        minPrice       = '0',
+        maxPrice       = '5',
+        propertyType   = 'Flat',
+        propertyCategory = 'Residential',
+        possession     = 'any',
+        includeNoBroker = false,
+        limit          = 12,
+    }) {
         try {
-            // Sanitize user inputs before using them in URLs / prompts
-            city = sanitize(city, 40);
-            propertyCategory = sanitize(propertyCategory, 30);
+            city         = sanitize(city, 40);
+            locality     = sanitize(locality, 40);
             propertyType = sanitize(propertyType, 20);
 
             if (!city) throw new Error('City name is required');
 
-            // Build the best possible URL (deterministic if city is known, fallback otherwise)
-            // build99acresURL is async: it may call the 99acres autocomplete API for
-            // cities not in the static map, but only once per city (result is cached).
-            const { url, isDeterministic } = await build99acresURL(city, maxPrice, propertyType);
+            // ── Step 1: Build base query ────────────────────────────────────
+            const baseQuery = buildSearchQuery({ city, locality, bhk, maxPrice, propertyType, possession });
 
-            // Use a precise, type-aware prompt label
-            const propertyTypeLabel = PROPERTY_TYPE_LABELS[propertyType] || propertyType;
-
-            // Format budget for the prompt in human-readable form
-            const priceNum = parseFloat(maxPrice);
+            const priceNum    = parseFloat(maxPrice);
             const budgetLabel = priceNum < 1
                 ? `${Math.round(priceNum * 100)} Lakhs`
                 : `${priceNum} Crores`;
 
-            const propertySchema = {
-                type: "object",
-                properties: {
-                    properties: {
-                        type: "array",
-                        description: `List of exactly ${limit} property details`,
-                        items: {
-                            type: "object",
-                            properties: {
-                                building_name: {
-                                    type: "string",
-                                    description: "Name of the building/property"
-                                },
-                                property_type: {
-                                    type: "string",
-                                    description: "Type of property (e.g. Flat, Independent House, Villa, Plot)"
-                                },
-                                location_address: {
-                                    type: "string",
-                                    description: "Complete address of the property"
-                                },
-                                price: {
-                                    type: "string",
-                                    description: "Price of the property in INR (e.g. ₹45 L, ₹1.2 Cr)"
-                                },
-                                description: {
-                                    type: "string",
-                                    description: "Brief description (max 50 words)"
-                                },
-                                amenities: {
-                                    type: "array",
-                                    items: { type: "string" },
-                                    description: "Top 3-5 amenities only"
-                                },
-                                area_sqft: {
-                                    type: "string",
-                                    description: "Area in square feet"
-                                },
-                                bedrooms: {
-                                    type: "string",
-                                    description: "Number of bedrooms (e.g. 2 BHK, 3 BHK)"
-                                },
-                                property_url: {
-                                    type: "string",
-                                    description: "Direct URL link to this specific property listing on 99acres"
-                                }
-                            },
-                            required: ["building_name", "property_type", "location_address", "price"]
-                        }
-                    }
-                },
-                required: ["properties"]
-            };
+            // Decide which sources to search
+            const activeSources = ['99acres', 'magicbricks', 'housing'];
+            if (includeNoBroker) activeSources.push('nobroker');
 
-            // Build a more precise prompt — reinforces filters even on a pre-filtered page
-            const promptLines = [
-                `Extract exactly ${limit} ${propertyCategory} ${propertyTypeLabel} listed for sale in ${city}.`,
-                `Maximum budget: ${budgetLabel}.`,
-                `Only include properties priced at or below ${budgetLabel}.`,
-                `For each property, extract the building name, type, full address, price, area in sqft, bedrooms, amenities, and the direct 99acres listing URL.`,
-                `Return exactly ${limit} properties, no more, no fewer.`,
-            ];
-            if (!isDeterministic) {
-                // On the generic page we need the LLM to filter harder
-                promptLines.push(`IMPORTANT: This is a general listing page. Carefully filter ONLY ${propertyTypeLabel} — ignore all other property types.`);
+            console.log('\n[DEBUG] ─── Firecrawl Multi-Source Search ──────────────');
+            console.log('[DEBUG] Base query   :', baseQuery);
+            console.log('[DEBUG] Sources      :', activeSources.join(', '));
+            console.log('[DEBUG] City         :', city, locality ? `| Locality: ${locality}` : '');
+            console.log('[DEBUG] BHK          :', bhk);
+            console.log('[DEBUG] Budget       :', minPrice, '–', maxPrice, 'Cr →', budgetLabel);
+            console.log('[DEBUG] Type         :', propertyType);
+            console.log('[DEBUG] Possession   :', possession);
+            console.log('[DEBUG] NoBroker     :', includeNoBroker);
+            console.log('[DEBUG] ────────────────────────────────────────────────\n');
+
+            // ── Step 2: Parallel search + inline extraction across all active sources ─
+            // scrapeOptions tells Firecrawl to extract structured JSON from each result
+            // page it finds. No separate scrapeUrl calls needed — one API call per source.
+            const searchPromises = activeSources.map(sourceKey => {
+                const { domain, limit: srcLimit } = SEARCH_SOURCES[sourceKey];
+                const query = `${baseQuery} site:${domain}`;
+                return withTimeout(
+                    this.firecrawl.search(query, {
+                        limit: srcLimit,
+                        country: 'in',
+                        lang: 'en',
+                        scrapeOptions: {
+                            formats:         ["json"],
+                            jsonOptions:     { prompt: SEARCH_RESULT_PROMPT, schema: SEARCH_RESULT_SCHEMA },
+                            onlyMainContent: true,
+                        },
+                    }),
+                    SEARCH_TIMEOUT_MS,
+                    `search:${sourceKey}`
+                ).then(result => ({ sourceKey, data: result?.data || [] }))
+                 .catch(err => {
+                     log.warn(`[Firecrawl] Search failed for ${sourceKey}: ${err.message}`);
+                     return { sourceKey, data: [] };
+                 });
+            });
+
+            const searchResults = await Promise.all(searchPromises);
+
+            // ── Step 3: Flatten per-result property arrays ──────────────────
+            // Each result item: { url, title, description, json: { properties: [...] } }
+            // A category page contributes multiple items; a detail page contributes one.
+            const rawProperties = searchResults.flatMap(({ sourceKey, data }) => {
+                const extracted = [];
+                for (const result of data) {
+                    const items = result.json?.properties;
+                    if (!Array.isArray(items) || items.length === 0) continue;
+                    for (const prop of items) {
+                        extracted.push({
+                            ...prop,
+                            property_url: result.url,
+                            source:       sourceKey,
+                        });
+                    }
+                }
+                return extracted;
+            });
+
+            console.log('[DEBUG] ─── Search + Extract Results (all sources) ───────');
+            searchResults.forEach(({ sourceKey, data }) => {
+                const propCount = data.reduce((n, r) => n + (r.json?.properties?.length || 0), 0);
+                console.log(`[DEBUG] ${sourceKey.padEnd(12)}: ${data.length} pages → ${propCount} properties`);
+            });
+            console.log('[DEBUG] Total raw properties :', rawProperties.length);
+            rawProperties.forEach((p, i) =>
+                console.log(`[DEBUG] [${i}] [${p.source}] name=${p.building_name} | price=${p.total_price} | bhk=${p.bhk_config}`)
+            );
+            console.log('[DEBUG] ────────────────────────────────────────────────\n');
+
+            if (rawProperties.length === 0) {
+                return { properties: [] };
             }
 
-            // ── Use scrapeUrl with JSON format instead of extract() ──
-            // extract() returns empty arrays for 99acres pages because it uses a
-            // different (agentic) pipeline.  scrapeUrl with formats:["json"] does a
-            // full browser render first and then applies LLM extraction, which works
-            // reliably on JS-heavy listing pages like 99acres.
-            log.info(`[Firecrawl] Scraping (json) from: ${url}`);
+            // ── Step 4: Filter (reject PG / rental / out-of-budget) ─────────
+            const filtered = filterValidProperties(rawProperties, minPrice, maxPrice);
 
-            const scrapeOpts = {
-                formats: ["json"],
-                jsonOptions: {
-                    prompt: promptLines.join(' '),
-                    schema: propertySchema
-                },
-                waitFor: 10000,
-                timeout: FIRECRAWL_TIMEOUT_MS,  // tell Firecrawl server-side to cap too
-                onlyMainContent: true
-            };
+            // ── Step 5: Deduplicate same property across portals ────────────
+            const deduplicated = deduplicateProperties(filtered);
 
-            const scrapeResult = await this._scrapeWithRetry(url, scrapeOpts, `findProperties(${city})`);
+            console.log('[DEBUG] ─── After Filter + Dedup ───────────────────────');
+            console.log('[DEBUG] After filter         :', filtered.length, '/', rawProperties.length);
+            console.log('[DEBUG] After dedup          :', deduplicated.length);
+            deduplicated.forEach((p, i) =>
+                console.log(`[DEBUG] [${i}] ✓ [${p.source}] name=${p.building_name} | price=${p.total_price}`)
+            );
+            console.log('[DEBUG] ────────────────────────────────────────────────\n');
 
-            // scrapeUrl returns extracted JSON at scrapeResult.json
-            const rawProperties = scrapeResult.json?.properties || [];
+            // Normalise field names so existing AI service stays compatible
+            const properties = interleaveBySource(deduplicated, limit).map(p => ({
+                ...p,
+                price:     p.total_price,
+                area_sqft: p.carpet_area_sqft || p.superbuiltup_area_sqft || '',
+            }));
 
-            // Enforce limit in code — never trust the LLM to respect it
-            const properties = rawProperties.slice(0, limit);
-            log.info(`[Firecrawl] Extracted ${rawProperties.length} properties, returning ${properties.length}`);
-
+            log.info(`[Firecrawl] Returning ${properties.length} properties for ${city} (sources: ${activeSources.join(', ')})`);
             return { properties };
+
         } catch (error) {
             log.error('Error finding properties:', error.message || error);
             throw error;
         }
     }
+
+    // ── Location trends (unchanged from previous version) ────────────────────
 
     async getLocationTrends(city, limit = 5) {
         try {
@@ -442,8 +420,6 @@ class FirecrawlService {
             if (!city) throw new Error('City name is required');
 
             const formattedLocation = city.toLowerCase().replace(/\s+/g, '-');
-
-            // Use specific trends page URL — NO wildcard
             const url = `https://www.99acres.com/property-rates-and-price-trends-in-${formattedLocation}-prffid`;
 
             const locationSchema = {
@@ -455,65 +431,49 @@ class FirecrawlService {
                         items: {
                             type: "object",
                             properties: {
-                                location: { type: "string" },
-                                price_per_sqft: { type: "number" },
+                                location:         { type: "string" },
+                                price_per_sqft:   { type: "number" },
                                 percent_increase: { type: "number" },
-                                rental_yield: { type: "number" }
+                                rental_yield:     { type: "number" },
                             },
-                            required: ["location", "price_per_sqft", "percent_increase", "rental_yield"]
-                        }
-                    }
+                            required: ["location", "price_per_sqft", "percent_increase", "rental_yield"],
+                        },
+                    },
                 },
-                required: ["locations"]
+                required: ["locations"],
             };
 
-            // ── Use scrapeUrl with JSON format instead of extract() ──
-            log.info(`[Firecrawl] Scraping trends (json) from: ${url}`);
-
-            const scrapeOpts = {
-                formats: ["json"],
+            log.info(`[Firecrawl] Scraping trends from: ${url}`);
+            const scrapeResult = await this._scrapeWithRetry(url, {
+                formats:         ["json"],
                 jsonOptions: {
-                    prompt: `From this page, extract price trend data for ${limit} major localities in ${city}. Include: location name, price per sqft, yearly percent increase, and rental yield.`,
-                    schema: locationSchema
+                    prompt:  `Extract price trend data for ${limit} major localities in ${city}. Include location name, price per sqft, yearly percent increase, and rental yield.`,
+                    schema:  locationSchema,
                 },
-                waitFor: 10000,
-                timeout: FIRECRAWL_TIMEOUT_MS,
-                onlyMainContent: true
-            };
+                waitFor:         10000,
+                timeout:         FIRECRAWL_TIMEOUT_MS,
+                onlyMainContent: true,
+            }, `getLocationTrends(${city})`);
 
-            const scrapeResult = await this._scrapeWithRetry(url, scrapeOpts, `getLocationTrends(${city})`);
-
-            // scrapeUrl returns extracted JSON at scrapeResult.json
             const rawLocations = scrapeResult.json?.locations || [];
-
-            // Enforce limit in code
-            const locations = rawLocations.slice(0, limit);
+            const locations    = rawLocations.slice(0, limit);
             log.info(`[Firecrawl] Extracted ${rawLocations.length} locations, returning ${locations.length}`);
-
             return { locations };
+
         } catch (error) {
             log.error('Error fetching location trends:', error.message || error);
             throw error;
         }
     }
 
-    // ── Shared retry helper ──────────────────────────────────────────────────
+    // ── Shared retry helper ───────────────────────────────────────────────────
 
-    /**
-     * Attempt scrapeUrl with geo-proxy first, then retry on transient errors.
-     * Retry strategy:
-     *   1. Try with location: { country: "IN" }
-     *   2. On proxy error → retry WITHOUT geo-proxy
-     *   3. On rate-limit / 503 → back off and retry WITH same options
-     */
     async _scrapeWithRetry(url, baseOpts, label) {
         let lastError;
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-            const useGeo = attempt === 0; // first attempt includes geo-proxy
-            const opts = useGeo
-                ? { ...baseOpts, location: { country: "IN" } }
-                : { ...baseOpts };        // subsequent retries skip geo-proxy
+            const useGeo = attempt === 0;
+            const opts   = useGeo ? { ...baseOpts, location: { country: "IN" } } : { ...baseOpts };
 
             try {
                 const result = await withTimeout(
@@ -521,25 +481,17 @@ class FirecrawlService {
                     FIRECRAWL_TIMEOUT_MS,
                     `${label} (attempt ${attempt + 1})`
                 );
-
                 if (!result.success) {
-                    throw new Error(`Firecrawl returned error: ${result.error || 'Unknown error'}`);
+                    throw new Error(`Firecrawl error: ${result.error || 'Unknown'}`);
                 }
                 return result;
             } catch (err) {
                 lastError = err;
                 const reason = isRetryableError(err);
+                if (!reason || attempt === MAX_RETRIES) break;
 
-                if (!reason || attempt === MAX_RETRIES) {
-                    // Non-retryable or exhausted retries
-                    break;
-                }
-
-                // Back off: 2s for proxy, 3s for rate limit, 1s for server
-                const delayMs = reason === 'rate_limit' ? 3000
-                              : reason === 'proxy'      ? 2000
-                              :                           1000;
-                log.warn(`[Firecrawl] ${reason} error on attempt ${attempt + 1}, retrying in ${delayMs / 1000}s…`);
+                const delayMs = reason === 'rate_limit' ? 3000 : reason === 'proxy' ? 2000 : 1000;
+                log.warn(`[Firecrawl] ${reason} on attempt ${attempt + 1}, retrying in ${delayMs / 1000}s…`);
                 await new Promise(r => setTimeout(r, delayMs));
             }
         }
@@ -550,8 +502,7 @@ class FirecrawlService {
 
 /**
  * Factory — create a FirecrawlService with a caller-supplied API key.
- * The default-singleton export is intentionally removed:
- * server env-var keys MUST NOT be used as a fallback.
+ * Server env-var keys MUST NOT be used as a fallback.
  */
 export function createFirecrawlService(apiKey) {
     return new FirecrawlService(apiKey);

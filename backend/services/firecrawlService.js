@@ -1,4 +1,5 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
+import { registry } from "../utils/circuitBreaker.js";
 
 // Per-page scrape cap and search timeout
 const FIRECRAWL_TIMEOUT_MS = 60_000;
@@ -264,6 +265,19 @@ class FirecrawlService {
     constructor(apiKey) {
         if (!apiKey) throw new Error('[FirecrawlService] API key is required — no fallback allowed.');
         this.firecrawl = new FirecrawlApp({ apiKey });
+
+        // Initialize circuit breakers for different operation types
+        this.searchCircuit = registry.getBreaker('firecrawl-search', {
+            failureThreshold: 4,
+            timeout: 120000, // 2 minutes
+            name: 'firecrawl-search'
+        });
+
+        this.scrapeCircuit = registry.getBreaker('firecrawl-scrape', {
+            failureThreshold: 5,
+            timeout: 90000, // 1.5 minutes
+            name: 'firecrawl-scrape'
+        });
     }
 
     /**
@@ -326,27 +340,42 @@ class FirecrawlService {
             const searchPromises = activeSources.map(sourceKey => {
                 const { domain, limit: srcLimit } = SEARCH_SOURCES[sourceKey];
                 const query = `${baseQuery} site:${domain}`;
-                return withTimeout(
-                    this.firecrawl.search(query, {
-                        limit: srcLimit,
-                        country: 'in',
-                        lang: 'en',
-                        scrapeOptions: {
-                            formats:         ["json"],
-                            jsonOptions:     { prompt: SEARCH_RESULT_PROMPT, schema: SEARCH_RESULT_SCHEMA },
-                            onlyMainContent: true,
-                        },
-                    }),
-                    SEARCH_TIMEOUT_MS,
-                    `search:${sourceKey}`
-                ).then(result => ({ sourceKey, data: result?.data || [] }))
-                 .catch(err => {
-                     log.warn(`[Firecrawl] Search failed for ${sourceKey}: ${err.message}`);
-                     return { sourceKey, data: [] };
-                 });
+
+                // Wrap search operation with circuit breaker
+                return this.searchCircuit.execute(async () => {
+                    return await withTimeout(
+                        this.firecrawl.search(query, {
+                            limit: srcLimit,
+                            country: 'in',
+                            lang: 'en',
+                            scrapeOptions: {
+                                formats:         ["json"],
+                                jsonOptions:     { prompt: SEARCH_RESULT_PROMPT, schema: SEARCH_RESULT_SCHEMA },
+                                onlyMainContent: true,
+                            },
+                        }),
+                        SEARCH_TIMEOUT_MS,
+                        `search:${sourceKey}`
+                    );
+                }).then(result => ({ sourceKey, data: result?.data || [], error: null }))
+                .catch(err => {
+                    log.warn(`[Firecrawl] Search failed for ${sourceKey}: ${err.message}`);
+                    return { sourceKey, data: [], error: err };
+                });
             });
 
             const searchResults = await Promise.all(searchPromises);
+
+            // Check if ALL sources failed with 402 (insufficient credits)
+            const all402 = searchResults.every(r =>
+                r.error && (r.error.message?.includes('402') || r.error.message?.includes('Insufficient credits'))
+            );
+            if (all402) {
+                const err = new Error('Firecrawl API credits exhausted. Please upgrade your plan at https://firecrawl.dev/pricing');
+                err.code = 'FIRECRAWL_CREDITS_EXHAUSTED';
+                err.statusCode = 402;
+                throw err;
+            }
 
             // ── Step 3: Flatten per-result property arrays ──────────────────
             // Each result item: { url, title, description, json: { properties: [...] } }
@@ -476,11 +505,15 @@ class FirecrawlService {
             const opts   = useGeo ? { ...baseOpts, location: { country: "IN" } } : { ...baseOpts };
 
             try {
-                const result = await withTimeout(
-                    this.firecrawl.scrapeUrl(url, opts),
-                    FIRECRAWL_TIMEOUT_MS,
-                    `${label} (attempt ${attempt + 1})`
-                );
+                // Wrap scrape operation with circuit breaker
+                const result = await this.scrapeCircuit.execute(async () => {
+                    return await withTimeout(
+                        this.firecrawl.scrapeUrl(url, opts),
+                        FIRECRAWL_TIMEOUT_MS,
+                        `${label} (attempt ${attempt + 1})`
+                    );
+                });
+
                 if (!result.success) {
                     throw new Error(`Firecrawl error: ${result.error || 'Unknown'}`);
                 }

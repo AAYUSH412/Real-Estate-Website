@@ -311,7 +311,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange }) => {
         {/* Reset Filters Button */}
         <button
           onClick={handleReset}
-          className="w-full bg-transparent border border-[#D4755B] text-[#D4755B] font-manrope font-bold text-base py-4 rounded-xl transition-all hover:bg-[#D4755B] hover:text-white sticky bottom-0"
+          className="w-full bg-white border border-[#D4755B] text-[#D4755B] font-manrope font-bold text-base py-4 rounded-xl transition-all hover:bg-[#D4755B] hover:text-white sticky bottom-0"
         >
           Reset Filters
         </button>

@@ -19,6 +19,9 @@ import Add from "./pages/Add";
 import Update from "./pages/Update";
 import Appointments from "./pages/Appointments";
 import PendingListings from "./pages/PendingListings";
+import Users from "./pages/Users";
+import UserDetails from "./pages/UserDetails";
+import ActivityLogs from "./pages/ActivityLogs";
 
 // Page transition variants
 const pageVariants = {
@@ -58,6 +61,9 @@ const AppLayout = () => {
               <Route path="/update/:id" element={<Update />} />
               <Route path="/appointments" element={<Appointments />} />
               <Route path="/pending-listings" element={<PendingListings />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/users/:id" element={<UserDetails />} />
+              <Route path="/activity-logs" element={<ActivityLogs />} />
             </Route>
 
             {/* 404 Route */}

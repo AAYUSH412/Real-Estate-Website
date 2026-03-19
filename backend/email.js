@@ -208,3 +208,91 @@ export const getListingRejectedTemplate = (propertyTitle, reason) => wrap(
 
   <p style="font-size:13px;color:${BRAND.muted};margin:0;">If you have questions, reply to this email or visit our <a href="${BRAND.site}/contact" style="color:${BRAND.color};text-decoration:none;">contact page</a>.</p>`
 );
+// ── User Management Email Templates ──────────────────────────────────────
+
+export const getUserSuspendedTemplate = (userName, days, reason, suspendedUntil) => wrap(
+  'Account Temporarily Suspended',
+  `<p style="margin:0 0 20px;font-size:15px;">Hello ${userName},</p>
+  
+  <p style="margin:0 0 20px;font-size:15px;">Your BuildEstate account has been temporarily suspended for ${days} day${days > 1 ? 's' : ''}. During this period, you will not be able to access your account or post new listings.</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('Account', userName)}
+      ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#fef3c7;color:#92400e;">Suspended</span>')}
+      ${row('Duration', `${days} day${days > 1 ? 's' : ''}`)}
+      ${row('Reactivation Date', new Date(suspendedUntil).toLocaleDateString())}
+      ${row('Reason', reason)}
+    </table>
+  </div>
+
+  <div style="background:#fffbeb;border-left:3px solid #d97706;padding:14px 16px;border-radius:6px;font-size:14px;color:#92400e;margin-bottom:24px;">
+    <strong>What happens next:</strong><br>
+    • Your account will be automatically reactivated on ${new Date(suspendedUntil).toLocaleDateString()}<br>
+    • Your existing listings have been temporarily hidden<br>
+    • You can still receive emails about your listings
+  </div>
+
+  <p style="font-size:15px;margin:20px 0;">If you believe this suspension was made in error, please contact our support team for assistance.</p>
+
+  ${btn(BRAND.site + '/contact', 'Contact Support')}
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:0;">This is an automated message. Please do not reply to this email.</p>`
+);
+
+export const getUserBannedTemplate = (userName, reason) => wrap(
+  'Account Permanently Banned',
+  `<p style="margin:0 0 20px;font-size:15px;">Hello ${userName},</p>
+  
+  <p style="margin:0 0 20px;font-size:15px;">After careful review, your BuildEstate account has been permanently banned due to violations of our terms of service.</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('Account', userName)}
+      ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#fee2e2;color:#991b1b;">Permanently Banned</span>')}
+      ${row('Effective Date', new Date().toLocaleDateString())}
+      ${row('Reason', reason)}
+    </table>
+  </div>
+
+  <div style="background:#fef2f2;border-left:3px solid #dc2626;padding:14px 16px;border-radius:6px;font-size:14px;color:#991b1b;margin-bottom:24px;">
+    <strong>Account Impact:</strong><br>
+    • You can no longer access your BuildEstate account<br>
+    • All your listings have been removed from the platform<br>
+    • Creating new accounts is prohibited
+  </div>
+
+  <p style="font-size:15px;margin:20px 0;">If you believe this action was taken in error, you may appeal this decision by contacting our support team within 30 days.</p>
+
+  ${btn(BRAND.site + '/contact', 'Submit Appeal')}
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:0;">This is an automated message. Please do not reply to this email.</p>`
+);
+
+export const getUserReactivatedTemplate = (userName) => wrap(
+  'Account Reactivated - Welcome Back!',
+  `<p style="margin:0 0 20px;font-size:15px;">Hello ${userName},</p>
+  
+  <p style="margin:0 0 20px;font-size:15px;">Great news! Your BuildEstate account has been reactivated and you now have full access to all platform features.</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('Account', userName)}
+      ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#dcfce7;color:#166534;">Active</span>')}
+      ${row('Reactivated On', new Date().toLocaleDateString())}
+    </table>
+  </div>
+
+  <div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:14px 16px;border-radius:6px;font-size:14px;color:#166534;margin-bottom:24px;">
+    <strong>What's restored:</strong><br>
+    • Full access to your account dashboard<br>
+    • Ability to post and manage listings<br>
+    • Access to all BuildEstate features
+  </div>
+
+  <p style="margin:20px 0;font-size:15px;">We're glad to have you back! You can now log in and resume using BuildEstate.</p>
+
+  ${btn(BRAND.site + '/login', 'Log In to Your Account')}
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:0;">Thank you for being part of the BuildEstate community.</p>`
+);

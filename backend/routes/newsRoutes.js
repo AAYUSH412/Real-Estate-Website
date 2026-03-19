@@ -1,5 +1,5 @@
 import express from 'express';
-import { submitNewsletter } from '../controller/newscontroller.js';
+import { submitNewsletter } from '../controller/newsController.js';
 
 const newsrouter = express.Router();
 

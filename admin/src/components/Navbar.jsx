@@ -15,6 +15,8 @@ import {
   ChevronDown,
   Settings,
   ClipboardList,
+  Users,
+  FileText,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -23,6 +25,7 @@ const Navbar = () => {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -42,19 +45,31 @@ const Navbar = () => {
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
     setIsProfileOpen(false);
+    setIsMoreOpen(false);
   };
 
   const toggleProfile = () => {
     setIsProfileOpen(!isProfileOpen);
     setIsMenuOpen(false);
+    setIsMoreOpen(false);
+  };
+
+  const toggleMore = () => {
+    setIsMoreOpen(!isMoreOpen);
+    setIsProfileOpen(false);
   };
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/list', label: 'Properties', icon: List },
+    { path: '/pending-listings', label: 'Review', icon: ClipboardList },
+    { path: '/users', label: 'Users', icon: Users },
+    { path: '/appointments', label: 'Bookings', icon: Calendar },
+  ];
+
+  const secondaryItems = [
     { path: '/add', label: 'Add Property', icon: PlusSquare },
-    { path: '/appointments', label: 'Appointments', icon: Calendar },
-    { path: '/pending-listings', label: 'Review Queue', icon: ClipboardList },
+    { path: '/activity-logs', label: 'Logs', icon: FileText },
   ];
 
   return (
@@ -116,6 +131,41 @@ const Navbar = () => {
                 )}
               </Link>
             ))}
+            {/* Secondary actions dropdown */}
+            <div className="relative">
+              <button
+                className="flex items-center gap-1 px-3 py-2 text-[#9CA3AF] hover:text-[#FAF8F4] hover:bg-white/10 rounded-lg text-sm font-medium transition-all duration-200"
+                onClick={toggleMore}
+              >
+                <Settings className="h-4 w-4" />
+                More
+                <ChevronDown className="h-3 w-3" />
+              </button>
+
+              <AnimatePresence>
+                {isMoreOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-2 w-40 bg-[#1C1B1A] border border-white/10 rounded-xl shadow-2xl py-2 overflow-hidden z-50"
+                  >
+                    {secondaryItems.map((item) => (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setIsMoreOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-[#9CA3AF] hover:text-[#FAF8F4] hover:bg-white/10 transition-colors"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </nav>
 
           {/* Desktop Right Actions */}
@@ -234,6 +284,26 @@ const Navbar = () => {
                   {item.label}
                 </Link>
               ))}
+
+              {/* Secondary items */}
+              <div className="pt-2 mt-2 border-t border-white/10">
+                {secondaryItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200',
+                      isActive(item.path)
+                        ? 'bg-[#D4755B] text-white'
+                        : 'text-[#9CA3AF] hover:text-[#FAF8F4] hover:bg-white/10'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
 
               {/* Mobile Profile */}
               <div className="pt-3 mt-3 border-t border-white/10">

@@ -3,7 +3,7 @@ import { createFirecrawlService } from '../services/firecrawlService.js';
 import { createAIService } from '../services/aiService.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
 import imagekit from '../config/imagekit.js';
-import Property from '../models/propertymodel.js';
+import Property from '../models/propertyModel.js';
 
 // ── Simple in-memory cache (10-minute TTL) ────────────────────────────────────
 const _cache = new Map();
@@ -113,6 +113,17 @@ export const searchProperties = async (req, res) => {
             });
         } catch (firecrawlError) {
             console.error('[Firecrawl] Property search failed:', firecrawlError.message);
+
+            // Handle insufficient credits specifically
+            if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED') {
+                return res.status(402).json({
+                    success: false,
+                    message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
+                    error: 'FIRECRAWL_CREDITS_EXHAUSTED',
+                    upgradeUrl: 'https://firecrawl.dev/pricing',
+                });
+            }
+
             return res.status(503).json({
                 success: false,
                 message: 'Property search service temporarily unavailable. Please try again later.',
@@ -208,6 +219,19 @@ export const getLocationTrends = async (req, res) => {
             locationsData = await firecrawlService.getLocationTrends(city, Math.min(limit, 5));
         } catch (firecrawlError) {
             console.error('[Firecrawl] Location trends failed:', firecrawlError.message);
+
+            // Handle insufficient credits specifically
+            if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED' ||
+                firecrawlError.message?.includes('402') ||
+                firecrawlError.message?.includes('Insufficient credits')) {
+                return res.status(402).json({
+                    success: false,
+                    message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
+                    error: 'FIRECRAWL_CREDITS_EXHAUSTED',
+                    upgradeUrl: 'https://firecrawl.dev/pricing',
+                });
+            }
+
             return res.status(503).json({
                 success: false,
                 message: 'Location trends service temporarily unavailable. Please try again later.',
@@ -335,8 +359,35 @@ export const createUserListing = async (req, res) => {
 /** GET /api/user/properties — get all listings by the logged-in user */
 export const getUserListings = async (req, res) => {
     try {
-        const properties = await Property.find({ postedBy: req.user._id }).sort({ createdAt: -1 });
-        res.json({ success: true, properties });
+        // Pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10; // Default 10 per page for user listings
+        const skip = (page - 1) * limit;
+
+        const query = { postedBy: req.user._id };
+
+        // Get total count for pagination metadata
+        const totalProperties = await Property.countDocuments(query);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        // Get properties with pagination
+        const properties = await Property.find(query)
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .skip(skip);
+
+        res.json({
+            success: true,
+            properties,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalProperties,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1,
+                limit
+            }
+        });
     } catch (error) {
         console.error('Error fetching user listings:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch listings', error: error.message });

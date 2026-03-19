@@ -1,6 +1,6 @@
 import fs from "fs";
 import imagekit from "../config/imagekit.js";
-import Property from "../models/propertymodel.js";
+import Property from "../models/propertyModel.js";
 
 const addproperty = async (req, res) => {
     try {
@@ -57,13 +57,40 @@ const addproperty = async (req, res) => {
 
 const listproperty = async (req, res) => {
     try {
+        // Pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20; // Default 20 per page
+        const skip = (page - 1) * limit;
+
         // Only return active properties publicly.
         // Legacy admin-added documents that pre-date the status field are also
         // included via the $exists check so they are not accidentally hidden.
-        const property = await Property.find({
+        const query = {
             $or: [{ status: 'active' }, { status: { $exists: false } }],
+        };
+
+        // Get total count for pagination metadata
+        const totalProperties = await Property.countDocuments(query);
+        const totalPages = Math.ceil(totalProperties / limit);
+
+        // Get properties with pagination
+        const property = await Property.find(query)
+            .sort({ createdAt: -1 }) // Most recent first
+            .limit(limit)
+            .skip(skip);
+
+        res.json({
+            property,
+            success: true,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalProperties,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1,
+                limit
+            }
         });
-        res.json({ property, success: true });
     } catch (error) {
         console.log("Error listing products: ", error);
         res.status(500).json({ message: "Server Error", success: false });

@@ -336,14 +336,14 @@ const AIHubDevPage: React.FC = () => {
     const serverMsg = err?.response?.data?.message || '';
     const serverCode = err?.response?.data?.error || '';
 
-    if (status === 403 || serverCode === 'KEYS_REQUIRED') {
-      return { msg: 'Your API keys are missing or invalid. Please add your GitHub Models and Firecrawl keys.', isKeyError: true };
+    if (status === 403 || serverCode === ‘KEYS_REQUIRED’) {
+      return { msg: ‘Your API keys are missing or invalid. Please add your GitHub Models and Firecrawl keys.’, isKeyError: true };
     }
-    if (status === 402 || serverCode === 'FIRECRAWL_CREDITS_EXHAUSTED') {
-      return { msg: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits at firecrawl.dev/pricing', isKeyError: false };
+    if (status === 402 || serverCode === ‘FIRECRAWL_CREDITS_EXHAUSTED’) {
+      return { msg: ‘Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits at firecrawl.dev/pricing’, isKeyError: false };
     }
-    if (status === 429 || serverCode === 'RATE_LIMIT_EXCEEDED') {
-      return { msg: 'Rate limit reached — you\'ve used 10 AI searches this hour. Please wait before searching again.', isKeyError: false };
+    if (status === 429 || serverCode === ‘RATE_LIMIT_EXCEEDED’) {
+      return { msg: ‘Rate limit reached — you’ve used 10 AI searches this hour. Please wait before searching again.’``, isKeyError: false };
     }
     if (status === 503 || serverCode === 'FIRECRAWL_ERROR') {
       return { msg: 'The property scraping service is temporarily unavailable. Please try again in a few minutes.', isKeyError: false };

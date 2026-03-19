@@ -4,17 +4,19 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import compression from 'compression';
+import mongoSanitize from 'express-mongo-sanitize';
 import connectdb from './config/mongodb.js';
 import { trackAPIStats } from './middleware/statsMiddleware.js';
-import propertyrouter from './routes/ProductRouter.js';
-import userrouter from './routes/UserRoute.js';
-import formrouter from './routes/formrouter.js';
-import newsrouter from './routes/newsRoute.js';
-import appointmentRouter from './routes/appointmentRoute.js';
-import adminRouter from './routes/adminRoute.js';
+import propertyrouter from './routes/productRoutes.js';
+import userrouter from './routes/userRoutes.js';
+import formrouter from './routes/formRoutes.js';
+import newsrouter from './routes/newsRoutes.js';
+import appointmentRouter from './routes/appointmentRoutes.js';
+import adminRouter from './routes/adminRoutes.js';
 import propertyRoutes from './routes/propertyRoutes.js';
 import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
+import { startAutoUnsuspendJob } from './utils/autoUnsuspend.js';
 
 
 dotenv.config({ path: './.env.local' });  // local dev
@@ -77,6 +79,14 @@ app.use(express.urlencoded({ extended: true, limit: '500kb' }));
 
 app.use(trackAPIStats);
 
+// NoSQL injection prevention
+app.use(mongoSanitize({
+  replaceWith: '_',
+  onSanitize: ({ req, key }) => {
+    console.warn(`Sanitized NoSQL injection attempt: ${key} in ${req.originalUrl}`);
+  }
+}));
+
 
 // CORS Configuration
 app.use(cors({
@@ -97,8 +107,25 @@ app.use(cors({
 connectdb().then(() => {
   console.log('Database connected successfully');
   startExpireListingsJob();
+  startAutoUnsuspendJob();
 }).catch(err => {
   console.error('Database connection error:', err);
+  // Don't exit immediately - attempt to retry or continue without DB for health checks
+  console.log('Server will continue running for health checks, but database-dependent features may fail');
+
+  // Optionally retry connection in production
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Will retry database connection in 30 seconds...');
+    setTimeout(() => {
+      connectdb().then(() => {
+        console.log('Database reconnected successfully');
+        startExpireListingsJob();
+        startAutoUnsuspendJob();
+      }).catch(() => {
+        console.error('Database retry failed');
+      });
+    }, 30000);
+  }
 });
 
 
@@ -127,22 +154,45 @@ app.use((err, req, res, next) => {
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (err) => {
-  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.error(err);
-  process.exit(1);
+  console.error('UNHANDLED REJECTION! 💥', err);
+  console.log('Attempting to continue operation...');
+  // Log the error but don't exit - let the application continue
+  // In production, you might want to implement circuit breaker patterns
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
-  console.error(err);
-  process.exit(1);
+  console.error('UNCAUGHT EXCEPTION! 💥', err);
+  console.log('Attempting graceful recovery...');
+  // Log the error but attempt to continue
+  // For truly critical errors, implement proper error recovery
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+let server;
+process.on('SIGTERM', async () => {
   console.log('👋 SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
+  if (server) {
+    server.close(() => {
+      console.log('HTTP server closed.');
+    });
+  }
+  // Give processes time to finish
+  setTimeout(() => {
+    process.exit(0);
+  }, 5000);
+});
+
+process.on('SIGINT', async () => {
+  console.log('👋 SIGINT received. Shutting down gracefully...');
+  if (server) {
+    server.close(() => {
+      console.log('HTTP server closed.');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
 });
 
 // Status check endpoint
@@ -186,7 +236,7 @@ const port = process.env.PORT || 4000;
 
 // Start server
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(port, '0.0.0.0', () => {
+  server = app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on port ${port}`);
   });
 }

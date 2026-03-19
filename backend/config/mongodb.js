@@ -30,23 +30,29 @@ const connectdb = async () => {
       console.log('🔄 MongoDB reconnected');
     });
 
-    // Graceful shutdown
+    // Graceful shutdown (removed process.exit to let main process handle it)
     process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      console.log('MongoDB connection closed due to app termination');
-      process.exit(0);
+      try {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed due to app termination');
+      } catch (closeErr) {
+        console.error('Error closing MongoDB connection:', closeErr);
+      }
     });
 
     return conn;
   } catch (error) {
     console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    
-    // In production, you might want to retry connection instead of exiting
+
+    // In production, retry connection instead of exiting
     if (process.env.NODE_ENV === 'production') {
       console.log('🔄 Retrying connection in 5 seconds...');
       setTimeout(() => connectdb(), 5000);
     } else {
-      process.exit(1);
+      // In development, throw the error instead of exiting
+      // Let the calling code handle the error appropriately
+      console.error('Development mode: MongoDB connection failed');
+      throw error;
     }
   }
 };

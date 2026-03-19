@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import Property from '../models/propertymodel.js';
+import Property from '../models/propertyModel.js';
 
 /**
  * Auto-expire active listings whose expiresAt date has passed.

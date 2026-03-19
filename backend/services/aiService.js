@@ -1,6 +1,7 @@
 import { config } from "../config/config.js";
 import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
+import { registry } from "../utils/circuitBreaker.js";
 
 const PRIMARY_MODEL = "gpt-4.1-mini";
 const FALLBACK_MODEL = "gpt-4.1-nano";
@@ -25,20 +26,49 @@ class AIService {
       "https://models.inference.ai.azure.com",
       new AzureKeyCredential(this.apiKey)
     );
+
+    // Initialize circuit breakers for each model
+    this.primaryCircuit = registry.getBreaker('ai-primary', {
+      failureThreshold: 3,
+      timeout: 60000, // 1 minute
+      name: `ai-${PRIMARY_MODEL}`
+    });
+
+    this.fallbackCircuit = registry.getBreaker('ai-fallback', {
+      failureThreshold: 5,
+      timeout: 120000, // 2 minutes for fallback
+      name: `ai-${FALLBACK_MODEL}`
+    });
   }
 
   /**
-   * Generate text using GitHub Models with automatic fallback.
+   * Generate text using GitHub Models with automatic fallback and circuit breaker protection.
    * Tries PRIMARY_MODEL first; falls back to FALLBACK_MODEL on rate-limit or error.
    */
   async generateText(prompt, systemPrompt = SYSTEM_PROMPT) {
-    const result = await this._callModel(PRIMARY_MODEL, prompt, systemPrompt);
-    if (result) return result;
+    // Try primary model with circuit breaker
+    try {
+      const result = await this.primaryCircuit.execute(async () => {
+        return await this._callModel(PRIMARY_MODEL, prompt, systemPrompt);
+      });
 
-    // Fallback to nano model if primary fails
-    console.warn(`Primary model (${PRIMARY_MODEL}) failed. Falling back to ${FALLBACK_MODEL}...`);
-    const fallbackResult = await this._callModel(FALLBACK_MODEL, prompt, systemPrompt);
-    if (fallbackResult) return fallbackResult;
+      if (result) return result;
+    } catch (error) {
+      console.warn(`[AI] Primary circuit breaker: ${error.message}`);
+    }
+
+    // Fallback to nano model with circuit breaker
+    try {
+      console.warn(`Primary model (${PRIMARY_MODEL}) failed or circuit open. Falling back to ${FALLBACK_MODEL}...`);
+
+      const fallbackResult = await this.fallbackCircuit.execute(async () => {
+        return await this._callModel(FALLBACK_MODEL, prompt, systemPrompt);
+      });
+
+      if (fallbackResult) return fallbackResult;
+    } catch (error) {
+      console.error(`[AI] Fallback circuit breaker: ${error.message}`);
+    }
 
     return JSON.stringify({ error: "AI service is temporarily unavailable. Please try again later." });
   }
@@ -73,18 +103,20 @@ class AIService {
       console.log(`[AI] ${model} responded in ${elapsed}s`);
 
       if (isUnexpected(response)) {
-        console.error(`[AI] ${model} error:`, response.body.error?.message);
-        return null;
+        const errorMsg = response.body.error?.message || 'Unknown AI API error';
+        console.error(`[AI] ${model} error:`, errorMsg);
+        throw new Error(`AI API error: ${errorMsg}`);
       }
 
       return response.body.choices[0].message.content;
     } catch (error) {
       if (error.name === 'AbortError') {
         console.error(`[AI] ${model} aborted — timeout exceeded`);
+        throw new Error(`AI request timeout after ${AI_TIMEOUT_MS / 1000}s`);
       } else {
         console.error(`[AI] ${model} exception:`, error.message);
+        throw error;
       }
-      return null;
     } finally {
       clearTimeout(timer);
     }

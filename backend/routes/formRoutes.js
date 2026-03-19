@@ -1,5 +1,5 @@
 import express from 'express';
-import { submitForm } from '../controller/formcontroller.js';
+import { submitForm } from '../controller/formController.js';
 
 const router = express.Router();
 

@@ -65,6 +65,7 @@
 | 🚀  | [Getting Started](#-getting-started)             |
 | 🔌  | [API Endpoints](#-api-endpoints)                 |
 | 🌐  | [Deployment](#-deployment)                       |
+| 📖  | [Deployment Guide](./DEPLOYMENT.md)              |
 | 📂  | [Project Structure](#-project-structure)         |
 | 🤝  | [Contributing](#-contributing)                   |
 | 👨‍💻 | [Author](#-author)                               |
@@ -412,15 +413,23 @@ flowchart LR
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+ and npm 8+
-- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) free account
-- [ImageKit](https://imagekit.io/) free account
-- [Brevo](https://www.brevo.com/) free SMTP account
+- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) free account (or local MongoDB)
+- [ImageKit](https://imagekit.io/) free account (10GB free tier)
+- [Brevo](https://www.brevo.com/) free SMTP account (for email notifications)
 
 ### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/AAYUSH412/Real-Estate-Website.git
 cd Real-Estate-Website
+
+# Install all dependencies at once (recommended)
+npm run install-all
+
+# OR install manually:
+# cd backend && npm install
+# cd ../frontend && npm install
+# cd ../admin && npm install
 ```
 
 <details>
@@ -431,42 +440,48 @@ cd Real-Estate-Website
 ```bash
 cd backend
 npm install
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Edit `backend/.env.local`:
+Edit `backend/.env` with your actual values:
 
 ```env
-PORT=4000
-NODE_ENV=development
+# Essential Configuration (Required)
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/buildestate?retryWrites=true&w=majority
+JWT_SECRET=your_super_secure_jwt_secret_here  # Generate with: openssl rand -base64 32
+ADMIN_EMAIL=admin@buildestate.com
+ADMIN_PASSWORD=your_secure_admin_password
 
-# MongoDB Atlas
-MONGO_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?retryWrites=true&w=majority
-
-# JWT — generate with: openssl rand -hex 32
-JWT_SECRET=your_jwt_secret_here
-
-# Brevo SMTP
-SMTP_USER=your_smtp_login
-SMTP_PASS=your_smtp_password
-EMAIL=your_sender_email@gmail.com
-
-# Admin credentials
-ADMIN_EMAIL=admin@yourdomain.com
-ADMIN_PASSWORD=your_admin_password
+# Email Service (Brevo SMTP - Free tier available)
+SMTP_USER=your_brevo_smtp_login
+SMTP_PASS=your_brevo_smtp_password
+EMAIL=your_sender_email@domain.com
+BREVO_API_KEY=your_brevo_api_key
 
 # Frontend URL (for CORS + password reset emails)
 WEBSITE_URL=http://localhost:5173
 
-# ImageKit
-IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
-IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
-IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
+# Optional: Image Storage (ImageKit - Free 10GB tier)
+IMAGEKIT_PUBLIC_KEY=public_your_imagekit_public_key
+IMAGEKIT_PRIVATE_KEY=private_your_imagekit_private_key
+IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_imagekit_id
+
+# Optional: AI Services (for AI Property Hub)
+# Users can provide their own keys via frontend, these are server fallbacks
+# FIRECRAWL_API_KEY=fc-your_firecrawl_api_key
+# GITHUB_MODELS_API_KEY=github_pat_your_github_token
 ```
 
 ```bash
-npm run dev   # http://localhost:4000
+npm run dev   # Starts backend on http://localhost:4000
 ```
+
+**🔑 Get Free API Keys (Optional - for AI features):**
+- **MongoDB Atlas**: [cloud.mongodb.com](https://cloud.mongodb.com) - Free 512MB tier
+- **ImageKit**: [imagekit.io](https://imagekit.io) - Free 10GB + CDN
+- **Brevo SMTP**: [brevo.com](https://brevo.com) - Free 300 emails/day
+- **Firecrawl**: [firecrawl.dev](https://firecrawl.dev) - Free 500 pages/month
+- **GitHub Models**: [github.com/marketplace/models](https://github.com/marketplace/models) - Free with GitHub account
 
 </details>
 
@@ -478,18 +493,26 @@ npm run dev   # http://localhost:4000
 ```bash
 cd ../frontend
 npm install
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Edit `frontend/.env.local`:
+Edit `frontend/.env`:
 
 ```env
+# Backend API URL
 VITE_API_BASE_URL=http://localhost:4000
+
+# Feature flags
 VITE_ENABLE_AI_HUB=true
+VITE_ENABLE_USER_LISTINGS=true
+
+# Site configuration
+VITE_SITE_URL=http://localhost:5173
+VITE_CONTACT_EMAIL=contact@buildestate.com
 ```
 
 ```bash
-npm run dev   # http://localhost:5173
+npm run dev   # Starts frontend on http://localhost:5173
 ```
 
 </details>
@@ -502,18 +525,27 @@ npm run dev   # http://localhost:5173
 ```bash
 cd ../admin
 npm install
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Edit `admin/.env.local`:
+Edit `admin/.env`:
 
 ```env
+# Backend API URL (must match your backend)
 VITE_BACKEND_URL=http://localhost:4000
+
+# Admin panel configuration
+VITE_APP_NAME="BuildEstate Admin"
+VITE_FRONTEND_URL=http://localhost:5173
 ```
 
 ```bash
-npm run dev   # http://localhost:5174
+npm run dev   # Starts admin panel on http://localhost:5174
 ```
+
+**🔐 Access Admin Panel:**
+- URL: http://localhost:5174
+- Login with credentials from `backend/.env`: `ADMIN_EMAIL` & `ADMIN_PASSWORD`
 
 </details>
 
@@ -591,17 +623,37 @@ npm run dev   # http://localhost:5174
 
 ## 🌐 Deployment
 
+> 📖 **For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)**
+
+**🚀 Quick Deploy (5 minutes):**
+
+### Live Deployments
+- **🌐 Frontend**: [buildestate.vercel.app](https://buildestate.vercel.app/) (Vercel)
+- **⚙️ Backend**: [real-estate-website-backend-zfu7.onrender.com](https://real-estate-website-backend-zfu7.onrender.com/) (Render)
+- **👨‍💼 Admin**: [real-estate-website-admin.onrender.com](https://real-estate-website-admin.onrender.com/login) (Render)
+
 <details>
-<summary><strong>▲ Frontend on Vercel</strong></summary>
+<summary><strong>▲ Frontend on Vercel (Recommended)</strong></summary>
 
 <br/>
 
-1. Import repo in [Vercel](https://vercel.com)
-2. Set **Root Directory** → `frontend`
-3. Add env vars:
-   - `VITE_API_BASE_URL` = your Render backend URL
-   - `VITE_ENABLE_AI_HUB=true`
-4. Deploy
+1. **Fork this repository** to your GitHub account
+2. **Import repo** in [Vercel](https://vercel.com)
+3. **Configure build settings:**
+   - Framework Preset: **Vite**
+   - Root Directory: **`frontend`**
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+
+4. **Add environment variables:**
+   ```env
+   VITE_API_BASE_URL=https://your-backend-domain.onrender.com
+   VITE_ENABLE_AI_HUB=false  # Disable for production (users provide own keys)
+   VITE_SITE_URL=https://your-domain.vercel.app
+   VITE_CONTACT_EMAIL=contact@yourdomain.com
+   ```
+
+5. **Deploy** → Your site will be live at `https://your-project.vercel.app`
 
 </details>
 
@@ -611,32 +663,67 @@ npm run dev   # http://localhost:5174
 <br/>
 
 **Backend Web Service:**
-1. Create a **Web Service** on [Render](https://render.com)
-2. Set **Root Directory** → `backend`
-3. Build: `npm install` | Start: `npm start`
-4. Add all env vars from `backend/.env.example`
-5. Set `NODE_ENV=production` and `WEBSITE_URL` to your Vercel frontend URL
+1. **Create Web Service** on [Render](https://render.com)
+2. **Connect your GitHub** repository
+3. **Configure service:**
+   - Environment: `Node`
+   - Root Directory: **`backend`**
+   - Build Command: `npm install`
+   - Start Command: `npm start`
 
-**Admin Panel:**
-Same steps with **Root Directory** → `admin` and `VITE_BACKEND_URL` = your Render backend URL.
+4. **Add environment variables** (copy from `backend/.env.example`):
+   ```env
+   NODE_ENV=production
+   MONGO_URI=your_mongodb_atlas_uri
+   JWT_SECRET=your_secure_jwt_secret
+   ADMIN_EMAIL=admin@yourdomain.com
+   ADMIN_PASSWORD=your_secure_password
+   WEBSITE_URL=https://your-frontend.vercel.app
+   # ... add other variables as needed
+   ```
+
+**Admin Panel Service:**
+1. **Create another Web Service** in Render
+2. **Configure:**
+   - Root Directory: **`admin`**
+   - Build Command: `npm install && npm run build`
+   - Start Command: `npx serve -s dist -p $PORT`
+
+3. **Environment variables:**
+   ```env
+   VITE_BACKEND_URL=https://your-backend.onrender.com
+   VITE_FRONTEND_URL=https://your-frontend.vercel.app
+   ```
 
 </details>
 
 <details>
-<summary><strong>✅ Deployment Checklist</strong></summary>
+<summary><strong>✅ Pre-Deployment Checklist</strong></summary>
 
 <br/>
 
-- [ ] MongoDB Atlas cluster created and connection string added
-- [ ] ImageKit account created (for property images)
-- [ ] Brevo SMTP credentials added (for email notifications)
-- [ ] JWT_SECRET set to a random 32-byte hex string
-- [ ] ADMIN_EMAIL and ADMIN_PASSWORD set
-- [ ] WEBSITE_URL points to your Vercel frontend
-- [ ] VITE_ENABLE_AI_HUB=true set in frontend env vars
-- [ ] VITE_API_BASE_URL points to your Render backend
+**Required Services (Free tier available):**
+- [ ] **MongoDB Atlas** cluster created → Connection string ready
+- [ ] **ImageKit** account → API keys ready (for image uploads)
+- [ ] **Brevo SMTP** account → SMTP credentials ready (for emails)
+
+**Environment Setup:**
+- [ ] All `.env` files configured with production values
+- [ ] `JWT_SECRET` set to secure random string (32+ characters)
+- [ ] `ADMIN_EMAIL` and `ADMIN_PASSWORD` set to your admin credentials
+- [ ] Frontend `VITE_API_BASE_URL` points to deployed backend
+- [ ] Backend `WEBSITE_URL` points to deployed frontend
+
+**Optional (for AI features):**
+- [ ] **Firecrawl** API key (500 free pages/month)
+- [ ] **GitHub Models** token (free with GitHub account)
 
 </details>
+
+**🔧 Alternative Deployment Options:**
+- **Backend**: Heroku, Railway, DigitalOcean App Platform, AWS/Google Cloud
+- **Frontend**: Netlify, GitHub Pages, Surge.sh
+- **Database**: Local MongoDB, DigitalOcean MongoDB, AWS DocumentDB
 
 <br/>
 

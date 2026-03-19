@@ -1,5 +1,5 @@
 import express from 'express';
-import { login, register, forgotpassword,adminlogin,resetpassword,getname } from '../controller/Usercontroller.js';
+import { login, register, forgotpassword,adminlogin,resetpassword,getname } from '../controller/userController.js';
 import authMiddleware from '../middleware/authmiddleware.js';
 
 

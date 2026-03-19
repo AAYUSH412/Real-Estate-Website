@@ -1,78 +1,147 @@
+# ==========================================
+# BuildEstate - Environment & Security
+# ==========================================
+
+# Environment variables (CRITICAL - Never commit these!)
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
+
+# API Keys and secrets (Additional protection)
+**/secrets/
+**/.secrets/
+**/credentials.json
+**/service-account.json
+**/*-key.json
+**/*.pem
+**/*.p12
+**/*.key
+**/*.crt
+**/*.csr
+**/*.pfx
+
 # Node.js
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
+# Dependency directories
+jspm_packages/
 
+# Build directories
+build/
+dist/
+.next/
+out/
 
+# Cache directories
+.npm
+.eslintcache
+.parcel-cache
+.cache/
+.nyc_output
+.turbo
 
 # Logs
 logs/
 *.log
 *.log.*
+*.pid
+*.seed
+*.pid.lock
 
-# Dependency directories
-node_modules/
-jspm_packages/
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Optional npm cache directory
-.npm
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+.nyc_output
 
-# Optional eslint cache
-.eslintcache
+# Test directories
+test-results/
+playwright-report/
 
 # Optional REPL history
 .node_repl_history
 
-# dotenv environment variables file
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# MacOS
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
 # Editor directories and files
-.idea/
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Build directories
-build/
-dist/
-
-# Coverage directory used by tools like istanbul
-coverage/
-
-# Miscellaneous
-*.pem
-*.p12
-*.key
-*.crt
-*.csr
-*.pfx
-
 # React Native
 .expo/
 .expo-shared/
-
-# Parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
 
 # SvelteKit build / generated files
 .svelte-kit
 
 # Storybook files
-out/
 .storybook-out/
+
+# Database files (if using local database)
+*.sqlite
+*.sqlite3
+*.db
+
+# Upload directories with sensitive content
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/public/uploads/*
+admin/public/uploads/*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
 
 # Claude Code internal files
 .claude/
@@ -80,7 +149,40 @@ backend/.agent/
 backend/.agents/
 backend/skills-lock.json
 
-# Do NOT ignore these important files
+# Rate limiter temporary storage
+.rate-limit-store/
+backend/.rate-limit-store/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Terraform (if using for infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Archive files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# ==========================================
+# DO NOT IGNORE - Important Files
+# ==========================================
 !package-lock.json
 !yarn.lock
+!pnpm-lock.yaml
+!.gitkeep
 !backend/uploads/.gitkeep
+
+# Keep example files (safe templates)
+!.env.example
+!.env.sample
+!.env.template

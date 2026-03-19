@@ -97,6 +97,16 @@ const propertySchema = new mongoose.Schema(
   }
 );
 
+// Database indexes for common query patterns
+propertySchema.index({ status: 1 }); // Status filtering (active, pending, etc.)
+propertySchema.index({ createdAt: -1 }); // Sorting by creation date
+propertySchema.index({ postedBy: 1 }); // User's own listings
+propertySchema.index({ status: 1, createdAt: -1 }); // Compound: status + sort
+propertySchema.index({ postedBy: 1, createdAt: -1 }); // Compound: user listings + sort
+propertySchema.index({ expiresAt: 1 }); // Expiry cleanup queries
+propertySchema.index({ location: "text", title: "text", description: "text" }); // Text search
+propertySchema.index({ price: 1, beds: 1, type: 1, location: 1 }); // Property filters
+
 const Property = mongoose.model("Property", propertySchema);
 
 export default Property;

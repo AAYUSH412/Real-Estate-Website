@@ -2,20 +2,18 @@ import express from "express";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import validator from "validator";
 import crypto from "crypto";
-import userModel from "../models/Usermodel.js";
-import transporter from "../config/nodemailer.js";
-import { getWelcomeTemplate } from "../email.js";
-import { getPasswordResetTemplate } from "../email.js";
+import userModel from "../models/userModel.js";
+import { Admin } from "../models/userModel.js";
+import emailService from "../services/emailService.js";
 
 const backendurl = process.env.BACKEND_URL;
 
 const createtoken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "30d",
+    expiresIn: "7d", // Reduced from 30d to 7d for better security
   });
 };
 
@@ -59,15 +57,13 @@ const register = async (req, res) => {
     await newUser.save();
     const token = createtoken(newUser._id);
 
-    // send email
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: email,
-      subject: "Welcome to BuildEstate - Your Account Has Been Created",
-      html: getWelcomeTemplate(name)
-    };
-
-    await transporter.sendMail(mailOptions);
+    // Send welcome email
+    try {
+      await emailService.sendWelcomeEmail(email, name);
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail the registration if email fails
+    }
 
     return res.json({ token, user: { name: newUser.name, email: newUser.email }, success: true });
   } catch (error) {
@@ -87,19 +83,21 @@ const forgotpassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "Email not found", success: false });
     }
-    const resetToken = crypto.randomBytes(20).toString("hex");
-    user.resetToken = resetToken;
-    user.resetTokenExpire = Date.now() + 10 * 60 * 1000; // 1 hour
-    await user.save();
-    const resetUrl = `${process.env.WEBSITE_URL}/reset/${resetToken}`;
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: email,
-      subject: "Password Reset - BuildEstate Security",
-      html: getPasswordResetTemplate(resetUrl)
-    };
 
-    await transporter.sendMail(mailOptions);
+    // Generate cryptographically secure token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // Hash the token before storing in database
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetToken = hashedToken;
+    user.resetTokenExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save();
+
+    // Send password reset email
+    const resetUrl = `${process.env.WEBSITE_URL}/reset/${resetToken}`;
+    await emailService.sendPasswordResetEmail(email, resetUrl);
+
     return res.status(200).json({ message: "Email sent", success: true });
   } catch (error) {
     console.error(error);
@@ -111,17 +109,24 @@ const resetpassword = async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
+
+    // Hash the received token to compare with database
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
     const user = await userModel.findOne({
-      resetToken: token,
+      resetToken: hashedToken,
       resetTokenExpire: { $gt: Date.now() },
     });
+
     if (!user) {
       return res.status(400).json({ message: "Invalid or expired token", success: false });
     }
-    user.password = await bcrypt.hash(password, 10);
+
+    user.password = await bcrypt.hash(password, 12); // Increased salt rounds
     user.resetToken = undefined;
     user.resetTokenExpire = undefined;
     await user.save();
+
     return res.status(200).json({ message: "Password reset successful", success: true });
   } catch (error) {
     console.error(error);
@@ -133,12 +138,24 @@ const adminlogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      return res.json({ token, success: true });
-    } else {
+    // Find admin in database
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
       return res.status(400).json({ message: "Invalid credentials", success: false });
     }
+
+    // Compare hashed password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials", success: false });
+    }
+
+    // Update last login
+    admin.lastLogin = new Date();
+    await admin.save();
+
+    const token = jwt.sign({ email: admin.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    return res.json({ token, success: true });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error", success: false });

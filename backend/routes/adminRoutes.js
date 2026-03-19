@@ -27,7 +27,7 @@ import {
   getPropertyStats,
   getEnhancedOverview,
 } from '../controller/adminController.js';
-import { adminProtect } from '../middleware/authmiddleware.js';
+import { adminProtect } from '../middleware/authMiddleware.js';
 import { registry } from '../utils/circuitBreaker.js';
 
 const router = express.Router();

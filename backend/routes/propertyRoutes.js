@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { searchProperties, getLocationTrends, createUserListing, getUserListings, updateUserListing, deleteUserListing } from '../controller/propertyController.js';
 import { transformAISearchRequest } from '../middleware/transformRequest.js';
-import { protect } from '../middleware/authmiddleware.js';
+import { protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/multer.js';
 import { createDistributedRateLimiter } from '../utils/distributedRateLimiter.js';
 

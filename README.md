@@ -344,7 +344,7 @@ graph TD
 flowchart LR
     subgraph Client["CLIENT LAYER"]
         FE["Frontend<br/>React 18 + TS<br/>Vercel"]
-        AD["Admin Panel<br/>React + JS<br/>Render"]
+      AD["Admin Panel<br/>React + JS<br/>Vercel"]
     end
     
     subgraph API["API LAYER (Render)"]
@@ -423,13 +423,10 @@ flowchart LR
 git clone https://github.com/AAYUSH412/Real-Estate-Website.git
 cd Real-Estate-Website
 
-# Install all dependencies at once (recommended)
-npm run install-all
-
-# OR install manually:
-# cd backend && npm install
-# cd ../frontend && npm install
-# cd ../admin && npm install
+# Install dependencies per app:
+cd backend && npm install
+cd ../frontend && npm install
+cd ../admin && npm install
 ```
 
 <details>
@@ -440,10 +437,10 @@ npm run install-all
 ```bash
 cd backend
 npm install
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Edit `backend/.env` with your actual values:
+Edit `backend/.env.local` with your actual values:
 
 ```env
 # Essential Configuration (Required)
@@ -460,6 +457,9 @@ BREVO_API_KEY=your_brevo_api_key
 
 # Frontend URL (for CORS + password reset emails)
 WEBSITE_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:5173
+ADMIN_URL=http://localhost:5174
+LOCAL_URLS=http://localhost:5173,http://localhost:5174,http://localhost:4000
 
 # Optional: Image Storage (ImageKit - Free 10GB tier)
 IMAGEKIT_PUBLIC_KEY=public_your_imagekit_public_key
@@ -493,10 +493,10 @@ npm run dev   # Starts backend on http://localhost:4000
 ```bash
 cd ../frontend
 npm install
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Edit `frontend/.env`:
+Edit `frontend/.env.local`:
 
 ```env
 # Backend API URL
@@ -504,11 +504,6 @@ VITE_API_BASE_URL=http://localhost:4000
 
 # Feature flags
 VITE_ENABLE_AI_HUB=true
-VITE_ENABLE_USER_LISTINGS=true
-
-# Site configuration
-VITE_SITE_URL=http://localhost:5173
-VITE_CONTACT_EMAIL=contact@buildestate.com
 ```
 
 ```bash
@@ -525,18 +520,14 @@ npm run dev   # Starts frontend on http://localhost:5173
 ```bash
 cd ../admin
 npm install
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Edit `admin/.env`:
+Edit `admin/.env.local`:
 
 ```env
 # Backend API URL (must match your backend)
 VITE_BACKEND_URL=http://localhost:4000
-
-# Admin panel configuration
-VITE_APP_NAME="BuildEstate Admin"
-VITE_FRONTEND_URL=http://localhost:5173
 ```
 
 ```bash
@@ -630,7 +621,6 @@ npm run dev   # Starts admin panel on http://localhost:5174
 ### Live Deployments
 - **🌐 Frontend**: [buildestate.vercel.app](https://buildestate.vercel.app/) (Vercel)
 - **⚙️ Backend**: [real-estate-website-backend-zfu7.onrender.com](https://real-estate-website-backend-zfu7.onrender.com/) (Render)
-- **👨‍💼 Admin**: [real-estate-website-admin.onrender.com](https://real-estate-website-admin.onrender.com/login) (Render)
 
 <details>
 <summary><strong>▲ Frontend on Vercel (Recommended)</strong></summary>
@@ -658,7 +648,7 @@ npm run dev   # Starts admin panel on http://localhost:5174
 </details>
 
 <details>
-<summary><strong>🟢 Backend & Admin on Render</strong></summary>
+<summary><strong>🟢 Backend on Render</strong></summary>
 
 <br/>
 
@@ -679,21 +669,34 @@ npm run dev   # Starts admin panel on http://localhost:5174
    ADMIN_EMAIL=admin@yourdomain.com
    ADMIN_PASSWORD=your_secure_password
    WEBSITE_URL=https://your-frontend.vercel.app
+  FRONTEND_URL=https://your-frontend.vercel.app
+  ADMIN_URL=https://your-admin.vercel.app
+  LOCAL_URLS=
    # ... add other variables as needed
    ```
 
-**Admin Panel Service:**
-1. **Create another Web Service** in Render
-2. **Configure:**
-   - Root Directory: **`admin`**
-   - Build Command: `npm install && npm run build`
-   - Start Command: `npx serve -s dist -p $PORT`
+</details>
 
-3. **Environment variables:**
-   ```env
-   VITE_BACKEND_URL=https://your-backend.onrender.com
-   VITE_FRONTEND_URL=https://your-frontend.vercel.app
-   ```
+<details>
+<summary><strong>▲ Admin on Vercel</strong></summary>
+
+<br/>
+
+1. **Import repo** in [Vercel](https://vercel.com)
+2. **Configure build settings:**
+  - Framework Preset: **Vite**
+  - Root Directory: **`admin`**
+  - Build Command: `npm run build`
+  - Output Directory: `dist`
+
+3. **Add environment variables:**
+  ```env
+  VITE_BACKEND_URL=https://your-backend.onrender.com
+  ```
+
+4. **Deploy** and test deep links (`/dashboard`, `/users`, `/activity-logs`)
+
+5. Ensure backend CORS env includes your admin Vercel domain in `ADMIN_URL`
 
 </details>
 

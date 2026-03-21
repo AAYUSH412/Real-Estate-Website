@@ -1,20 +1,18 @@
-# Use the official Node.js image as the base image
-FROM node:18
+FROM node:18-slim
 
-# Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+ENV NODE_ENV=production
+
+# Install only production dependencies for a smaller runtime image.
 COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-# Install dependencies
-RUN npm install
+# Copy application files after deps to preserve layer cache.
+COPY --chown=node:node . .
 
-# Copy the rest of the application code
-COPY . .
+USER node
 
-# Expose the port the app runs on
 EXPOSE 4000
 
-# Start the application
 CMD ["node", "server.js"]

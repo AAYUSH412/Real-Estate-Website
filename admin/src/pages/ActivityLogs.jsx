@@ -9,6 +9,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import ActivityLogDetailModal from '../components/ActivityLogDetailModal';
+import apiClient from '../services/apiClient';
 
 const ActivityLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -65,20 +66,8 @@ const ActivityLogs = () => {
         if (value) queryParams.append(key, value);
       });
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/activity-logs?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch activity logs: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const response = await apiClient.get(`/api/admin/activity-logs?${queryParams}`);
+      const data = response.data;
       setLogs(data.logs || []);
       setPagination(data.pagination || {});
     } catch (err) {
@@ -104,19 +93,12 @@ const ActivityLogs = () => {
         if (value) queryParams.append(key, value);
       });
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/activity-logs/export?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await apiClient.get(`/api/admin/activity-logs/export?${queryParams}`, {
+        responseType: 'blob',
       });
 
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
       // Download file
-      const blob = await response.blob();
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

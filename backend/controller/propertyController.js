@@ -51,6 +51,18 @@ function resolveServices(req) {
     };
 }
 
+function isUnauthorizedError(err) {
+    const msg = String(err?.message || '').toLowerCase();
+    const code = err?.statusCode || err?.status || 0;
+    return code === 401 || msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid token');
+}
+
+function isCreditsExhaustedError(err) {
+    const msg = String(err?.message || '').toLowerCase();
+    const code = err?.statusCode || err?.status || 0;
+    return code === 402 || msg.includes('402') || msg.includes('insufficient credits') || msg.includes('credits exhausted');
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 export const searchProperties = async (req, res) => {
@@ -113,6 +125,15 @@ export const searchProperties = async (req, res) => {
             });
         } catch (firecrawlError) {
             console.error('[Firecrawl] Property search failed:', firecrawlError.message);
+
+            if (firecrawlError.code === 'FIRECRAWL_AUTH_ERROR' || isUnauthorizedError(firecrawlError)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
+                    error: 'KEYS_INVALID',
+                    provider: 'firecrawl',
+                });
+            }
 
             // Handle insufficient credits specifically
             if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED') {
@@ -220,10 +241,17 @@ export const getLocationTrends = async (req, res) => {
         } catch (firecrawlError) {
             console.error('[Firecrawl] Location trends failed:', firecrawlError.message);
 
+            if (isUnauthorizedError(firecrawlError)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
+                    error: 'KEYS_INVALID',
+                    provider: 'firecrawl',
+                });
+            }
+
             // Handle insufficient credits specifically
-            if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED' ||
-                firecrawlError.message?.includes('402') ||
-                firecrawlError.message?.includes('Insufficient credits')) {
+            if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED' || isCreditsExhaustedError(firecrawlError)) {
                 return res.status(402).json({
                     success: false,
                     message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
@@ -272,6 +300,79 @@ export const getLocationTrends = async (req, res) => {
         console.error('Error getting location trends:', error);
         res.status(500).json({ success: false, message: 'Failed to get location trends', error: error.message });
     }
+};
+
+export const validateApiKeys = async (req, res) => {
+    let services;
+    try {
+        services = resolveServices(req);
+    } catch (keyErr) {
+        return res.status(keyErr.statusCode || 403).json({
+            success: false,
+            message: keyErr.message,
+            error: keyErr.code || 'KEYS_REQUIRED',
+        });
+    }
+
+    const { aiService, firecrawlService } = services;
+
+    const [githubResult, firecrawlResult] = await Promise.allSettled([
+        aiService.validateApiKey(),
+        firecrawlService.validateApiKey(),
+    ]);
+
+    const githubErr = githubResult.status === 'rejected' ? githubResult.reason : null;
+    const firecrawlErr = firecrawlResult.status === 'rejected' ? firecrawlResult.reason : null;
+
+    console.log('[KeyValidation]', {
+        githubStatus: githubResult.status,
+        firecrawlStatus: firecrawlResult.status,
+        githubError: githubErr?.message || null,
+        firecrawlError: firecrawlErr?.message || null,
+    });
+
+    if (!githubErr && !firecrawlErr) {
+        return res.json({
+            success: true,
+            message: 'API keys are valid.',
+            github: { valid: true },
+            firecrawl: { valid: true },
+        });
+    }
+
+    if (githubErr && isUnauthorizedError(githubErr)) {
+        return res.status(403).json({
+            success: false,
+            message: 'Your GitHub Models API key is invalid or expired. Please update it and try again.',
+            error: 'KEYS_INVALID',
+            provider: 'github',
+        });
+    }
+
+    if (firecrawlErr && isUnauthorizedError(firecrawlErr)) {
+        return res.status(403).json({
+            success: false,
+            message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
+            error: 'KEYS_INVALID',
+            provider: 'firecrawl',
+        });
+    }
+
+    if (firecrawlErr && isCreditsExhaustedError(firecrawlErr)) {
+        return res.status(402).json({
+            success: false,
+            message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
+            error: 'FIRECRAWL_CREDITS_EXHAUSTED',
+            provider: 'firecrawl',
+            upgradeUrl: 'https://firecrawl.dev/pricing',
+        });
+    }
+
+    return res.status(503).json({
+        success: false,
+        message: 'Unable to validate API keys right now. Please try again.',
+        error: 'KEY_VALIDATION_FAILED',
+    });
 };
 
 // ── User property listing CRUD ────────────────────────────────────────────────

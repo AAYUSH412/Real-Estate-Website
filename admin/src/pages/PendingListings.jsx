@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import {
@@ -7,14 +6,8 @@ import {
   Maximize, User, Mail, Clock, RefreshCw, Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn, formatPrice, formatDate } from "../lib/utils";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function authHeader() {
-  return { Authorization: `Bearer ${localStorage.getItem("token")}` };
-}
 
 // ── Reject Modal ──────────────────────────────────────────────────────────────
 
@@ -346,9 +339,7 @@ const PendingListings = () => {
   const fetchPending = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${backendurl}/api/admin/properties/pending`, {
-        headers: authHeader(),
-      });
+      const res = await apiClient.get('/api/admin/properties/pending');
       const data = res.data.listings ?? res.data.properties ?? res.data ?? [];
       setListings(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -366,9 +357,7 @@ const PendingListings = () => {
   const handleApprove = async (id) => {
     setActionLoading(`approve-${id}`);
     try {
-      await axios.put(`${backendurl}/api/admin/properties/${id}/approve`, {}, {
-        headers: authHeader(),
-      });
+      await apiClient.put(`/api/admin/properties/${id}/approve`, {});
       setListings((prev) => prev.filter((l) => l._id !== id));
       toast.success("Listing approved and is now live!");
     } catch (err) {
@@ -384,9 +373,7 @@ const PendingListings = () => {
     const id = rejectTarget._id;
     setActionLoading(`reject-${id}`);
     try {
-      await axios.put(`${backendurl}/api/admin/properties/${id}/reject`, { reason }, {
-        headers: authHeader(),
-      });
+      await apiClient.put(`/api/admin/properties/${id}/reject`, { reason });
       setListings((prev) => prev.filter((l) => l._id !== id));
       toast.success("Listing rejected. The owner has been notified by email.");
     } catch (err) {

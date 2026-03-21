@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, Shield, ArrowRight, Loader2, Home, Building2, Users, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn } from "../lib/utils";
 
 const Login = () => {
@@ -20,7 +19,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${backendurl}/api/users/admin`, {
+      const response = await apiClient.post('/api/users/admin', {
         email,
         password,
       });

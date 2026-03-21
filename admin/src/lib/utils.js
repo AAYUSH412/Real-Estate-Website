@@ -21,7 +21,12 @@ export function formatPrice(price) {
  * Format date to readable string
  */
 export function formatDate(date) {
-  return new Date(date).toLocaleDateString('en-IN', {
+  if (!date) return 'N/A';
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+
+  return parsed.toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

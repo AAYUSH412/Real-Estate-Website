@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar, Clock, User, Home, Check, X, Loader2,
@@ -7,7 +6,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";
 
 const STATUS_CONFIG = {
@@ -37,9 +36,7 @@ const Appointments = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${backendurl}/api/appointments/all`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      const response = await apiClient.get('/api/appointments/all');
       if (response.data.success) {
         const valid = response.data.appointments.filter((apt) => apt.propertyId);
         setAppointments(valid);
@@ -57,11 +54,7 @@ const Appointments = () => {
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       setUpdatingId(appointmentId);
-      const response = await axios.put(
-        `${backendurl}/api/appointments/status`,
-        { appointmentId, status: newStatus },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+      const response = await apiClient.put('/api/appointments/status', { appointmentId, status: newStatus });
       if (response.data.success) {
         toast.success(`Appointment ${newStatus} successfully`);
         fetchAppointments();
@@ -79,11 +72,7 @@ const Appointments = () => {
   const handleMeetingLinkUpdate = async (appointmentId) => {
     if (!meetingLink) { toast.error("Please enter a meeting link"); return; }
     try {
-      const response = await axios.put(
-        `${backendurl}/api/appointments/update-meeting`,
-        { appointmentId, meetingLink },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
+      const response = await apiClient.put('/api/appointments/update-meeting', { appointmentId, meetingLink });
       if (response.data.success) {
         toast.success("Meeting link sent successfully");
         setEditingMeetingLink(null);

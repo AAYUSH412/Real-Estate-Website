@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import axios from 'axios';
 import { motion } from 'framer-motion';
-import { backendurl } from '../config/constants';
+import apiClient from '../services/apiClient';
 import { Upload, X, Plus, Home, MapPin, Phone, DollarSign, BedDouble, Bath, Maximize, Link as LinkIcon, CheckSquare, Square } from 'lucide-react';
 import { AMENITIES_LIST } from '../constants/amenities';
 import { cn } from '../lib/utils';
@@ -99,7 +98,7 @@ const PropertyForm = () => {
         }
       });
 
-      const response = await axios.post(`${backendurl}/api/products/add`, formdata, {
+      const response = await apiClient.post('/api/products/add', formdata, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

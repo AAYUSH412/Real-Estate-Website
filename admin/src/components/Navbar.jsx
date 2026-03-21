@@ -34,6 +34,12 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setIsProfileOpen(false);
+    setIsMoreOpen(false);
+  }, [location.pathname]);
+
   const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
@@ -80,8 +86,8 @@ const Navbar = () => {
       className={cn(
         'fixed top-0 left-0 w-full z-50 transition-all duration-300',
         scrolled
-          ? 'bg-[#1C1B1A]/98 backdrop-blur-xl shadow-xl border-b border-white/5'
-          : 'bg-[#1C1B1A] shadow-md'
+          ? 'bg-[rgba(28,27,26,0.98)] backdrop-blur-md shadow-xl border-b border-white/10'
+          : 'bg-[#1C1B1A] shadow-md border-b border-transparent'
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

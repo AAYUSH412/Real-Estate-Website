@@ -41,6 +41,36 @@ class AIService {
     });
   }
 
+  async validateApiKey() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const response = await this.client.path('/chat/completions').post({
+        body: {
+          messages: [
+            { role: 'system', content: 'Reply with OK only.' },
+            { role: 'user', content: 'OK?' }
+          ],
+          model: FALLBACK_MODEL,
+          temperature: 0,
+          max_tokens: 8,
+          top_p: 1
+        },
+        ...(controller.signal ? { signal: controller.signal } : {}),
+      });
+
+      if (isUnexpected(response)) {
+        const errorMsg = response.body.error?.message || 'Unknown AI API error';
+        throw new Error(`AI API error: ${errorMsg}`);
+      }
+
+      return { valid: true };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /**
    * Generate text using GitHub Models with automatic fallback and circuit breaker protection.
    * Tries PRIMARY_MODEL first; falls back to FALLBACK_MODEL on rate-limit or error.

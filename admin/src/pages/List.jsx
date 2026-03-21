@@ -4,11 +4,10 @@ import {
   Maximize, MapPin, Grid3X3, List as ListIcon, RefreshCw,
   Building2, Tag,
 } from "lucide-react";
-import axios from "axios";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn, formatPrice } from "../lib/utils";
 
 const PROPERTY_TYPES = ["all", "House", "Apartment", "Office", "Villa"];
@@ -183,7 +182,7 @@ const PropertyListings = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${backendurl}/api/products/list`);
+      const response = await apiClient.get('/api/products/list');
       if (response.data.success) {
         const parsed = response.data.property.map((p) => ({
           ...p,
@@ -211,7 +210,7 @@ const PropertyListings = () => {
   const handleRemoveProperty = async (propertyId, propertyTitle) => {
     if (!window.confirm(`Remove "${propertyTitle}"? This cannot be undone.`)) return;
     try {
-      const response = await axios.post(`${backendurl}/api/products/remove`, { id: propertyId });
+      const response = await apiClient.post('/api/products/remove', { id: propertyId });
       if (response.data.success) {
         toast.success("Property removed successfully");
         await fetchProperties();

@@ -18,9 +18,10 @@ import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
 import { startAutoUnsuspendJob } from './utils/autoUnsuspend.js';
 
-
-dotenv.config({ path: './.env.local' });  // local dev
-dotenv.config();                          // .env fallback / Render uses process-level env vars
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: './.env.local' });
+}
+dotenv.config(); // .env fallback / Render uses process-level env vars
 
 const app = express();
 
@@ -89,17 +90,49 @@ app.use(mongoSanitize({
 
 
 // CORS Configuration
+const parseCsv = (value = '') =>
+  value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const envOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_URL,
+  process.env.WEBSITE_URL,
+  ...parseCsv(process.env.LOCAL_URLS || ''),
+  ...parseCsv(process.env.EXTRA_ALLOWED_ORIGINS || ''),
+].filter(Boolean);
+
+const defaultDevOrigins = [
+  'http://localhost:4000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
+
+const allowedOrigins = [
+  ...(process.env.NODE_ENV === 'production' ? [] : defaultDevOrigins),
+  ...envOrigins,
+];
+
+const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+console.log(`[Startup] Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`[Startup] Port: ${process.env.PORT || 4000}`);
+console.log('[CORS] Allowed origins:', uniqueAllowedOrigins.length ? uniqueAllowedOrigins : ['<none-configured>']);
+
 app.use(cors({
-  origin: [
-    'http://localhost:4000',
-    'http://localhost:5174',
-    'http://localhost:5173',
-    'https://buildestate.vercel.app',
-    'https://real-estate-website-admin.onrender.com',
-    'https://real-estate-website-backend-zfu7.onrender.com',
-  ],
+  origin: (origin, callback) => {
+    // Allow same-origin or non-browser requests (curl/postman/server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (uniqueAllowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'], // Added HEAD
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Github-Key', 'X-Firecrawl-Key']
 }));
 

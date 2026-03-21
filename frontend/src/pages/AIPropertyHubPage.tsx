@@ -336,8 +336,11 @@ const AIHubDevPage: React.FC = () => {
     const serverMsg = err?.response?.data?.message || '';
     const serverCode = err?.response?.data?.error || '';
 
-    if (status === 403 || serverCode === 'KEYS_REQUIRED') {
+    if (status === 403 || serverCode === 'KEYS_REQUIRED' || serverCode === 'KEYS_INVALID') {
       return { msg: 'Your API keys are missing or invalid. Please add your GitHub Models and Firecrawl keys.', isKeyError: true };
+    }
+    if (serverCode === 'KEY_VALIDATION_FAILED') {
+      return { msg: 'We could not validate your API keys right now. Please try again shortly.', isKeyError: false };
     }
     if (status === 402 || serverCode === 'FIRECRAWL_CREDITS_EXHAUSTED') {
       return { msg: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits at firecrawl.dev/pricing', isKeyError: false };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Key, Eye, EyeOff, CheckCircle2, AlertCircle, ExternalLink, Trash2, Save } from 'lucide-react';
-import { apiKeyStorage } from '../../services/api';
+import { aiAPI, apiKeyStorage } from '../../services/api';
 
 interface AIApiKeyModalProps {
   isOpen: boolean;
@@ -14,6 +14,7 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
   const [showGithub, setShowGithub] = useState(false);
   const [showFirecrawl, setShowFirecrawl] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const hasGithub = !!apiKeyStorage.getGithubKey();
   const hasFirecrawl = !!apiKeyStorage.getFirecrawlKey();
@@ -31,33 +32,65 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!githubKey.trim() && !firecrawlKey.trim()) {
       showToast('error', 'Enter at least one key to save.');
       return;
     }
 
-    // P2-3: Lightweight format validation
-    if (githubKey.trim()) {
-      const ghk = githubKey.trim();
-      if (!ghk.startsWith('ghp_') && !ghk.startsWith('github_pat_')) {
+    const enteredGithub = githubKey.trim();
+    const enteredFirecrawl = firecrawlKey.trim();
+
+    // Lightweight format validation for newly entered keys
+    if (enteredGithub) {
+      if (!enteredGithub.startsWith('ghp_') && !enteredGithub.startsWith('github_pat_')) {
         showToast('error', 'GitHub key should start with ghp_ or github_pat_');
         return;
       }
-      apiKeyStorage.setGithubKey(ghk);
     }
-    if (firecrawlKey.trim()) {
-      if (!firecrawlKey.trim().startsWith('fc-')) {
+    if (enteredFirecrawl) {
+      if (!enteredFirecrawl.startsWith('fc-')) {
         showToast('error', 'Firecrawl key should start with fc-');
         return;
       }
-      apiKeyStorage.setFirecrawlKey(firecrawlKey.trim());
     }
 
-    setGithubKey('');
-    setFirecrawlKey('');
-    showToast('success', 'Keys saved! They are stored only in your browser.');
-    onKeysChanged();
+    const effectiveGithub = enteredGithub || apiKeyStorage.getGithubKey().trim();
+    const effectiveFirecrawl = enteredFirecrawl || apiKeyStorage.getFirecrawlKey().trim();
+
+    if (!effectiveGithub || !effectiveFirecrawl) {
+      showToast('error', 'Both keys are required. Add both GitHub and Firecrawl keys to continue.');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await aiAPI.validateKeys({
+        githubKey: effectiveGithub,
+        firecrawlKey: effectiveFirecrawl,
+      });
+
+      if (enteredGithub) {
+        apiKeyStorage.setGithubKey(enteredGithub);
+      }
+      if (enteredFirecrawl) {
+        apiKeyStorage.setFirecrawlKey(enteredFirecrawl);
+      }
+
+      setGithubKey('');
+      setFirecrawlKey('');
+      showToast('success', 'Keys verified and saved! Stored only in your browser.');
+      onKeysChanged();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Could not verify API keys. Please check and try again.';
+      showToast('error', msg);
+      return;
+    } finally {
+      setSaving(false);
+    }
+
+    // Keep open so users can continue after successful verification.
   };
 
   const handleClear = () => {
@@ -147,11 +180,11 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
         <div className="flex items-center gap-3 px-6 pb-6">
           <button
             onClick={handleSave}
-            disabled={!githubKey.trim() && !firecrawlKey.trim()}
+            disabled={saving || (!githubKey.trim() && !firecrawlKey.trim())}
             className="flex-1 flex items-center justify-center gap-2 bg-[#D4755B] hover:bg-[#C05621] disabled:opacity-40 disabled:cursor-not-allowed text-white font-manrope font-semibold text-sm py-3 rounded-xl transition-all"
           >
             <Save className="w-4 h-4" />
-            Save Keys
+            {saving ? 'Verifying Keys...' : 'Save Keys'}
           </button>
 
           {(hasGithub || hasFirecrawl) && (

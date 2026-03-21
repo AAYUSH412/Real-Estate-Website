@@ -1,4 +1,5 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
+import axios from 'axios';
 import { registry } from "../utils/circuitBreaker.js";
 
 // Per-page scrape cap and search timeout
@@ -259,11 +260,24 @@ function isRetryableError(err) {
     return null;
 }
 
+function isUnauthorizedError(err) {
+    const msg = String(err?.message || '').toLowerCase();
+    const code = err?.statusCode || err?.status || 0;
+    return code === 401 || msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid token');
+}
+
+function isCreditsExhaustedError(err) {
+    const msg = String(err?.message || '').toLowerCase();
+    const code = err?.statusCode || err?.status || 0;
+    return code === 402 || msg.includes('402') || msg.includes('insufficient credits') || msg.includes('credits exhausted');
+}
+
 // ── Service class ─────────────────────────────────────────────────────────────
 
 class FirecrawlService {
     constructor(apiKey) {
         if (!apiKey) throw new Error('[FirecrawlService] API key is required — no fallback allowed.');
+        this.apiKey = apiKey;
         this.firecrawl = new FirecrawlApp({ apiKey });
 
         // Initialize circuit breakers for different operation types
@@ -278,6 +292,47 @@ class FirecrawlService {
             timeout: 90000, // 1.5 minutes
             name: 'firecrawl-scrape'
         });
+    }
+
+    async validateApiKey() {
+        try {
+            await withTimeout(
+                // Validate against the canonical scrape path from Firecrawl docs.
+                (typeof this.firecrawl.scrape === 'function'
+                    ? this.firecrawl.scrape('https://example.com', { formats: ['markdown'] })
+                    : this.firecrawl.scrapeUrl('https://example.com', { formats: ['markdown'] })),
+                20_000,
+                'validate-firecrawl-key-sdk'
+            );
+            return { valid: true, via: 'sdk' };
+        } catch (sdkErr) {
+            // Fallback to direct HTTP check on v2 API to avoid SDK/version false negatives.
+            try {
+                const response = await axios.post(
+                    'https://api.firecrawl.dev/v2/scrape',
+                    { url: 'https://example.com' },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${this.apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        timeout: 20_000,
+                    }
+                );
+
+                if (response.status === 200 && response.data?.success !== false) {
+                    return { valid: true, via: 'http' };
+                }
+
+                throw new Error(`Firecrawl direct validation failed: ${response.data?.error || 'Unknown error'}`);
+            } catch (httpErr) {
+                const status = httpErr?.response?.status;
+                const detail = httpErr?.response?.data?.error || httpErr?.message || sdkErr?.message || 'Unknown error';
+                const err = new Error(`[FirecrawlValidation] ${detail}`);
+                err.statusCode = status || httpErr?.statusCode || 500;
+                throw err;
+            }
+        }
     }
 
     /**
@@ -343,21 +398,33 @@ class FirecrawlService {
 
                 // Wrap search operation with circuit breaker
                 return this.searchCircuit.execute(async () => {
-                    return await withTimeout(
+                    const response = await withTimeout(
                         this.firecrawl.search(query, {
                             limit: srcLimit,
-                            country: 'in',
-                            lang: 'en',
+                            location: 'India',
                             scrapeOptions: {
-                                formats:         ["json"],
-                                jsonOptions:     { prompt: SEARCH_RESULT_PROMPT, schema: SEARCH_RESULT_SCHEMA },
+                                formats: [{
+                                    type: 'json',
+                                    prompt: SEARCH_RESULT_PROMPT,
+                                    schema: SEARCH_RESULT_SCHEMA,
+                                }],
                                 onlyMainContent: true,
                             },
                         }),
                         SEARCH_TIMEOUT_MS,
                         `search:${sourceKey}`
                     );
-                }).then(result => ({ sourceKey, data: result?.data || [], error: null }))
+
+                    const normalizedData = Array.isArray(response?.data)
+                        ? response.data
+                        : [
+                            ...(Array.isArray(response?.web) ? response.web : []),
+                            ...(Array.isArray(response?.news) ? response.news : []),
+                            ...(Array.isArray(response?.images) ? response.images : []),
+                        ];
+
+                    return normalizedData;
+                }).then(result => ({ sourceKey, data: Array.isArray(result) ? result : [], error: null }))
                 .catch(err => {
                     log.warn(`[Firecrawl] Search failed for ${sourceKey}: ${err.message}`);
                     return { sourceKey, data: [], error: err };
@@ -367,13 +434,27 @@ class FirecrawlService {
             const searchResults = await Promise.all(searchPromises);
 
             // Check if ALL sources failed with 402 (insufficient credits)
-            const all402 = searchResults.every(r =>
-                r.error && (r.error.message?.includes('402') || r.error.message?.includes('Insufficient credits'))
-            );
+            const all402 = searchResults.every(r => r.error && isCreditsExhaustedError(r.error));
             if (all402) {
                 const err = new Error('Firecrawl API credits exhausted. Please upgrade your plan at https://firecrawl.dev/pricing');
                 err.code = 'FIRECRAWL_CREDITS_EXHAUSTED';
                 err.statusCode = 402;
+                throw err;
+            }
+
+            const allUnauthorized = searchResults.length > 0 && searchResults.every(r => r.error && isUnauthorizedError(r.error));
+            if (allUnauthorized) {
+                const err = new Error('Firecrawl API key is invalid or expired. Please update your Firecrawl key.');
+                err.code = 'FIRECRAWL_AUTH_ERROR';
+                err.statusCode = 401;
+                throw err;
+            }
+
+            const allFailed = searchResults.length > 0 && searchResults.every(r => !!r.error);
+            if (allFailed) {
+                const err = new Error('All Firecrawl sources failed. Please try again in a few minutes.');
+                err.code = 'FIRECRAWL_ERROR';
+                err.statusCode = 503;
                 throw err;
             }
 
@@ -474,11 +555,11 @@ class FirecrawlService {
 
             log.info(`[Firecrawl] Scraping trends from: ${url}`);
             const scrapeResult = await this._scrapeWithRetry(url, {
-                formats:         ["json"],
-                jsonOptions: {
-                    prompt:  `Extract price trend data for ${limit} major localities in ${city}. Include location name, price per sqft, yearly percent increase, and rental yield.`,
-                    schema:  locationSchema,
-                },
+                formats: [{
+                    type: 'json',
+                    prompt: `Extract price trend data for ${limit} major localities in ${city}. Include location name, price per sqft, yearly percent increase, and rental yield.`,
+                    schema: locationSchema,
+                }],
                 waitFor:         10000,
                 timeout:         FIRECRAWL_TIMEOUT_MS,
                 onlyMainContent: true,
@@ -507,14 +588,18 @@ class FirecrawlService {
             try {
                 // Wrap scrape operation with circuit breaker
                 const result = await this.scrapeCircuit.execute(async () => {
+                    const scrapeMethod = typeof this.firecrawl.scrape === 'function'
+                        ? this.firecrawl.scrape.bind(this.firecrawl)
+                        : this.firecrawl.scrapeUrl.bind(this.firecrawl);
+
                     return await withTimeout(
-                        this.firecrawl.scrapeUrl(url, opts),
+                        scrapeMethod(url, opts),
                         FIRECRAWL_TIMEOUT_MS,
                         `${label} (attempt ${attempt + 1})`
                     );
                 });
 
-                if (!result.success) {
+                if (!result || result.success === false) {
                     throw new Error(`Firecrawl error: ${result.error || 'Unknown'}`);
                 }
                 return result;

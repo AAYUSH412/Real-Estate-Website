@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -8,7 +7,7 @@ import {
   AlertCircle, RefreshCw, UserCheck, Ban
 } from "lucide-react";
 import { toast } from "sonner";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";
 
 // Components
@@ -28,6 +27,7 @@ const UsersManagement = () => {
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
 
@@ -42,6 +42,14 @@ const UsersManagement = () => {
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Fetch users with filters
   const fetchUsers = useCallback(async (isRefresh = false) => {
@@ -58,12 +66,9 @@ const UsersManagement = () => {
       };
 
       if (statusFilter !== 'all') params.status = statusFilter;
-      if (searchTerm.trim()) params.search = searchTerm.trim();
+      if (debouncedSearchTerm) params.search = debouncedSearchTerm;
 
-      const response = await axios.get(`${backendurl}/api/admin/users`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        params,
-      });
+      const response = await apiClient.get('/api/admin/users', { params });
 
       if (response.data.success) {
         setUsers(response.data.users);
@@ -80,7 +85,7 @@ const UsersManagement = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentPage, statusFilter, searchTerm, sortBy, sortOrder]);
+  }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchUsers();
@@ -90,12 +95,9 @@ const UsersManagement = () => {
   const handleSuspendUser = async (suspendData) => {
     try {
       setActionLoading(true);
-      const response = await axios.put(
-        `${backendurl}/api/admin/users/${selectedUser._id}/suspend`,
-        suspendData,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+      const response = await apiClient.put(
+        `/api/admin/users/${selectedUser._id}/suspend`,
+        suspendData
       );
 
       if (response.data.success) {
@@ -117,12 +119,9 @@ const UsersManagement = () => {
   const handleBanUser = async (banData) => {
     try {
       setActionLoading(true);
-      const response = await axios.put(
-        `${backendurl}/api/admin/users/${selectedUser._id}/ban`,
-        banData,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+      const response = await apiClient.put(
+        `/api/admin/users/${selectedUser._id}/ban`,
+        banData
       );
 
       if (response.data.success) {
@@ -144,12 +143,9 @@ const UsersManagement = () => {
   const handleUnbanUser = async (user) => {
     try {
       setActionLoading(true);
-      const response = await axios.put(
-        `${backendurl}/api/admin/users/${user._id}/unban`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+      const response = await apiClient.put(
+        `/api/admin/users/${user._id}/unban`,
+        {}
       );
 
       if (response.data.success) {
@@ -170,16 +166,10 @@ const UsersManagement = () => {
   const handleBulkSuspend = async (suspendData) => {
     try {
       setActionLoading(true);
-      const response = await axios.post(
-        `${backendurl}/api/admin/users/bulk-suspend`,
-        {
-          userIds: Array.from(selectedUsers),
-          ...suspendData,
-        },
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
+      const response = await apiClient.post('/api/admin/users/bulk-suspend', {
+        userIds: Array.from(selectedUsers),
+        ...suspendData,
+      });
 
       if (response.data.success) {
         toast.success(`${response.data.count} users suspended`);
@@ -199,16 +189,10 @@ const UsersManagement = () => {
   const handleBulkBan = async (banData) => {
     try {
       setActionLoading(true);
-      const response = await axios.post(
-        `${backendurl}/api/admin/users/bulk-ban`,
-        {
-          userIds: Array.from(selectedUsers),
-          ...banData,
-        },
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
+      const response = await apiClient.post('/api/admin/users/bulk-ban', {
+        userIds: Array.from(selectedUsers),
+        ...banData,
+      });
 
       if (response.data.success) {
         toast.success(`${response.data.count} users banned`);
@@ -364,14 +348,20 @@ const UsersManagement = () => {
                 type="text"
                 placeholder="Search by name or email..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-4 py-2.5 border border-[#E6D5C3] rounded-xl bg-white text-[#1C1B1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#D4755B]/20 focus:border-[#D4755B] transition-all"
               />
             </div>
             <div className="flex gap-3">
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="px-4 py-2.5 border border-[#E6D5C3] rounded-xl bg-white text-[#1C1B1A] focus:outline-none focus:ring-2 focus:ring-[#D4755B]/20 focus:border-[#D4755B] transition-all"
               >
                 <option value="createdAt">Date Joined</option>
@@ -379,7 +369,10 @@ const UsersManagement = () => {
                 <option value="name">Name</option>
               </select>
               <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                onClick={() => {
+                  setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  setCurrentPage(1);
+                }}
                 className="px-4 py-2.5 border border-[#E6D5C3] rounded-xl bg-white text-[#1C1B1A] hover:bg-[#F5F1E8] transition-colors"
               >
                 {sortOrder === 'asc' ? '↑' : '↓'}

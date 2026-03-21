@@ -147,6 +147,18 @@ export const aiAPI = {
       },
     });
   },
+
+  validateKeys: (keys?: { githubKey?: string; firecrawlKey?: string }) => {
+    const githubKey = (keys?.githubKey ?? localStorage.getItem('buildestate_github_key') ?? '').trim();
+    const firecrawlKey = (keys?.firecrawlKey ?? localStorage.getItem('buildestate_firecrawl_key') ?? '').trim();
+
+    return apiClient.post('/ai/validate-keys', {}, {
+      headers: {
+        ...(githubKey && { 'X-Github-Key': githubKey }),
+        ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
+      },
+    });
+  },
 };
 
 // Helpers to read/write user API keys in localStorage

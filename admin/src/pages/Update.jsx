@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { backendurl } from '../config/constants';
+import apiClient from '../services/apiClient';
 import { X, Upload, Home, MapPin, Phone, DollarSign, BedDouble, Bath, Maximize, Link as LinkIcon, CheckSquare, Square, Plus, ArrowLeft, Loader2 } from 'lucide-react';
 import { AMENITIES_LIST } from '../constants/amenities';
 import { cn } from '../lib/utils';
@@ -42,7 +41,7 @@ const Update = () => {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const response = await axios.get(`${backendurl}/api/products/single/${id}`);
+        const response = await apiClient.get(`/api/products/single/${id}`);
         if (response.data.success) {
           const property = response.data.property;
           let amenities = property.amenities || [];
@@ -116,7 +115,7 @@ const Update = () => {
         if (typeof image !== 'string') formdata.append(`image${i + 1}`, image);
       });
 
-      const response = await axios.post(`${backendurl}/api/products/update`, formdata);
+      const response = await apiClient.post('/api/products/update', formdata);
       if (response.data.success) {
         toast.success('Property updated successfully!');
         navigate('/list');

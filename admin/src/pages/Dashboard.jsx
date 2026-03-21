@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
@@ -13,7 +12,7 @@ import {
   PointElement, ArcElement, Title, Tooltip, Legend, Filler,
 } from "chart.js";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";
 
 ChartJS.register(
@@ -168,24 +167,15 @@ const Dashboard = () => {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const token = localStorage.getItem("token");
       let hasBasicStats = false;
 
       // Try enhanced stats first, with graceful fallbacks
       try {
         const [overviewRes, userRes, propertyRes, activityRes] = await Promise.allSettled([
-          axios.get(`${backendurl}/api/admin/stats/overview`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${backendurl}/api/admin/stats/users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${backendurl}/api/admin/stats/properties`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${backendurl}/api/admin/activity-logs?limit=10`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
+          apiClient.get('/api/admin/stats/overview'),
+          apiClient.get('/api/admin/stats/users'),
+          apiClient.get('/api/admin/stats/properties'),
+          apiClient.get('/api/admin/activity-logs?limit=10')
         ]);
 
         // Process results with fallbacks
@@ -212,9 +202,7 @@ const Dashboard = () => {
       // Fallback to basic stats only if we don't have enhanced stats
       if (!hasBasicStats) {
         try {
-          const response = await axios.get(`${backendurl}/api/admin/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const response = await apiClient.get('/api/admin/stats');
 
           if (response.data.success) {
             setStats(response.data.stats);

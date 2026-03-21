@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Users, Home, Calendar, Activity, Mail, Phone,
@@ -8,7 +7,7 @@ import {
   AlertCircle, RefreshCw, ExternalLink, CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
-import { backendurl } from "../config/constants";
+import apiClient from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";
 
 // Components
@@ -39,9 +38,7 @@ const UserDetailsPage = () => {
       setLoading(true);
       setError(null);
 
-      const response = await axios.get(`${backendurl}/api/admin/users/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      const response = await apiClient.get(`/api/admin/users/${id}`);
 
       if (response.data.success) {
         setUser(response.data.user);
@@ -68,12 +65,9 @@ const UserDetailsPage = () => {
   const handleSuspendUser = async (suspendData) => {
     try {
       setActionLoading(true);
-      const response = await axios.put(
-        `${backendurl}/api/admin/users/${user._id}/suspend`,
-        suspendData,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+      const response = await apiClient.put(
+        `/api/admin/users/${user._id}/suspend`,
+        suspendData
       );
 
       if (response.data.success) {
@@ -93,12 +87,9 @@ const UserDetailsPage = () => {
   const handleBanUser = async (banData) => {
     try {
       setActionLoading(true);
-      const response = await axios.put(
-        `${backendurl}/api/admin/users/${user._id}/ban`,
-        banData,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+      const response = await apiClient.put(
+        `/api/admin/users/${user._id}/ban`,
+        banData
       );
 
       if (response.data.success) {
@@ -118,12 +109,9 @@ const UserDetailsPage = () => {
   const handleUnbanUser = async () => {
     try {
       setActionLoading(true);
-      const response = await axios.put(
-        `${backendurl}/api/admin/users/${user._id}/unban`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
+      const response = await apiClient.put(
+        `/api/admin/users/${user._id}/unban`,
+        {}
       );
 
       if (response.data.success) {

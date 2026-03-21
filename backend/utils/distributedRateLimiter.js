@@ -17,7 +17,11 @@ class DistributedRateLimiter {
     this.windowMs = options.windowMs || 60 * 60 * 1000; // 1 hour default
     this.maxRequests = options.max || 100;
     this.keyGenerator = options.keyGenerator || ((req) => req.ip);
-    this.storePath = options.storePath || path.join(process.cwd(), '.rate-limit-store');
+    this.storePath = options.storePath || (
+      process.env.NODE_ENV === 'production'
+        ? '/tmp/.rate-limit-store'
+        : path.join(process.cwd(), '.rate-limit-store')
+    );
     this.skipWhenCleanupFails = options.skipWhenCleanupFails !== false;
 
     // Ensure store directory exists
@@ -31,6 +35,16 @@ class DistributedRateLimiter {
     try {
       await fs.mkdir(this.storePath, { recursive: true });
     } catch (error) {
+      // In containers, cwd may be read-only for non-root users; fallback to /tmp.
+      if (this.storePath !== '/tmp/.rate-limit-store') {
+        try {
+          this.storePath = '/tmp/.rate-limit-store';
+          await fs.mkdir(this.storePath, { recursive: true });
+          console.warn('[RateLimiter] Primary store path unavailable. Falling back to /tmp/.rate-limit-store');
+          return;
+        } catch {}
+      }
+
       console.error('Failed to create rate limit store directory:', error);
     }
   }

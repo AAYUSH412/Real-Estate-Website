@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 
+// Cache TTL in seconds (default: 3 hours = 10800 seconds)
+// Can be overridden via environment variable CACHE_TTL_SECONDS
+const CACHE_TTL = parseInt(process.env.CACHE_TTL_SECONDS, 10) || 10800;
+
 const searchCacheSchema = new mongoose.Schema({
   cacheKey: {
     type: String,
@@ -14,7 +18,7 @@ const searchCacheSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 600 // TTL index: auto-delete after 10 minutes (600 seconds)
+    expires: CACHE_TTL // TTL index: auto-delete after CACHE_TTL seconds
   }
 });
 

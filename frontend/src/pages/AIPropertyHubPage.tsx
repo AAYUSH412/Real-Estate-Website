@@ -38,6 +38,9 @@ export interface ScrapedProperty {
   parking?: string;
   property_url?: string;
   source?: string;
+  // Additional fields from backend
+  facing_direction?: string;
+  nearby_landmarks?: string[];
 }
 
 export interface PropertyOverview {
@@ -48,7 +51,7 @@ export interface PropertyOverview {
   highlight: string;
   match_score?: number | null;
   one_line_insight?: string;
-  red_flags?: string[];
+  red_flags?: (string | { flag: string; severity: 'critical' | 'medium' | 'low' })[];
   value_verdict?: 'good_deal' | 'fair' | 'overpriced' | null;
 }
 

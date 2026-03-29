@@ -276,12 +276,18 @@ const PropertyCard: React.FC<{
             </button>
             {showFlags && (
               <ul className="mt-1 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-1">
-                {redFlags.map((flag, i) => (
-                  <li key={i} className="font-manrope text-[12px] text-amber-800 flex items-start gap-1.5">
-                    <span className="shrink-0 mt-0.5">→</span>
-                    {flag}
-                  </li>
-                ))}
+                {redFlags.map((flag, i) => {
+                  // Handle both string format and object format {flag, severity}
+                  const flagText = typeof flag === 'string' ? flag : flag?.flag || '';
+                  const severity = typeof flag === 'object' ? flag?.severity : null;
+                  const severityColor = severity === 'critical' ? 'text-red-700' : severity === 'medium' ? 'text-amber-700' : 'text-amber-800';
+                  return (
+                    <li key={i} className={`font-manrope text-[12px] ${severityColor} flex items-start gap-1.5`}>
+                      <span className="shrink-0 mt-0.5">{severity === 'critical' ? '⚠' : '→'}</span>
+                      {flagText}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

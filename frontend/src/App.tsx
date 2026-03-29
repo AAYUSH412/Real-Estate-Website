@@ -44,28 +44,32 @@ function PageLoader() {
 
 function AnimatedRoutes() {
   const location = useLocation();
-  
+
   return (
-    <AnimatePresence mode="wait">
+    <>
+      {/* Structured data outside AnimatePresence - static elements don't need animation */}
       <StructuredData type="website" />
       <StructuredData type="organization" />
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
-        <Route path="/properties" element={<PageTransition><PropertiesPage /></PageTransition>} />
-        <Route path="/property/:id" element={<PageTransition><PropertyDetailsPage /></PageTransition>} />
-        <Route path="/ai-hub" element={<PageTransition><AIPropertyHubPage /></PageTransition>} />
-        <Route path="/about" element={<PageTransition><AboutUsPage /></PageTransition>} />
-        <Route path="/contact" element={<PageTransition><ContactPage /></PageTransition>} />
-        <Route path="/signin" element={<PageTransition><SignInPage /></PageTransition>} />
-        <Route path="/signup" element={<PageTransition><SignUpPage /></PageTransition>} />
-        <Route path="/forgot-password" element={<PageTransition><ForgotPasswordPage /></PageTransition>} />
-        <Route path="/reset/:token" element={<PageTransition><ResetPasswordPage /></PageTransition>} />
-        <Route path="/verify-email/:token" element={<PageTransition><VerifyEmailPage /></PageTransition>} />
-        <Route path="/add-property" element={<PageTransition><AddPropertyPage /></PageTransition>} />
-        <Route path="/my-listings" element={<PageTransition><MyListingsPage /></PageTransition>} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
+          <Route path="/properties" element={<PageTransition><PropertiesPage /></PageTransition>} />
+          <Route path="/property/:id" element={<PageTransition><PropertyDetailsPage /></PageTransition>} />
+          <Route path="/ai-hub" element={<PageTransition><AIPropertyHubPage /></PageTransition>} />
+          <Route path="/about" element={<PageTransition><AboutUsPage /></PageTransition>} />
+          <Route path="/contact" element={<PageTransition><ContactPage /></PageTransition>} />
+          <Route path="/signin" element={<PageTransition><SignInPage /></PageTransition>} />
+          <Route path="/signup" element={<PageTransition><SignUpPage /></PageTransition>} />
+          <Route path="/forgot-password" element={<PageTransition><ForgotPasswordPage /></PageTransition>} />
+          <Route path="/reset/:token" element={<PageTransition><ResetPasswordPage /></PageTransition>} />
+          <Route path="/verify-email/:token" element={<PageTransition><VerifyEmailPage /></PageTransition>} />
+          <Route path="/add-property" element={<PageTransition><AddPropertyPage /></PageTransition>} />
+          <Route path="/my-listings" element={<PageTransition><MyListingsPage /></PageTransition>} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </AnimatePresence>
+    </>
   );
 }
 

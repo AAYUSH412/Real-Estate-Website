@@ -5,8 +5,69 @@
  */
 
 /**
+ * Attempt to repair truncated JSON by closing open structures.
+ * Handles common cases like unterminated strings, arrays, and objects.
+ */
+function repairTruncatedJSON(text) {
+  let repaired = text.trim();
+
+  // Count unclosed brackets and braces
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < repaired.length; i++) {
+    const char = repaired[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"' && !escaped) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') openBraces++;
+      if (char === '}') openBraces--;
+      if (char === '[') openBrackets++;
+      if (char === ']') openBrackets--;
+    }
+  }
+
+  // If we're still in a string, close it
+  if (inString) {
+    repaired += '"';
+  }
+
+  // Remove trailing comma if present
+  repaired = repaired.replace(/,\s*$/, '');
+
+  // Close any unclosed arrays and objects
+  while (openBrackets > 0) {
+    repaired += ']';
+    openBrackets--;
+  }
+  while (openBraces > 0) {
+    repaired += '}';
+    openBraces--;
+  }
+
+  return repaired;
+}
+
+/**
  * Parse a raw AI response string into an object.
  * Handles cases where the AI wraps JSON in code fences.
+ * Attempts to repair truncated JSON if initial parse fails.
  */
 function safeParse(raw) {
   if (typeof raw === 'object' && raw !== null) return raw;
@@ -16,7 +77,21 @@ function safeParse(raw) {
   // Strip markdown code fences if present
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
 
-  return JSON.parse(text);
+  // First attempt: direct parse
+  try {
+    return JSON.parse(text);
+  } catch (firstError) {
+    // Second attempt: try to repair truncated JSON
+    try {
+      const repaired = repairTruncatedJSON(text);
+      const parsed = JSON.parse(repaired);
+      console.log('[Validation] JSON repaired successfully after truncation');
+      return parsed;
+    } catch (repairError) {
+      // Throw the original error for better debugging
+      throw firstError;
+    }
+  }
 }
 
 /**

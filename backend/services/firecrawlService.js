@@ -171,6 +171,9 @@ function deduplicateProperties(properties) {
  * Round-robin interleave properties from different sources so the final
  * slice contains a proportional mix (e.g. 6 99acres + 6 magicbricks)
  * rather than all properties from the first source.
+ *
+ * Each source's properties are sorted by price (descending) so higher-value
+ * properties (closer to user's budget target) appear first.
  */
 function interleaveBySource(properties, limit) {
     const queues = {};
@@ -179,6 +182,16 @@ function interleaveBySource(properties, limit) {
         if (!queues[src]) queues[src] = [];
         queues[src].push(p);
     }
+
+    // Sort each source's queue by price (descending) - higher priced first
+    for (const src in queues) {
+        queues[src].sort((a, b) => {
+            const priceA = parsePriceToCrores(a.total_price || '0') || 0;
+            const priceB = parsePriceToCrores(b.total_price || '0') || 0;
+            return priceB - priceA; // Descending: higher prices first
+        });
+    }
+
     const groups = Object.values(queues);
     const result = [];
     let round = 0;
@@ -198,8 +211,24 @@ function interleaveBySource(properties, limit) {
  * Drop PG/rental listings and properties outside the user's budget.
  * Allows ±15 % tolerance so rounding in displayed prices doesn't incorrectly
  * reject a valid listing.
+ *
+ * Smart minimum price: When maxPrice is high, exclude properties that are
+ * too far below the budget (users searching for 5Cr don't want 50L properties).
  */
 function filterValidProperties(properties, minPrice, maxPrice) {
+    const max = parseFloat(maxPrice) || 0;
+    let min = parseFloat(minPrice) || 0;
+
+    // Smart minimum price calculation:
+    // - For budget >= 2 Cr: minimum = 30% of maxPrice (e.g., 5Cr → 1.5Cr minimum)
+    // - For budget >= 1 Cr: minimum = 25% of maxPrice (e.g., 1.5Cr → 37.5L minimum)
+    // - For budget < 1 Cr: no automatic minimum
+    if (min === 0 && max >= 2) {
+        min = max * 0.30; // 30% floor for high budgets
+    } else if (min === 0 && max >= 1) {
+        min = max * 0.25; // 25% floor for medium budgets
+    }
+
     return properties.filter(p => {
         const price = p.total_price || '';
 
@@ -213,9 +242,6 @@ function filterValidProperties(properties, minPrice, maxPrice) {
         // Parse and validate against budget
         const priceInCr = parsePriceToCrores(price);
         if (priceInCr === null) return false;
-
-        const max = parseFloat(maxPrice) || 0;
-        const min = parseFloat(minPrice) || 0;
 
         if (max > 0 && priceInCr > max * 1.15) return false;
         if (min > 0 && priceInCr < min * 0.85) return false;
@@ -493,6 +519,18 @@ class FirecrawlService {
             }
 
             // ── Step 4: Filter (reject PG / rental / out-of-budget) ─────────
+            // Calculate smart minimum price for logging
+            const maxPriceNum = parseFloat(maxPrice) || 0;
+            let smartMinPrice = parseFloat(minPrice) || 0;
+            if (smartMinPrice === 0 && maxPriceNum >= 2) {
+                smartMinPrice = maxPriceNum * 0.30;
+            } else if (smartMinPrice === 0 && maxPriceNum >= 1) {
+                smartMinPrice = maxPriceNum * 0.25;
+            }
+            if (smartMinPrice > 0) {
+                console.log(`[DEBUG] Smart min price      : ₹${smartMinPrice.toFixed(2)} Cr (${(smartMinPrice * 100).toFixed(0)} L floor for ${maxPriceNum} Cr budget)`);
+            }
+
             const filtered = filterValidProperties(rawProperties, minPrice, maxPrice);
 
             // ── Step 5: Deduplicate same property across portals ────────────

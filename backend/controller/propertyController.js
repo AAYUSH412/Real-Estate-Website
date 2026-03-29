@@ -4,25 +4,62 @@ import { createAIService } from '../services/aiService.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
 import imagekit from '../config/imagekit.js';
 import Property from '../models/propertyModel.js';
+import SearchCache from '../models/searchCacheModel.js';
+import { coalesce, getInFlightCount } from '../utils/requestCoalescer.js';
+import logger from '../utils/logger.js';
 
-// ── Simple in-memory cache (10-minute TTL) ────────────────────────────────────
-const _cache = new Map();
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+// ── MongoDB-based cache (10-minute TTL via TTL index) ────────────────────────
+// Replaces in-memory cache - works across all server instances
 
-function getCached(key) {
-    const entry = _cache.get(key);
-    if (!entry) return null;
-    if (Date.now() - entry.ts > CACHE_TTL_MS) { _cache.delete(key); return null; }
-    return entry.data;
+/**
+ * Get cached data from MongoDB
+ * @param {string} key - Cache key
+ * @returns {Promise<any|null>} - Cached data or null
+ */
+async function getCached(key) {
+    try {
+        const cached = await SearchCache.findOne({ cacheKey: key });
+        return cached?.data || null;
+    } catch (err) {
+        logger.warn('Cache MongoDB read error', { key: key.substring(0, 30), error: err.message });
+        return null;
+    }
 }
 
-function setCache(key, data) {
-    // Keep cache bounded — evict oldest entry if over 100 keys
-    if (_cache.size >= 100) {
-        const oldest = _cache.keys().next().value;
-        _cache.delete(oldest);
+/**
+ * Set cached data in MongoDB
+ * @param {string} key - Cache key
+ * @param {any} data - Data to cache
+ */
+async function setCache(key, data) {
+    try {
+        await SearchCache.findOneAndUpdate(
+            { cacheKey: key },
+            { cacheKey: key, data, createdAt: new Date() },
+            { upsert: true, new: true }
+        );
+    } catch (err) {
+        logger.warn('Cache MongoDB write error', { key: key.substring(0, 30), error: err.message });
     }
-    _cache.set(key, { data, ts: Date.now() });
+}
+
+/**
+ * Get cache statistics (for monitoring)
+ */
+export async function getCacheStats() {
+    try {
+        const count = await SearchCache.countDocuments();
+        const oldestEntry = await SearchCache.findOne().sort({ createdAt: 1 });
+        return {
+            cachedSearches: count,
+            oldestEntry: oldestEntry?.createdAt || null,
+            ttlMinutes: 10,
+            inFlightRequests: getInFlightCount()
+        };
+    } catch (err) {
+        logger.warn('Cache stats error', { error: err.message });
+        return { error: err.message };
+    }
 }
 
 // ── Key validation ────────────────────────────────────────────────────────────
@@ -100,33 +137,94 @@ export const searchProperties = async (req, res) => {
 
         // Cache key includes all search dimensions
         const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:nb${includeNoBroker}:limit${limit}`;
-        const cached = getCached(cacheKey);
+
+        // Check persistent MongoDB cache first
+        const cached = await getCached(cacheKey);
         if (cached) {
-            console.log(`[Cache] HIT for ${cacheKey}`);
+            logger.info('Cache HIT', { key: cacheKey.substring(0, 50) });
             return res.json({ success: true, ...cached, fromCache: true });
         }
 
-        console.log(`[PropertyController] search — city=${city} locality=${locality} bhk=${bhk} maxPrice=${maxPrice} type=${propertyType} possession=${possession}`);
+        logger.info('Property search', { city, locality, bhk, maxPrice, propertyType, possession });
 
-        // Step 1: Firecrawl — search then scrape individual pages
-        let propertiesData;
+        // Use coalescer to prevent duplicate in-flight requests
+        // If another request with the same key is already processing, wait for it
+        let result;
         try {
-            propertiesData = await firecrawlService.findProperties({
-                city,
-                locality,
-                bhk,
-                minPrice,
-                maxPrice,
-                propertyType:     propertyType || 'Flat',
-                propertyCategory: propertyCategory || 'Residential',
-                possession,
-                includeNoBroker,
-                limit:            Math.min(limit, 20),
-            });
-        } catch (firecrawlError) {
-            console.error('[Firecrawl] Property search failed:', firecrawlError.message);
+            result = await coalesce(cacheKey, async () => {
+                // Double-check cache (another request may have just completed)
+                const rechecked = await getCached(cacheKey);
+                if (rechecked) {
+                    logger.debug('Coalesce cache filled by another request', { key: cacheKey.substring(0, 50) });
+                    return { ...rechecked, fromCoalesce: true };
+                }
 
-            if (firecrawlError.code === 'FIRECRAWL_AUTH_ERROR' || isUnauthorizedError(firecrawlError)) {
+                // Step 1: Firecrawl — search then scrape individual pages
+                const propertiesData = await firecrawlService.findProperties({
+                    city,
+                    locality,
+                    bhk,
+                    minPrice,
+                    maxPrice,
+                    propertyType:     propertyType || 'Flat',
+                    propertyCategory: propertyCategory || 'Residential',
+                    possession,
+                    includeNoBroker,
+                    limit:            Math.min(limit, 20),
+                });
+
+                if (!propertiesData?.properties || propertiesData.properties.length === 0) {
+                    return {
+                        notFound: true,
+                        message: `No ${propertyType || ''} properties found in ${locality ? locality + ', ' : ''}${city} within ₹${parseFloat(maxPrice) < 1 ? Math.round(parseFloat(maxPrice) * 100) + ' Lakhs' : maxPrice + ' Crores'}. Try adjusting your budget or area.`
+                    };
+                }
+
+                // Step 2: AI analysis
+                let analysis;
+                try {
+                    const rawAnalysis = await aiService.analyzeProperties(
+                        propertiesData.properties,
+                        {
+                            city,
+                            locality,
+                            bhk,
+                            minPrice,
+                            maxPrice,
+                            propertyType:     propertyType     || 'Flat',
+                            propertyCategory: propertyCategory || 'Residential',
+                        }
+                    );
+                    analysis = validateAndFixPropertyAnalysis(rawAnalysis, propertiesData.properties);
+                } catch (aiError) {
+                    logger.error('AI property analysis failed', { error: aiError.message });
+                    analysis = {
+                        error: 'Analysis temporarily unavailable',
+                        overview: propertiesData.properties.slice(0, limit).map(p => ({
+                            name:      p.building_name || 'Unknown',
+                            price:     p.total_price || p.price || 'Contact for price',
+                            area:      p.carpet_area_sqft || p.area_sqft || 'N/A',
+                            location:  p.location_address || '',
+                            highlight: 'Property details available',
+                        })),
+                        best_value:      null,
+                        recommendations: ['Contact us for more details'],
+                    };
+                }
+
+                const payload = { properties: propertiesData.properties, analysis };
+
+                // Save to persistent cache
+                await setCache(cacheKey, payload);
+                logger.info('Cache SET', { key: cacheKey.substring(0, 50) });
+
+                return payload;
+            });
+        } catch (coalesceError) {
+            // Handle errors from the coalesced operation
+            logger.error('Coalesce error', { error: coalesceError.message });
+
+            if (coalesceError.code === 'FIRECRAWL_AUTH_ERROR' || isUnauthorizedError(coalesceError)) {
                 return res.status(403).json({
                     success: false,
                     message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
@@ -135,8 +233,7 @@ export const searchProperties = async (req, res) => {
                 });
             }
 
-            // Handle insufficient credits specifically
-            if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED') {
+            if (coalesceError.code === 'FIRECRAWL_CREDITS_EXHAUSTED') {
                 return res.status(402).json({
                     success: false,
                     message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
@@ -152,53 +249,20 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        if (!propertiesData?.properties || propertiesData.properties.length === 0) {
+        // Handle special cases from coalesced result
+        if (result.notFound) {
             return res.status(404).json({
                 success: false,
-                message: `No ${propertyType || ''} properties found in ${locality ? locality + ', ' : ''}${city} within ₹${parseFloat(maxPrice) < 1 ? Math.round(parseFloat(maxPrice) * 100) + ' Lakhs' : maxPrice + ' Crores'}. Try adjusting your budget or area.`,
+                message: result.message,
                 properties: [],
                 analysis: null,
             });
         }
 
-        // Step 2: AI analysis
-        let analysis;
-        try {
-            const rawAnalysis = await aiService.analyzeProperties(
-                propertiesData.properties,
-                {
-                    city,
-                    locality,
-                    bhk,
-                    minPrice,
-                    maxPrice,
-                    propertyType:     propertyType     || 'Flat',
-                    propertyCategory: propertyCategory || 'Residential',
-                }
-            );
-            analysis = validateAndFixPropertyAnalysis(rawAnalysis, propertiesData.properties);
-        } catch (aiError) {
-            console.error('[AI] Property analysis failed:', aiError.message);
-            analysis = {
-                error: 'Analysis temporarily unavailable',
-                overview: propertiesData.properties.slice(0, limit).map(p => ({
-                    name:      p.building_name || 'Unknown',
-                    price:     p.total_price || p.price || 'Contact for price',
-                    area:      p.carpet_area_sqft || p.area_sqft || 'N/A',
-                    location:  p.location_address || '',
-                    highlight: 'Property details available',
-                })),
-                best_value:      null,
-                recommendations: ['Contact us for more details'],
-            };
-        }
-
-        const payload = { properties: propertiesData.properties, analysis };
-        setCache(cacheKey, payload);
-        res.json({ success: true, ...payload });
+        res.json({ success: true, ...result });
 
     } catch (error) {
-        console.error('Error searching properties:', error);
+        logger.error("Error searching properties", { error: error.message, stack: error.stack });
         res.status(500).json({ success: false, message: 'Failed to search properties', error: error.message });
     }
 };
@@ -226,22 +290,61 @@ export const getLocationTrends = async (req, res) => {
 
         const { firecrawlService, aiService } = services;
         const cacheKey = `trends:${city}`;
-        const cached = getCached(cacheKey);
+
+        // Check persistent MongoDB cache first
+        const cached = await getCached(cacheKey);
         if (cached) {
-            console.log(`[Cache] HIT for ${cacheKey}`);
+            logger.info('Cache HIT', { key: cacheKey });
             return res.json({ success: true, ...cached, fromCache: true });
         }
 
-        console.log(`[PropertyController] trends — city=${city}`);
+        logger.info('Location trends search', { city });
 
-        // Step 1: Firecrawl
-        let locationsData;
+        // Use coalescer to prevent duplicate in-flight requests
+        let result;
         try {
-            locationsData = await firecrawlService.getLocationTrends(city, Math.min(limit, 5));
-        } catch (firecrawlError) {
-            console.error('[Firecrawl] Location trends failed:', firecrawlError.message);
+            result = await coalesce(cacheKey, async () => {
+                // Double-check cache
+                const rechecked = await getCached(cacheKey);
+                if (rechecked) {
+                    return { ...rechecked, fromCoalesce: true };
+                }
 
-            if (isUnauthorizedError(firecrawlError)) {
+                // Step 1: Firecrawl
+                const locationsData = await firecrawlService.getLocationTrends(city, Math.min(limit, 5));
+
+                if (!locationsData?.locations || locationsData.locations.length === 0) {
+                    return {
+                        notFound: true,
+                        message: `No location trend data available for ${city} at the moment. Please try again later.`
+                    };
+                }
+
+                // Step 2: AI analysis
+                let analysis;
+                try {
+                    const rawAnalysis = await aiService.analyzeLocationTrends(locationsData.locations, city);
+                    analysis = validateAndFixLocationAnalysis(rawAnalysis);
+                } catch (aiError) {
+                    logger.error('AI location analysis failed', { city, error: aiError.message });
+                    analysis = {
+                        error: 'Analysis temporarily unavailable',
+                        trends: [],
+                        top_appreciation: null,
+                        best_rental_yield: null,
+                        investment_tips: ['Contact us for personalized investment advice']
+                    };
+                }
+
+                const payload = { locations: locationsData.locations, analysis };
+                await setCache(cacheKey, payload);
+                logger.info('Cache SET', { key: cacheKey });
+                return payload;
+            });
+        } catch (coalesceError) {
+            logger.error('Coalesce location trends error', { error: coalesceError.message });
+
+            if (isUnauthorizedError(coalesceError)) {
                 return res.status(403).json({
                     success: false,
                     message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
@@ -250,8 +353,7 @@ export const getLocationTrends = async (req, res) => {
                 });
             }
 
-            // Handle insufficient credits specifically
-            if (firecrawlError.code === 'FIRECRAWL_CREDITS_EXHAUSTED' || isCreditsExhaustedError(firecrawlError)) {
+            if (coalesceError.code === 'FIRECRAWL_CREDITS_EXHAUSTED' || isCreditsExhaustedError(coalesceError)) {
                 return res.status(402).json({
                     success: false,
                     message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
@@ -267,37 +369,20 @@ export const getLocationTrends = async (req, res) => {
             });
         }
 
-        if (!locationsData?.locations || locationsData.locations.length === 0) {
+        // Handle special cases from coalesced result
+        if (result.notFound) {
             return res.status(404).json({
                 success: false,
-                message: `No location trend data available for ${city} at the moment. Please try again later.`,
+                message: result.message,
                 locations: [],
                 analysis: null
             });
         }
 
-        // Step 2: AI analysis
-        let analysis;
-        try {
-            const rawAnalysis = await aiService.analyzeLocationTrends(locationsData.locations, city);
-            analysis = validateAndFixLocationAnalysis(rawAnalysis);
-        } catch (aiError) {
-            console.error('[AI] Location analysis failed:', aiError.message);
-            analysis = {
-                error: 'Analysis temporarily unavailable',
-                trends: [],
-                top_appreciation: null,
-                best_rental_yield: null,
-                investment_tips: ['Contact us for personalized investment advice']
-            };
-        }
-
-        const payload = { locations: locationsData.locations, analysis };
-        setCache(cacheKey, payload);
-        res.json({ success: true, ...payload });
+        res.json({ success: true, ...result });
 
     } catch (error) {
-        console.error('Error getting location trends:', error);
+        logger.error("Error getting location trends", { error: error.message, stack: error.stack });
         res.status(500).json({ success: false, message: 'Failed to get location trends', error: error.message });
     }
 };
@@ -324,7 +409,7 @@ export const validateApiKeys = async (req, res) => {
     const githubErr = githubResult.status === 'rejected' ? githubResult.reason : null;
     const firecrawlErr = firecrawlResult.status === 'rejected' ? firecrawlResult.reason : null;
 
-    console.log('[KeyValidation]', {
+    logger.debug('Key validation', {
         githubStatus: githubResult.status,
         firecrawlStatus: firecrawlResult.status,
         githubError: githubErr?.message || null,
@@ -395,7 +480,7 @@ async function uploadImages(files) {
                 folder: 'Property',
             });
             fs.unlink(file.path, (err) => {
-                if (err) console.error('Error deleting temp file:', err);
+                if (err) logger.warn("Error deleting temp file", { error: err?.message });
             });
             return result.url;
         })
@@ -452,7 +537,7 @@ export const createUserListing = async (req, res) => {
 
         res.status(201).json({ success: true, message: 'Listing submitted for review', property });
     } catch (error) {
-        console.error('Error creating user listing:', error);
+        logger.error("Error creating user listing", { error: error.message, stack: error.stack });
         res.status(500).json({ success: false, message: 'Failed to create listing', error: error.message });
     }
 };
@@ -490,7 +575,7 @@ export const getUserListings = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error fetching user listings:', error);
+        logger.error("Error fetching user listings", { error: error.message, stack: error.stack });
         res.status(500).json({ success: false, message: 'Failed to fetch listings', error: error.message });
     }
 };
@@ -548,7 +633,7 @@ export const updateUserListing = async (req, res) => {
         const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true });
         res.json({ success: true, message: 'Listing updated and resubmitted for review', property: updated });
     } catch (error) {
-        console.error('Error updating user listing:', error);
+        logger.error("Error updating user listing", { error: error.message, stack: error.stack });
         res.status(500).json({ success: false, message: 'Failed to update listing', error: error.message });
     }
 };
@@ -569,7 +654,7 @@ export const deleteUserListing = async (req, res) => {
         await Property.findByIdAndDelete(req.params.id);
         res.json({ success: true, message: 'Listing deleted successfully' });
     } catch (error) {
-        console.error('Error deleting user listing:', error);
+        logger.error("Error deleting user listing", { error: error.message, stack: error.stack });
         res.status(500).json({ success: false, message: 'Failed to delete listing', error: error.message });
     }
 };

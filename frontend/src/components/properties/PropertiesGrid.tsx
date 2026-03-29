@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import PropertyCard from './PropertyCard';
 import type { Property } from '../../pages/PropertiesPage';
+import { formatPrice } from '../../utils/formatPrice';
 
 interface PropertiesGridProps {
   properties: Property[];
@@ -18,18 +19,6 @@ const fallbackImages = [
 ];
 
 const PropertiesGrid: React.FC<PropertiesGridProps> = ({ properties, viewMode = 'grid' }) => {
-  // Format price: backend stores as number (e.g. 7500000 → "75 L" or 15000000 → "1.50 Cr")
-  const formatPrice = (price: number): string => {
-    const crore = price / 10000000;
-    if (crore >= 1) {
-      const formatted = crore % 1 === 0 ? crore.toString() : crore.toFixed(2);
-      return `${formatted} Cr`;
-    }
-    // Less than 1 Cr, show in lakhs
-    const lakhs = price / 100000;
-    return lakhs >= 1 ? `${lakhs.toFixed(0)} L` : `₹${price.toLocaleString('en-IN')}`;
-  };
-
   const container = {
     hidden: { opacity: 0 },
     show: {

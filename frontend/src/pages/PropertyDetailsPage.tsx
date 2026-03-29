@@ -13,6 +13,7 @@ import ScheduleViewingCard from '../components/property-details/ScheduleViewingC
 import { propertiesAPI } from '../services/api';
 import { useSEO } from '../hooks/useSEO';
 import StructuredData from '../components/common/StructuredData';
+import { formatPrice } from '../utils/formatPrice';
 
 interface PropertyData {
   _id: string;
@@ -67,11 +68,6 @@ const PropertyDetailsPage: React.FC = () => {
 
     fetchProperty();
   }, [id]);
-
-  // Format price for display
-  const formatPrice = (price: number): string => {
-    return price.toLocaleString('en-IN');
-  };
 
   // Map availability to status
   const getStatus = (availability: string): 'available' | 'sold' | 'pending' => {

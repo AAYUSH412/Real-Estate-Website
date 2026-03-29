@@ -12,7 +12,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (fullName: string, email: string, phone: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -40,8 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { data } = await userAPI.login({ email, password });
+  const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
+    const { data } = await userAPI.login({ email, password, rememberMe });
     if (data.success && data.token) {
       localStorage.setItem('buildestate_token', data.token);
       localStorage.setItem('buildestate_user', JSON.stringify(data.user));

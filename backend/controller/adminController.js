@@ -1374,11 +1374,12 @@ export const getUserStats = async (req, res) => {
 
     res.json({
       success: true,
-      stats: {
-        totalUsers,
-        activeUsers,
-        suspendedUsers,
-        bannedUsers,
+      data: {
+        Total: totalUsers,
+        Active: activeUsers,
+        Suspended: suspendedUsers,
+        Banned: bannedUsers,
+        newUsersByDay: newUsersLast30Days,
         newUsersChart: {
           labels,
           datasets: [{
@@ -1468,11 +1469,12 @@ export const getPropertyStats = async (req, res) => {
 
     res.json({
       success: true,
-      stats: {
+      data: {
         totalProperties,
         activeProperties,
-        pendingProperties,
-        rejectedProperties,
+        pendingCount: pendingProperties,
+        rejectedCount: rejectedProperties,
+        approvedCount: activeProperties,
         expiredProperties,
         avgPrice: Math.round(avgPrice),
         approvalRate: parseFloat(approvalRate),
@@ -1506,14 +1508,17 @@ export const getEnhancedOverview = async (req, res) => {
     const [
       totalProperties,
       activeListings,
+      pendingListings,
       totalUsers,
       pendingAppointments,
       totalRevenue,
       avgPropertyPrice,
-      appointmentCompletionRate
+      appointmentCompletionRate,
+      viewsData
     ] = await Promise.all([
       Property.countDocuments().catch(() => 0),
       Property.countDocuments({ status: 'active' }).catch(() => 0),
+      Property.countDocuments({ status: 'pending' }).catch(() => 0),
       User.countDocuments().catch(() => 0),
       Appointment.countDocuments({ status: 'pending' }).catch(() => 0),
 
@@ -1538,7 +1543,10 @@ export const getEnhancedOverview = async (req, res) => {
         } catch (error) {
           return 0;
         }
-      })()
+      })(),
+
+      // Get views data for charts
+      getViewsData().catch(() => ({ labels: [], datasets: [] }))
     ]);
 
     res.json({
@@ -1546,11 +1554,13 @@ export const getEnhancedOverview = async (req, res) => {
       data: {
         totalProperties,
         activeListings,
+        pendingListings,
         totalUsers,
         pendingAppointments,
         totalPlatformValue: totalRevenue,
         avgPropertyPrice: avgPropertyPrice,
-        appointmentCompletionRate: parseFloat(appointmentCompletionRate)
+        appointmentCompletionRate: parseFloat(appointmentCompletionRate),
+        viewsData
       }
     });
   } catch (error) {

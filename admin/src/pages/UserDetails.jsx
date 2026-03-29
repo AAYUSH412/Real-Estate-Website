@@ -137,7 +137,7 @@ const UserDetailsPage = () => {
   // Loading State
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
+      <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <div className="h-8 w-48 bg-[#E6D5C3] rounded-xl animate-pulse mb-4" />
@@ -160,7 +160,7 @@ const UserDetailsPage = () => {
   // Error State
   if (error) {
     return (
-      <div className="min-h-screen pt-24 flex items-center justify-center bg-[#FAF8F4]">
+      <div className="min-h-screen pt-8 flex items-center justify-center bg-[#FAF8F4]">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-500" />
@@ -179,7 +179,7 @@ const UserDetailsPage = () => {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
+    <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.div

@@ -8,6 +8,11 @@ const UserSchema = new mongoose.Schema({
     resetToken: { type: String },
     resetTokenExpire: { type: Date },
 
+    // Email verification fields
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String },
+    verificationTokenExpiry: { type: Date },
+
     // User status management fields
     status: {
         type: String,

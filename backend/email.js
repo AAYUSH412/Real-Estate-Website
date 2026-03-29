@@ -149,6 +149,31 @@ export const getWelcomeTemplate = (name) => wrap(
   <p style="font-size:13px;color:${BRAND.muted};margin:0;">Need help? Just reply to this email or visit our <a href="${BRAND.site}/contact" style="color:${BRAND.color};text-decoration:none;">contact page</a>.</p>`
 );
 
+// ─── 4.5. Email Verification ──────────────────────────────
+
+export const getEmailVerificationTemplate = (name, verificationUrl) => wrap(
+  'Verify Your Email Address',
+  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${name}</strong>,</p>
+  <p style="margin:0 0 24px;font-size:15px;">Thanks for signing up with BuildEstate! To complete your registration and start exploring properties, please verify your email address.</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;text-align:center;">
+    <p style="margin:0 0 16px;font-size:14px;color:${BRAND.muted};">Click the button below to verify your email. This link expires in <strong>24 hours</strong>.</p>
+  </div>
+
+  ${btn(verificationUrl, 'Verify Email Address')}
+
+  <div style="background:#fef3c7;border-left:3px solid #d97706;padding:14px 16px;border-radius:6px;font-size:13px;color:${BRAND.dark};margin:24px 0 16px;">
+    <strong>Why verify?</strong> Email verification helps us keep your account secure and ensures you don't miss important property updates.
+  </div>
+
+  <div style="background:#f3f4f6;border-radius:8px;padding:14px 16px;margin:16px 0 0;">
+    <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:${BRAND.dark};">Button not working?</p>
+    <p style="margin:0;font-size:12px;color:${BRAND.muted};word-break:break-all;">Copy and paste this link into your browser:<br/><a href="${verificationUrl}" style="color:${BRAND.color};text-decoration:none;">${verificationUrl}</a></p>
+  </div>
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:16px 0 0;">If you didn't create an account with BuildEstate, you can safely ignore this email.</p>`
+);
+
 // ─── 5. Password Reset ──────────────────────────────────
 
 export const getPasswordResetTemplate = (resetUrl) => wrap(

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   MapPin, Maximize, SearchX, Home, ExternalLink,
   ChevronDown, ChevronUp, AlertTriangle, CheckCircle,
-  X, BarChart2, CheckCircle2,
+  X, BarChart2, CheckCircle2, Compass, Building2, Sparkles,
 } from 'lucide-react';
 import type { ScrapedProperty, PropertyAnalysis, PropertyOverview } from '../../pages/AIPropertyHubPage';
 
@@ -42,9 +42,11 @@ const COMPARE_ROWS = [
   { key: 'area_sqft',         label: 'Carpet area' },
   { key: 'floor',             label: 'Floor'       },
   { key: 'possession_status', label: 'Possession'  },
+  { key: 'facing_direction',  label: 'Facing'      },
   { key: 'parking',           label: 'Parking'     },
   { key: 'rera_number',       label: 'RERA'        },
   { key: 'builder_name',      label: 'Builder'     },
+  { key: 'amenities',         label: 'Amenities'   },
   { key: 'ai_verdict',        label: 'AI Verdict'  },
   { key: 'ai_insight',        label: 'AI Insight'  },
 ] as const;
@@ -95,6 +97,16 @@ const PropertyCard: React.FC<{
         <h3 className="font-syne text-[20px] font-bold text-[#221410] mb-1 leading-tight line-clamp-2 group-hover:text-[#D4755B] transition-colors">
           {property.building_name || 'Premium Property'}
         </h3>
+
+        {/* Builder name */}
+        {property.builder_name && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <Building2 className="w-3.5 h-3.5 text-[#9CA3AF]" />
+            <span className="font-manrope text-[13px] text-[#6B7280]">
+              by <span className="font-medium text-[#4B5563]">{property.builder_name}</span>
+            </span>
+          </div>
+        )}
 
         {/* Location */}
         <div className="flex items-start gap-1.5 mb-4">
@@ -148,7 +160,7 @@ const PropertyCard: React.FC<{
         )}
 
         {/* Trust signal chips */}
-        {(property.rera_number || property.possession_status || property.parking || isVerified) && (
+        {(property.rera_number || property.possession_status || property.parking || property.facing_direction || isVerified) && (
           <div className="flex flex-wrap gap-1.5 mb-4">
             {property.rera_number && (
               <span className="inline-flex items-center gap-1 font-manrope text-[11px] font-medium px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
@@ -158,6 +170,11 @@ const PropertyCard: React.FC<{
             {property.possession_status && (
               <span className="inline-flex items-center gap-1 font-manrope text-[11px] font-medium px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700">
                 {property.possession_status}
+              </span>
+            )}
+            {property.facing_direction && (
+              <span className="inline-flex items-center gap-1 font-manrope text-[11px] font-medium px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 text-sky-700">
+                <Compass className="w-3 h-3" /> {property.facing_direction}
               </span>
             )}
             {property.parking && property.parking.toLowerCase() !== 'none' && (
@@ -170,6 +187,53 @@ const PropertyCard: React.FC<{
                 ★ Verified Builder
               </span>
             )}
+          </div>
+        )}
+
+        {/* Amenities */}
+        {property.amenities && property.amenities.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#D4755B]" />
+              <span className="font-space-mono text-[10px] text-[#9CA3AF] uppercase tracking-wider font-bold">Amenities</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {property.amenities.slice(0, 6).map((amenity, i) => (
+                <span key={i} className="font-manrope text-[11px] px-2.5 py-1 rounded-md bg-[#FAF8F4] border border-[#E6E0DA] text-[#4B5563]">
+                  {amenity}
+                </span>
+              ))}
+              {property.amenities.length > 6 && (
+                <span className="font-manrope text-[11px] px-2.5 py-1 text-[#9CA3AF]">
+                  +{property.amenities.length - 6} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Nearby Landmarks */}
+        {property.nearby_landmarks && property.nearby_landmarks.length > 0 && (
+          <div className="flex items-start gap-2 mb-4">
+            <MapPin className="w-3.5 h-3. 5 text-[#D4755B] mt-0.5 shrink-0" />
+            <div>
+              <span className="font-space-mono text-[10px] text-[#9CA3AF] uppercase tracking-wider font-bold block mb-1">
+                Nearby
+              </span>
+              <p className="font-manrope text-[12px] text-[#6B7280] leading-relaxed">
+                {property.nearby_landmarks.slice(0, 4).join(' · ')}
+                {property.nearby_landmarks.length > 4 && ` · +${property.nearby_landmarks.length - 4} more`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Description (expandable) */}
+        {property.description && property.description.trim() && (
+          <div className="mb-4">
+            <p className="font-manrope text-[12px] text-[#6B7280] leading-relaxed line-clamp-2">
+              {property.description}
+            </p>
           </div>
         )}
 
@@ -288,6 +352,10 @@ const ComparisonModal: React.FC<{
           : '—';
       case 'possession_status':
         return property.possession_status || '—';
+      case 'facing_direction':
+        return property.facing_direction
+          ? <span className="inline-flex items-center gap-1"><Compass className="w-3.5 h-3.5 text-sky-600" /> {property.facing_direction}</span>
+          : <span className="text-[#C4C4C4]">—</span>;
       case 'parking':
         return property.parking && property.parking.toLowerCase() !== 'none'
           ? `${property.parking} ✓`
@@ -298,6 +366,10 @@ const ComparisonModal: React.FC<{
           : <span className="text-[#C4C4C4]">—</span>;
       case 'builder_name':
         return property.builder_name || '—';
+      case 'amenities':
+        return property.amenities && property.amenities.length > 0
+          ? <span className="text-[11px]">{property.amenities.slice(0, 3).join(', ')}{property.amenities.length > 3 && ` +${property.amenities.length - 3}`}</span>
+          : <span className="text-[#C4C4C4]">—</span>;
       case 'ai_verdict': {
         const v = insight?.value_verdict;
         if (!v) return <span className="text-[#C4C4C4]">—</span>;

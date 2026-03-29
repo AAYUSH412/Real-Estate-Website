@@ -62,6 +62,9 @@ export const userAPI = {
   resetPassword: (token: string, password: string) =>
     apiClient.post(`/users/reset/${token}`, { password }),
 
+  verifyEmail: (token: string) =>
+    apiClient.get(`/users/verify/${token}`),
+
   getProfile: () =>
     apiClient.get('/users/me'),
 };

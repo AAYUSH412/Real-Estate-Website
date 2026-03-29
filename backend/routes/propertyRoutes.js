@@ -1,6 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { searchProperties, getLocationTrends, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys } from '../controller/propertyController.js';
+import { searchProperties, getLocationTrends, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
 import { transformAISearchRequest } from '../middleware/transformRequest.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/multer.js';
@@ -61,6 +61,25 @@ router.get('/rate-limit/stats', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch rate limit statistics',
+            error: error.message
+        });
+    }
+});
+
+// ── Cache stats (for monitoring MongoDB cache) ──────────────────────────────
+router.get('/cache/stats', async (req, res) => {
+    try {
+        const stats = await getCacheStats();
+        res.json({
+            success: true,
+            ...stats,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error fetching cache stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch cache statistics',
             error: error.message
         });
     }

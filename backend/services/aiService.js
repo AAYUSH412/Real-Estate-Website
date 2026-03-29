@@ -2,6 +2,7 @@ import { config } from "../config/config.js";
 import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { registry } from "../utils/circuitBreaker.js";
+import logger from "../utils/logger.js";
 
 const PRIMARY_MODEL = "gpt-4.1-mini";
 const FALLBACK_MODEL = "gpt-4.1-nano";
@@ -84,12 +85,12 @@ class AIService {
 
       if (result) return result;
     } catch (error) {
-      console.warn(`[AI] Primary circuit breaker: ${error.message}`);
+      logger.warn('Primary circuit breaker triggered', { model: PRIMARY_MODEL, error: error.message });
     }
 
     // Fallback to nano model with circuit breaker
     try {
-      console.warn(`Primary model (${PRIMARY_MODEL}) failed or circuit open. Falling back to ${FALLBACK_MODEL}...`);
+      logger.warn('Falling back to secondary model', { from: PRIMARY_MODEL, to: FALLBACK_MODEL });
 
       const fallbackResult = await this.fallbackCircuit.execute(async () => {
         return await this._callModel(FALLBACK_MODEL, prompt, systemPrompt);
@@ -97,7 +98,7 @@ class AIService {
 
       if (fallbackResult) return fallbackResult;
     } catch (error) {
-      console.error(`[AI] Fallback circuit breaker: ${error.message}`);
+      logger.error('Fallback circuit breaker triggered', { model: FALLBACK_MODEL, error: error.message });
     }
 
     return JSON.stringify({ error: "AI service is temporarily unavailable. Please try again later." });
@@ -107,11 +108,11 @@ class AIService {
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
-      console.warn(`[AI] ${model} timed out after ${AI_TIMEOUT_MS / 1000}s`);
+      logger.warn('AI model request timeout', { model, timeoutMs: AI_TIMEOUT_MS });
     }, AI_TIMEOUT_MS);
 
     try {
-      console.log(`[AI] Calling ${model} at ${new Date().toISOString()}`);
+      logger.info('Calling AI model', { model });
       const startTime = Date.now();
 
       const response = await this.client.path("/chat/completions").post({
@@ -130,21 +131,21 @@ class AIService {
       });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`[AI] ${model} responded in ${elapsed}s`);
+      logger.info('AI model responded', { model, elapsedSeconds: elapsed });
 
       if (isUnexpected(response)) {
         const errorMsg = response.body.error?.message || 'Unknown AI API error';
-        console.error(`[AI] ${model} error:`, errorMsg);
+        logger.error('AI model error', { model, error: errorMsg });
         throw new Error(`AI API error: ${errorMsg}`);
       }
 
       return response.body.choices[0].message.content;
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error(`[AI] ${model} aborted — timeout exceeded`);
+        logger.error('AI model request aborted', { model, reason: 'timeout' });
         throw new Error(`AI request timeout after ${AI_TIMEOUT_MS / 1000}s`);
       } else {
-        console.error(`[AI] ${model} exception:`, error.message);
+        logger.error('AI model exception', { model, error: error.message });
         throw error;
       }
     } finally {
@@ -213,18 +214,54 @@ Rank these ${preparedProperties.length} ${typeLabel}s in ${locationStr} for a bu
 Properties:
 ${JSON.stringify(preparedProperties, null, 2)}
 
+PRICE BENCHMARKS (₹/sqft) FOR REFERENCE:
+
+MUMBAI:
+- Premium (Bandra, Worli, Lower Parel): ₹35,000-60,000/sqft
+- Mid-tier (Andheri, Powai, Goregaon): ₹18,000-35,000/sqft
+- Affordable (Thane, Navi Mumbai): ₹10,000-18,000/sqft
+
+BANGALORE:
+- Premium (Koramangala, Indiranagar, Whitefield): ₹12,000-20,000/sqft
+- Mid-tier (Marathahalli, Sarjapur, HSR): ₹8,000-12,000/sqft
+- Emerging (Electronic City, Yelahanka): ₹5,000-8,000/sqft
+
+PUNE:
+- Premium (Koregaon Park, Kalyani Nagar): ₹15,000-25,000/sqft
+- Mid-tier (Baner, Hinjewadi, Wakad): ₹8,000-15,000/sqft
+- Affordable (Wagholi, Undri): ₹5,000-8,000/sqft
+
+DELHI NCR:
+- Premium (Golf Course Road, MG Road): ₹18,000-35,000/sqft
+- Mid-tier (Dwarka, Rohini, Greater Noida West): ₹8,000-15,000/sqft
+- Emerging (Sector 150 Noida, New Gurgaon): ₹5,000-8,000/sqft
+
+HYDERABAD:
+- Premium (Banjara Hills, Jubilee Hills, Gachibowli): ₹10,000-18,000/sqft
+- Mid-tier (HITEC City, Madhapur, Kondapur): ₹6,000-10,000/sqft
+- Emerging (Kompally, Miyapur): ₹4,000-6,000/sqft
+
+Compare each property's price_per_sqft against these benchmarks.
+Flag as "overpriced" if >20% above area average.
+Flag as "good_deal" if >15% below area average.
+
 Rank each property based on:
-1. Price vs locality average (value for money) — use price_per_sqft if available
+1. Price vs locality average (value for money) — use price_per_sqft and above benchmarks
 2. Builder reputation — known builders (Godrej, Lodha, Prestige, Sobha, DLF, Tata, etc.) score higher; unknown builders are a risk
 3. Possession status — Ready to Move > possession within 1 year > 2026 > 2027+
 4. RERA registration — rera_number present means legally safe; missing is a red flag
 5. Connectivity — metro station, school, hospital in nearby_landmarks scores higher
+6. Premium amenities — Pool, Gym, Clubhouse, Sports facilities add significant value
 
 For EACH property provide all of these fields:
 - match_score: integer 0–100 (fit for buyer's stated criteria)
 - one_line_insight: max 20 words, SPECIFIC — use real data e.g. "₹8,200/sqft below SG Highway avg, RERA ✓, metro 600m"
-- red_flags: array of specific concerns e.g. ["No RERA number", "Possession far at 2027", "Unknown builder"] — empty array [] if none
+- red_flags: array of objects with severity levels, e.g. [{"flag": "No RERA registration", "severity": "critical"}, {"flag": "Possession delayed to 2027", "severity": "medium"}, {"flag": "Unknown builder", "severity": "low"}] — empty array [] if none. Severity must be one of: "critical" | "medium" | "low"
 - value_verdict: exactly one of "good_deal" | "fair" | "overpriced"
+- investment_horizon: exactly one of "short_term" | "long_term" | "both"
+- investment_reason: brief explanation (max 25 words) — e.g. "Ready possession + undervalued = quick resale potential" OR "Under construction in developing area = appreciation play"
+- negotiation_tips: array of 1-2 specific negotiation strategies for this property, e.g. ["Offer ₹10L below asking due to delayed possession", "Leverage lack of RERA to negotiate 5% discount"]
+- price_trend_context: one sentence about the area's recent price movement, e.g. "This locality appreciated 12% last year" or "Prices stable for 18 months"
 
 Respond ONLY with this exact JSON (no markdown, no extra text):
 {
@@ -237,8 +274,12 @@ Respond ONLY with this exact JSON (no markdown, no extra text):
       "highlight": "one specific standout feature using actual data",
       "match_score": 85,
       "one_line_insight": "specific insight max 20 words",
-      "red_flags": [],
-      "value_verdict": "good_deal"
+      "red_flags": [{"flag": "concern text", "severity": "critical|medium|low"}],
+      "value_verdict": "good_deal",
+      "investment_horizon": "short_term",
+      "investment_reason": "explanation max 25 words",
+      "negotiation_tips": ["tip 1", "tip 2"],
+      "price_trend_context": "area price trend in one sentence"
     }
   ],
   "best_value": {

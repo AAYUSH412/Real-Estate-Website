@@ -12,6 +12,7 @@ import {
   getEmailTemplate,
   getNewsletterTemplate,
   getWelcomeTemplate,
+  getEmailVerificationTemplate,
   getPasswordResetTemplate,
   getListingApprovedTemplate,
   getListingRejectedTemplate,
@@ -75,6 +76,16 @@ class EmailService {
   async sendWelcomeEmail(userEmail, userName) {
     const subject = 'Welcome to BuildEstate - Your Account is Ready!';
     const htmlContent = getWelcomeTemplate(userName);
+
+    return await this.sendEmail(userEmail, subject, htmlContent);
+  }
+
+  /**
+   * Send email verification link to new users
+   */
+  async sendEmailVerification(userEmail, userName, verificationUrl) {
+    const subject = 'Verify Your BuildEstate Email Address';
+    const htmlContent = getEmailVerificationTemplate(userName, verificationUrl);
 
     return await this.sendEmail(userEmail, subject, htmlContent);
   }
@@ -247,6 +258,7 @@ export const {
   sendAppointmentScheduled,
   sendAppointmentStatusUpdate,
   sendWelcomeEmail,
+  sendEmailVerification,
   sendPasswordResetEmail,
   sendNewsletterWelcome,
   sendListingApproved,

@@ -30,7 +30,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-mongo-sanitize": "^2.2.0",
-    "express-rate-limit": "^7.5.0",
+    "express-rate-limit": "^7.5.1",
     "helmet": "^8.0.0",
     "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
@@ -40,6 +40,8 @@
     "nodemailer": "^6.9.16",
     "nodemon": "^3.1.9",
     "transporter": "^0.0.1",
-    "validator": "^13.12.0"
+    "uuid": "^13.0.0",
+    "validator": "^13.12.0",
+    "winston": "^3.19.0"
   }
 }

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { userListingsAPI } from '../services/api';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
+import { formatPrice } from '../utils/formatPrice';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,12 +66,6 @@ const STATUS_CONFIG = {
 } as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatPrice(price: number): string {
-  if (price >= 10_000_000) return `₹${(price / 10_000_000).toFixed(2)} Cr`;
-  if (price >= 100_000) return `₹${(price / 100_000).toFixed(1)} L`;
-  return `₹${price.toLocaleString('en-IN')}`;
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-IN', {

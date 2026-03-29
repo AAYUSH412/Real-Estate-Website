@@ -488,8 +488,8 @@ const Dashboard = () => {
   // Loading skeleton
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen pb-12 px-4 bg-[#FAF8F4]">
+        <div className="max-w-7xl mx-auto pt-8">
           <div className="mb-8">
             <div className="h-8 w-48 bg-[#E6D5C3] rounded-xl animate-pulse mb-2" />
             <div className="h-4 w-64 bg-[#E6D5C3] rounded-lg animate-pulse" />
@@ -511,7 +511,7 @@ const Dashboard = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen pt-24 flex items-center justify-center bg-[#FAF8F4]">
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF8F4] pt-8">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-500" />
@@ -528,8 +528,8 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen pb-12 px-4 bg-[#FAF8F4]">
+      <div className="max-w-7xl mx-auto pt-8">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}

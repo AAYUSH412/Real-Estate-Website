@@ -7,6 +7,8 @@ import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import connectdb from './config/mongodb.js';
 import { trackAPIStats } from './middleware/statsMiddleware.js';
+import { requestIdMiddleware } from './middleware/requestIdMiddleware.js';
+import logger from './utils/logger.js';
 import propertyrouter from './routes/productRoutes.js';
 import userrouter from './routes/userRoutes.js';
 import formrouter from './routes/formRoutes.js';
@@ -14,6 +16,7 @@ import newsrouter from './routes/newsRoutes.js';
 import appointmentRouter from './routes/appointmentRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import propertyRoutes from './routes/propertyRoutes.js';
+import healthRouter from './routes/healthRoutes.js';
 import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
 import { startAutoUnsuspendJob } from './utils/autoUnsuspend.js';
@@ -43,8 +46,8 @@ const limiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later.' },
   // Skip rate limiting for successful requests in development
   skip: (req, res) => {
-    // Skip for health checks and in development for successful requests
-    if (req.path === '/status' || req.path === '/') return true;
+    // Skip for health checks and status endpoints
+    if (req.path === '/status' || req.path === '/' || req.path.startsWith('/health')) return true;
     return process.env.NODE_ENV === 'development' && res.statusCode < 400;
   },
   // Custom key generator to handle proxy scenarios
@@ -78,13 +81,20 @@ app.use(compression());
 app.use(express.json({ limit: '500kb' }));
 app.use(express.urlencoded({ extended: true, limit: '500kb' }));
 
+// Request ID middleware for tracing (early in chain)
+app.use(requestIdMiddleware);
+
 app.use(trackAPIStats);
 
 // NoSQL injection prevention
 app.use(mongoSanitize({
   replaceWith: '_',
   onSanitize: ({ req, key }) => {
-    console.warn(`Sanitized NoSQL injection attempt: ${key} in ${req.originalUrl}`);
+    logger.warn('Sanitized NoSQL injection attempt', {
+      key,
+      url: req.originalUrl,
+      requestId: req.requestId,
+    });
   }
 }));
 
@@ -116,9 +126,11 @@ const allowedOrigins = [
 ];
 
 const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
-console.log(`[Startup] Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`[Startup] Port: ${process.env.PORT || 4000}`);
-console.log('[CORS] Allowed origins:', uniqueAllowedOrigins.length ? uniqueAllowedOrigins : ['<none-configured>']);
+logger.info('Server starting', {
+  environment: process.env.NODE_ENV || 'development',
+  port: process.env.PORT || 4000,
+  allowedOrigins: uniqueAllowedOrigins.length ? uniqueAllowedOrigins : ['<none-configured>'],
+});
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -138,29 +150,32 @@ app.use(cors({
 
 // Database connection
 connectdb().then(() => {
-  console.log('Database connected successfully');
+  logger.info('Database connected successfully');
   startExpireListingsJob();
   startAutoUnsuspendJob();
 }).catch(err => {
-  console.error('Database connection error:', err);
+  logger.error('Database connection error', { error: err.message, stack: err.stack });
   // Don't exit immediately - attempt to retry or continue without DB for health checks
-  console.log('Server will continue running for health checks, but database-dependent features may fail');
+  logger.warn('Server will continue running for health checks, but database-dependent features may fail');
 
   // Optionally retry connection in production
   if (process.env.NODE_ENV === 'production') {
-    console.log('Will retry database connection in 30 seconds...');
+    logger.info('Will retry database connection in 30 seconds...');
     setTimeout(() => {
       connectdb().then(() => {
-        console.log('Database reconnected successfully');
+        logger.info('Database reconnected successfully');
         startExpireListingsJob();
         startAutoUnsuspendJob();
-      }).catch(() => {
-        console.error('Database retry failed');
+      }).catch((retryErr) => {
+        logger.error('Database retry failed', { error: retryErr.message });
       });
     }, 30000);
   }
 });
 
+
+// Health check routes (mounted early for reliability)
+app.use('/health', healthRouter);
 
 // API Routes
 app.use('/api/products', propertyrouter);
@@ -173,12 +188,19 @@ app.use('/api', propertyRoutes);
 
 
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error('Request error', {
+    error: err.message,
+    stack: err.stack,
+    requestId: req.requestId,
+    path: req.path,
+    method: req.method,
+  });
   const statusCode = err.status || 500;
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal server error',
     statusCode,
+    requestId: req.requestId,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     timestamp: new Date().toISOString()
   });
@@ -187,16 +209,16 @@ app.use((err, req, res, next) => {
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (err) => {
-  console.error('UNHANDLED REJECTION! 💥', err);
-  console.log('Attempting to continue operation...');
+  logger.error('UNHANDLED REJECTION', { error: err?.message || err, stack: err?.stack });
+  logger.warn('Attempting to continue operation...');
   // Log the error but don't exit - let the application continue
   // In production, you might want to implement circuit breaker patterns
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT EXCEPTION! 💥', err);
-  console.log('Attempting graceful recovery...');
+  logger.error('UNCAUGHT EXCEPTION', { error: err.message, stack: err.stack });
+  logger.warn('Attempting graceful recovery...');
   // Log the error but attempt to continue
   // For truly critical errors, implement proper error recovery
 });
@@ -204,10 +226,10 @@ process.on('uncaughtException', (err) => {
 // Graceful shutdown
 let server;
 process.on('SIGTERM', async () => {
-  console.log('👋 SIGTERM received. Shutting down gracefully...');
+  logger.info('SIGTERM received. Shutting down gracefully...');
   if (server) {
     server.close(() => {
-      console.log('HTTP server closed.');
+      logger.info('HTTP server closed.');
     });
   }
   // Give processes time to finish
@@ -217,10 +239,10 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('SIGINT', async () => {
-  console.log('👋 SIGINT received. Shutting down gracefully...');
+  logger.info('SIGINT received. Shutting down gracefully...');
   if (server) {
     server.close(() => {
-      console.log('HTTP server closed.');
+      logger.info('HTTP server closed.');
       process.exit(0);
     });
   } else {
@@ -250,7 +272,7 @@ app.get('/', (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.send(getStatusPage());
   } catch (error) {
-    console.error('Error serving home page:', error);
+    logger.error('Error serving home page', { error: error.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -270,7 +292,7 @@ const port = process.env.PORT || 4000;
 // Start server
 if (process.env.NODE_ENV !== 'test') {
   server = app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running on port ${port}`);
+    logger.info('Server running', { port, host: '0.0.0.0' });
   });
 }
 

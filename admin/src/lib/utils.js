@@ -10,9 +10,11 @@ export function cn(...inputs) {
 
 /**
  * Format price in Indian currency format
+ * @param {number} price - Price in INR
+ * @returns {string} Formatted price (e.g., "₹2.50 Cr", "₹75.0 L", "₹50,000")
  */
 export function formatPrice(price) {
-  if (price >= 10000000) return `₹${(price / 10000000).toFixed(1)} Cr`;
+  if (price >= 10000000) return `₹${(price / 10000000).toFixed(2)} Cr`;
   if (price >= 100000) return `₹${(price / 100000).toFixed(1)} L`;
   return `₹${price.toLocaleString('en-IN')}`;
 }

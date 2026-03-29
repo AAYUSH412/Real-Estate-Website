@@ -35,7 +35,7 @@ const PROPERTY_TYPES = ['Flat', 'Villa', 'House', 'Penthouse', 'Plot', 'Studio']
 const CATEGORIES = ['Residential', 'Commercial'];
 
 const LOAD_STEPS = [
-  { label: 'Searching listings',        desc: 'Querying MagicBricks, Housing & 99acres' },
+  { label: 'Searching listings',        desc: 'Querying 99acres, MagicBricks, Housing.com & NoBroker' },
   { label: 'Reading property details',  desc: 'Extracting data from live listing pages'  },
   { label: 'Getting AI insights',       desc: 'Ranking & analysing by your criteria'     },
 ];

@@ -240,7 +240,7 @@ const PropertyListings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 flex items-center justify-center bg-[#FAF8F4]">
+      <div className="min-h-screen pt-8 flex items-center justify-center bg-[#FAF8F4]">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-[#D4755B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[#5A5856] font-medium">Loading properties...</p>
@@ -250,7 +250,7 @@ const PropertyListings = () => {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
+    <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}

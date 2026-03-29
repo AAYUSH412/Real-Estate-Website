@@ -122,7 +122,7 @@ const PropertyForm = () => {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
+    <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
       <div className="max-w-3xl mx-auto">
         {/* Page Header */}
         <motion.div

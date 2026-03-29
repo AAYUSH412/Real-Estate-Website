@@ -132,7 +132,7 @@ const Update = () => {
 
   if (fetching) {
     return (
-      <div className="min-h-screen pt-24 flex items-center justify-center bg-[#FAF8F4]">
+      <div className="min-h-screen pt-8 flex items-center justify-center bg-[#FAF8F4]">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-[#D4755B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[#5A5856] font-medium">Loading property details...</p>
@@ -142,7 +142,7 @@ const Update = () => {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 bg-[#FAF8F4]">
+    <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">

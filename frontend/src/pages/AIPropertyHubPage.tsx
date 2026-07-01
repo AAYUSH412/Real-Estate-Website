@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -325,82 +325,96 @@ const AIHubDevPage: React.FC = () => {
   const [trendsError, setTrendsError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [hasLoadedTrends, setHasLoadedTrends] = useState(false);
+  // SSE stage drives the real-time loader in AIHeroSection
+  const [sseStage, setSseStage] = useState<'searching' | 'analyzing' | null>(null);
   // For P1-1: auto-open key modal on 403
   const [openKeyModal, setOpenKeyModal] = useState(false);
 
-  const resultsRef = useRef<HTMLDivElement>(null);
+  const resultsRef    = useRef<HTMLDivElement>(null);
+  const sseAbortRef   = useRef<(() => void) | null>(null);
 
 
   /* ── Handlers ────────────────────────────────────────── */
 
-  /** P1-1 — Turn an axios error into a user-friendly message. */
-  const friendlyError = (err: any, fallback: string): { msg: string; isKeyError: boolean } => {
-    const status = err?.response?.status;
-    const serverMsg = err?.response?.data?.message || '';
-    const serverCode = err?.response?.data?.error || '';
+  // Translate SSE error payload or axios error into a user-friendly message.
+  // SSE errors arrive as plain objects; axios errors have response.data shape.
+  const friendlySSEError = useCallback((err: { message?: string; error?: string; status?: number }, fallback: string) => {
+    const status     = err.status ?? 0;
+    const serverCode = err.error ?? '';
+    const serverMsg  = err.message ?? '';
 
-    if (status === 403 || serverCode === 'KEYS_REQUIRED' || serverCode === 'KEYS_INVALID') {
+    if (status === 403 || serverCode === 'KEYS_REQUIRED' || serverCode === 'KEYS_INVALID')
       return { msg: 'Your API keys are missing or invalid. Please add your GitHub Models and Firecrawl keys.', isKeyError: true };
-    }
-    if (serverCode === 'KEY_VALIDATION_FAILED') {
+    if (serverCode === 'KEY_VALIDATION_FAILED')
       return { msg: 'We could not validate your API keys right now. Please try again shortly.', isKeyError: false };
-    }
-    if (status === 402 || serverCode === 'FIRECRAWL_CREDITS_EXHAUSTED') {
+    if (status === 402 || serverCode === 'FIRECRAWL_CREDITS_EXHAUSTED')
       return { msg: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits at firecrawl.dev/pricing', isKeyError: false };
-    }
-    if (status === 429 || serverCode === 'RATE_LIMIT_EXCEEDED') {
-      return { msg: 'Rate limit reached — you\'ve used 10 AI searches this hour. Please wait before searching again.', isKeyError: false };
-    }
-    if (status === 503 || serverCode === 'FIRECRAWL_ERROR') {
+    if (status === 429 || serverCode === 'RATE_LIMIT_EXCEEDED')
+      return { msg: "Rate limit reached — you've used 10 AI searches this hour. Please wait before searching again.", isKeyError: false };
+    if (status === 503 || serverCode === 'FIRECRAWL_ERROR')
       return { msg: 'The property scraping service is temporarily unavailable. Please try again in a few minutes.', isKeyError: false };
-    }
-    if (status === 404) {
+    if (status === 404)
       return { msg: serverMsg || 'No results found for your search criteria.', isKeyError: false };
-    }
     return { msg: serverMsg || fallback, isKeyError: false };
-  };
+  }, []);
 
-  const handleSearch = async (params: SearchParams) => {
+  const handleSearch = useCallback((params: SearchParams) => {
     if (!apiReady || !aiApiRef) return;
+
+    // Cancel any in-flight SSE stream from a previous search
+    sseAbortRef.current?.();
+    sseAbortRef.current = null;
+
     setSearchParams(params);
     setSearchLoading(true);
     setSearchError(null);
     setProperties([]);
     setAnalysis(null);
     setHasSearched(true);
-    // Reset trends on new search
+    setSseStage(null);
     setLocations([]);
     setLocationAnalysis(null);
     setHasLoadedTrends(false);
 
-    try {
-      const maxPriceInRupees = params.maxBudget * 10_000_000; // Cr → ₹
-      const response = await aiApiRef.search({
-        city:           params.city,
-        locality:       params.locality,
-        bhk:            params.bhk,
-        possession:     params.possession,
-        price:          { min: 0, max: maxPriceInRupees },
-        type:           params.propertyType,
-        category:       params.category,
-      });
+    const maxPriceInRupees = params.maxBudget * 10_000_000; // Cr → ₹
 
-      const data = response.data;
-      setProperties(data.properties || []);
-      setAnalysis(data.analysis || null);
+    const abort = aiApiRef.searchStream(
+      {
+        city:      params.city,
+        locality:  params.locality,
+        bhk:       params.bhk,
+        possession: params.possession,
+        price:     { min: 0, max: maxPriceInRupees },
+        type:      params.propertyType,
+        category:  params.category,
+      },
+      {
+        onStatus: (stage: string, _message: string, _count?: number) => {
+          setSseStage(stage as 'searching' | 'analyzing');
+        },
+        onResult: (data: Record<string, unknown>) => {
+          setProperties((data.properties as typeof properties) || []);
+          setAnalysis((data.analysis as typeof analysis) || null);
+          setSearchLoading(false);
+          setSseStage(null);
+          setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        },
+        onError: (err: { message?: string; error?: string; status?: number }) => {
+          const { msg, isKeyError } = friendlySSEError(err, 'Search failed. Please try again.');
+          setSearchError(msg);
+          if (isKeyError) setOpenKeyModal(true);
+          setSearchLoading(false);
+          setSseStage(null);
+        },
+        onDone: () => {
+          setSearchLoading(false);
+          setSseStage(null);
+        },
+      }
+    );
 
-      // Scroll to results
-      setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } catch (err: any) {
-      const { msg, isKeyError } = friendlyError(err, 'Search failed. Please try again.');
-      setSearchError(msg);
-      if (isKeyError) setOpenKeyModal(true); // P1-1: auto-open key modal on 403
-    } finally {
-      setSearchLoading(false);
-    }
-  };
+    sseAbortRef.current = abort;
+  }, [apiReady, aiApiRef, friendlySSEError]);
 
   // P2-2: Trends are NOT auto-fired. User explicitly clicks "Load Location Trends".
   const fetchTrends = async (city: string) => {
@@ -417,7 +431,12 @@ const AIHubDevPage: React.FC = () => {
       setLocations(data.locations || []);
       setLocationAnalysis(data.analysis || null);
     } catch (err: any) {
-      const { msg, isKeyError } = friendlyError(err, 'Failed to load location trends.');
+      const axiosErr = {
+        message: err?.response?.data?.message ?? err?.message,
+        error:   err?.response?.data?.error,
+        status:  err?.response?.status,
+      };
+      const { msg, isKeyError } = friendlySSEError(axiosErr, 'Failed to load location trends.');
       setTrendsError(msg);
       if (isKeyError) setOpenKeyModal(true);
     } finally {
@@ -438,6 +457,7 @@ const AIHubDevPage: React.FC = () => {
           <AIHeroSection
             onSearch={handleSearch}
             loading={searchLoading}
+            sseStage={sseStage}
             externalOpenModal={openKeyModal}
             onModalClosed={() => setOpenKeyModal(false)}
           />

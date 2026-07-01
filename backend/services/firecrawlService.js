@@ -15,25 +15,159 @@ const log = {
     error: (...args) => console.error(...args),
 };
 
-// ── Property type → natural-language search term ─────────────────────────────
-const PROPERTY_TYPE_SEARCH_TERMS = {
-    'Flat':       'flat',
-    'House':      'independent house',
+// ── MagicBricks URL builder ───────────────────────────────────────────────────
+// property type → MagicBricks proptype param
+const MB_PROP_TYPE = {
+    'Flat':       'Multistorey-Apartment,Builder-Floor-Apartment,Penthouse,Studio-Apartment',
+    'House':      'Residential-House,Villa',
+    'Villa':      'Residential-House,Villa',
+    'Plot':       'Residential-Plot',
+    'Penthouse':  'Penthouse',
+    'Studio':     'Studio-Apartment',
+    'Commercial': 'Office-Space,Shop,Showroom,Commercial-Plot',
+};
+
+// Convert crore float to MagicBricks BudgetMin/BudgetMax string
+// e.g. 0.50 → "50-Lac", 1.5 → "1.5-Crores", 5 → "5-Crores"
+function mbBudget(crores) {
+    if (!crores || crores <= 0) return '';
+    if (crores < 1) return `${Math.round(crores * 100)}-Lac`;
+    return `${crores}-Crores`;
+}
+
+function buildMagicBricksUrl({ city, bhk, minPrice, maxPrice, propertyType }) {
+    const proptype = MB_PROP_TYPE[propertyType] || MB_PROP_TYPE['Flat'];
+    const bedroom  = (!bhk || bhk === 'Any') ? '' : bhk.replace(' BHK', '');
+    const params   = new URLSearchParams({
+        proptype,
+        cityName: city,
+        ...(bedroom       && { bedroom }),
+        ...(maxPrice      && { BudgetMax: mbBudget(parseFloat(maxPrice)) }),
+        ...(minPrice > 0  && { BudgetMin: mbBudget(parseFloat(minPrice)) }),
+    });
+    return `https://www.magicbricks.com/property-for-sale/residential-real-estate?${params}`;
+}
+
+// ── Housing.com URL builder ───────────────────────────────────────────────────
+const HOUSING_TYPE_SLUG = {
+    'Flat':       'flats',
+    'House':      'independent-houses',
+    'Villa':      'villas',
+    'Plot':       'plots',
+    'Penthouse':  'penthouses',
+    'Studio':     'studio-apartments',
+    'Commercial': 'office-spaces',
+};
+
+function buildHousingUrl({ city, propertyType }) {
+    const slug     = HOUSING_TYPE_SLUG[propertyType] || 'flats';
+    const citySlug = city.toLowerCase().replace(/\s+/g, '-');
+    return `https://housing.com/in/buy/${slug}/${citySlug}/`;
+}
+
+// ── 99acres URL builder ───────────────────────────────────────────────────────
+// 99acres uses numeric city IDs. Map only the common cities; fall back to search URL.
+const ACRES99_CITY_ID = {
+    'mumbai': 1, 'delhi': 2, 'bangalore': 3, 'hyderabad': 4, 'ahmedabad': 5,
+    'chennai': 6, 'kolkata': 7, 'pune': 8, 'jaipur': 10, 'surat': 14,
+    'lucknow': 15, 'kanpur': 16, 'nagpur': 17, 'indore': 18, 'bhopal': 20,
+    'patna': 21, 'noida': 60, 'gurgaon': 56, 'ghaziabad': 61, 'faridabad': 57,
+    'navi mumbai': 44, 'thane': 46, 'vadodara': 45, 'coimbatore': 29,
+    'kochi': 30, 'visakhapatnam': 32, 'chandigarh': 25,
+};
+
+const ACRES99_PROP_TYPE = {
+    'Flat': '1', 'House': '2', 'Villa': '2', 'Plot': '3',
+    'Penthouse': '1', 'Studio': '1', 'Commercial': '14',
+};
+
+// Budget in 99acres is in Lakhs × 10 (e.g. 1 Cr = budget param 100)
+function acres99Budget(crores) {
+    if (!crores || crores <= 0) return '';
+    return String(Math.round(crores * 100));
+}
+
+function buildAcres99Url({ city, bhk, minPrice, maxPrice, propertyType }) {
+    const cityId   = ACRES99_CITY_ID[city.toLowerCase()];
+    const propType = ACRES99_PROP_TYPE[propertyType] || '1';
+    const bedroom  = (!bhk || bhk === 'Any') ? '' : bhk.replace(' BHK', '');
+
+    // Fall back to text search if city not in lookup table
+    if (!cityId) {
+        const typeTerm = propertyType === 'Villa' ? 'independent-villa' : propertyType.toLowerCase();
+        const citySlug = city.toLowerCase().replace(/\s+/g, '-');
+        return `https://www.99acres.com/search/property/buy/${typeTerm}/${citySlug}?res_com=R&preference=S&area_unit=1`;
+    }
+
+    const params = new URLSearchParams({
+        city: String(cityId),
+        property_type: propType,
+        preference: 'S',
+        area_unit: '1',
+        res_com: 'R',
+        ...(bedroom           && { bedroom }),
+        ...(maxPrice > 0      && { budget_max: acres99Budget(parseFloat(maxPrice)) }),
+        ...(minPrice > 0      && { budget_min: acres99Budget(parseFloat(minPrice)) }),
+    });
+    const citySlug = city.toLowerCase().replace(/\s+/g, '-');
+    const typePath = propertyType === 'Villa' ? 'independent-villa' :
+                     propertyType === 'House' ? 'independent-house' : '';
+    const path = typePath
+        ? `/search/property/buy/${typePath}/${citySlug}`
+        : `/search/property/buy/${citySlug}`;
+    return `https://www.99acres.com${path}?${params}`;
+}
+
+// ── NoBroker URL builder ──────────────────────────────────────────────────────
+// Owner-direct listings (zero brokerage) — unique inventory not on MagicBricks.
+// Slug format: /flats-for-sale-in-{city} with optional ?price=minINR,maxINR
+const NB_TYPE_SLUG = {
+    'Flat':       'flats',
+    'House':      'independent-house',
     'Villa':      'villa',
     'Plot':       'plot',
     'Penthouse':  'penthouse',
-    'Studio':     'studio apartment',
-    'Commercial': 'commercial property',
+    'Studio':     'studio-apartment',
+    'Commercial': 'office-space',
 };
 
+function buildNoBrokerUrl({ city, propertyType, minPrice, maxPrice }) {
+    const citySlug = city.toLowerCase().replace(/\s+/g, '-');
+    const typeSlug = NB_TYPE_SLUG[propertyType] || 'flats';
+    // NoBroker price param is in raw INR: 1 Cr = 10,000,000
+    const toINR = cr => Math.round(parseFloat(cr) * 10_000_000);
+    const minINR = parseFloat(minPrice) > 0 ? toINR(minPrice) : 0;
+    const maxINR = parseFloat(maxPrice) > 0 ? toINR(maxPrice) : 0;
+    const priceParam = maxINR > 0 ? `?price=${minINR},${maxINR}` : '';
+    return `https://www.nobroker.in/${typeSlug}-for-sale-in-${citySlug}${priceParam}`;
+}
+
+// ── Square Yards URL builder ──────────────────────────────────────────────────
+// Good for premium/new-launch projects. URL: /sale/{bhk}-bhk-{type}-for-sale-in-{city}
+const SY_TYPE_SLUG = {
+    'Flat':       'flat',
+    'House':      'independent-house',
+    'Villa':      'villa',
+    'Plot':       'plot',
+    'Penthouse':  'penthouse',
+    'Studio':     'studio-apartment',
+    'Commercial': 'commercial',
+};
+
+function buildSquareYardsUrl({ city, bhk, propertyType }) {
+    const citySlug = city.toLowerCase().replace(/\s+/g, '-');
+    const typeSlug = SY_TYPE_SLUG[propertyType] || 'flat';
+    const bhkPrefix = (!bhk || bhk === 'Any') ? '' : `${bhk.replace(' BHK', '')}-bhk-`;
+    return `https://www.squareyards.com/sale/${bhkPrefix}${typeSlug}-for-sale-in-${citySlug}`;
+}
+
 // ── Multi-source search config ────────────────────────────────────────────────
-// Each source contributes up to `limit` URLs per search.
-// NoBroker is opt-in (owner-direct, no brokerage listings).
 const SEARCH_SOURCES = {
-    '99acres':     { domain: '99acres.com',     limit: 6 },
-    'magicbricks': { domain: 'magicbricks.com', limit: 6 },
-    'housing':     { domain: 'housing.com',     limit: 6 },
-    'nobroker':    { domain: 'nobroker.in',      limit: 5 },
+    'magicbricks':  { limit: 6 },
+    'nobroker':     { limit: 6 },
+    'squareyards':  { limit: 6 },
+    'housing':      { limit: 6 },
+    '99acres':      { limit: 6 },
 };
 
 // ── Extraction schema (array-based) ──────────────────────────────────────────
@@ -74,41 +208,50 @@ const SEARCH_RESULT_SCHEMA = {
     required: ["properties"],
 };
 
-const SEARCH_RESULT_PROMPT =
-    "Extract all FOR SALE (purchase) property listings from this page. " +
-    "Each property must have a total purchase price in Crores or Lakhs — NOT a rental price in /month or /bed. " +
-    "Skip PG, paying guest, and rental listings entirely. " +
-    "If this is a category page with multiple listings, extract each one (up to 6). " +
-    "If this is a single property detail page, extract that one property.";
+// SEARCH_RESULT_PROMPT is a function so we can inject the city for location validation.
+function buildSearchResultPrompt(city) {
+    return (
+        `Extract FOR SALE (purchase) property listings from this page that are located in ${city}, India. ` +
+        "Each property must have a total purchase price in Crores or Lakhs — NOT a rental price in /month or /bed. " +
+        "Skip PG, paying guest, rental listings, and any property whose address is NOT in " + city + ". " +
+        "If this is a category page with multiple listings, extract up to 6 listings. " +
+        "If this is a single property detail page, extract that one property. " +
+        "For building_name: use the actual society/project name shown on the page. " +
+        "If no project name is visible, use the locality name or street address — never invent generic names like 'Building A'. " +
+        "For total_price: copy the exact displayed price (e.g. '₹1.25 Cr', '₹75 Lakhs', 'Price on Request'). Never guess a price."
+    );
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Build the base search query (no site: filter — each source appends its own).
- * e.g. "2BHK flat for sale in Powai Mumbai under 2 crore ready to move"
+ * Build direct search page URLs for each source.
+ * Returns an array of { sourceKey, url } pairs to scrape.
+ * Direct URLs match exactly what a user sees when filtering on the website —
+ * unlike the old search() approach which used Google web search.
  */
-function buildSearchQuery({ city, locality, bhk, maxPrice, propertyType, possession }) {
-    const parts = [];
+function buildSourceUrls({ city, locality, bhk, minPrice, maxPrice, propertyType, includeNoBroker }) {
+    // When a locality is specified, append it to city name for MagicBricks/housing
+    const cityArg = locality ? `${locality}, ${city}` : city;
 
-    if (bhk && bhk !== 'Any') parts.push(bhk);
+    // Active sources — ordered by reliability.
+    // housing.com and squareyards consistently return 0 (anti-bot / no content extracted).
+    const sources = [
+        {
+            key: 'magicbricks',
+            url: buildMagicBricksUrl({ city, bhk, minPrice, maxPrice, propertyType }),
+        },
+        {
+            key: 'nobroker',
+            url: buildNoBrokerUrl({ city: locality || city, propertyType, minPrice, maxPrice }),
+        },
+        {
+            key: '99acres',
+            url: buildAcres99Url({ city, bhk, minPrice, maxPrice, propertyType }),
+        },
+    ];
 
-    const typeTerm = PROPERTY_TYPE_SEARCH_TERMS[propertyType] || 'flat';
-    parts.push(typeTerm, 'for sale in');
-
-    if (locality) parts.push(locality);
-    parts.push(city);
-
-    if (maxPrice) {
-        const priceNum = parseFloat(maxPrice);
-        const budgetLabel = priceNum < 1
-            ? `${Math.round(priceNum * 100)} lakh`
-            : `${priceNum} crore`;
-        parts.push(`under ${budgetLabel}`);
-    }
-
-    if (possession === 'ready') parts.push('ready to move');
-
-    return parts.join(' ');
+    return sources;
 }
 
 /**
@@ -219,14 +362,10 @@ function filterValidProperties(properties, minPrice, maxPrice) {
     const max = parseFloat(maxPrice) || 0;
     let min = parseFloat(minPrice) || 0;
 
-    // Smart minimum price calculation:
-    // - For budget >= 2 Cr: minimum = 30% of maxPrice (e.g., 5Cr → 1.5Cr minimum)
-    // - For budget >= 1 Cr: minimum = 25% of maxPrice (e.g., 1.5Cr → 37.5L minimum)
-    // - For budget < 1 Cr: no automatic minimum
-    if (min === 0 && max >= 2) {
-        min = max * 0.30; // 30% floor for high budgets
-    } else if (min === 0 && max >= 1) {
-        min = max * 0.25; // 25% floor for medium budgets
+    // Smart minimum: only drop listings that are clearly irrelevant junk (< 10% of budget).
+    // The old 30% floor was too aggressive and cut valid results.
+    if (min === 0 && max >= 1) {
+        min = max * 0.10;
     }
 
     return properties.filter(p => {
@@ -239,6 +378,11 @@ function filterValidProperties(properties, minPrice, maxPrice) {
         const url = p.property_url || '';
         if (/paying.guest|pg-for-rent|for-rent/.test(url)) return false;
 
+        // Keep "Price on Request" listings — they show up for premium/builder properties.
+        // They pass price filtering but the AI can note the missing price in its analysis.
+        const isPOR = /price on request|por|call for price/i.test(price);
+        if (isPOR) return true;
+
         // Parse and validate against budget
         const priceInCr = parsePriceToCrores(price);
         if (priceInCr === null) return false;
@@ -248,6 +392,31 @@ function filterValidProperties(properties, minPrice, maxPrice) {
 
         return true;
     });
+}
+
+/**
+ * Validate that a RERA number looks like a real registration, not a hallucination.
+ *
+ * Real Indian RERA formats:
+ *   Maharashtra: P51800000001  (P + state code + 8 digits)
+ *   Gujarat:     PR/GJ/AHMEDABAD/AUDA/RAA00007/091019
+ *   Karnataka:   PRM/KA/RERA/1251/310/PR/... (long slash-separated)
+ *   Delhi/UP:    UPRERAPRJ12345
+ *
+ * Hallucinated formats we reject: "RERA-123456", "RERA123", "NA", "N/A", "Not Available"
+ */
+function isRealReraNumber(rera) {
+    if (!rera || typeof rera !== 'string') return false;
+    const s = rera.trim();
+    if (!s || s.length < 8) return false;
+    // Reject obvious placeholder values
+    if (/^(n\/?a|not available|na|none|pending|upcoming|-)$/i.test(s)) return false;
+    // Reject simple "RERA-NNNN" or "RERAXXXXXX" without slashes or state codes
+    if (/^rera[-\s]?\d+$/i.test(s)) return false;
+    // Must contain either a slash (real state formats) OR start with a known prefix + digits
+    const hasSlash   = s.includes('/');
+    const hasPrefix  = /^(P\d{11}$|PR\/|UPRERA|HRERA|MAHA|TNRERA|GJ\/|KA\/)/i.test(s);
+    return hasSlash || hasPrefix;
 }
 
 /**
@@ -392,72 +561,63 @@ class FirecrawlService {
 
             if (!city) throw new Error('City name is required');
 
-            // ── Step 1: Build base query ────────────────────────────────────
-            const baseQuery = buildSearchQuery({ city, locality, bhk, maxPrice, propertyType, possession });
-
+            // ── Step 1: Build direct search page URLs ──────────────────────
+            // Each URL is a real website search page with budget/type/BHK filters
+            // applied — identical to what a user sees when manually searching.
             const priceNum    = parseFloat(maxPrice);
             const budgetLabel = priceNum < 1
                 ? `${Math.round(priceNum * 100)} Lakhs`
                 : `${priceNum} Crores`;
 
-            // Decide which sources to search
-            const activeSources = ['99acres', 'magicbricks', 'housing'];
-            if (includeNoBroker) activeSources.push('nobroker');
+            const sourceUrls = buildSourceUrls({ city, locality, bhk, minPrice, maxPrice, propertyType, includeNoBroker });
 
-            console.log('\n[DEBUG] ─── Firecrawl Multi-Source Search ──────────────');
-            console.log('[DEBUG] Base query   :', baseQuery);
-            console.log('[DEBUG] Sources      :', activeSources.join(', '));
+            console.log('\n[DEBUG] ─── Firecrawl Direct URL Scraping ──────────────');
+            console.log('[DEBUG] Mode         : scrapeUrl (direct search page)');
             console.log('[DEBUG] City         :', city, locality ? `| Locality: ${locality}` : '');
             console.log('[DEBUG] BHK          :', bhk);
             console.log('[DEBUG] Budget       :', minPrice, '–', maxPrice, 'Cr →', budgetLabel);
             console.log('[DEBUG] Type         :', propertyType);
             console.log('[DEBUG] Possession   :', possession);
-            console.log('[DEBUG] NoBroker     :', includeNoBroker);
+            console.log('[DEBUG] Sources      : magicbricks, nobroker, 99acres');
+            sourceUrls.forEach(s => console.log(`[DEBUG] ${s.key.padEnd(12)}: ${s.url}`));
             console.log('[DEBUG] ────────────────────────────────────────────────\n');
 
-            // ── Step 2: Parallel search + inline extraction across all active sources ─
-            // scrapeOptions tells Firecrawl to extract structured JSON from each result
-            // page it finds. No separate scrapeUrl calls needed — one API call per source.
-            const searchPromises = activeSources.map(sourceKey => {
-                const { domain, limit: srcLimit } = SEARCH_SOURCES[sourceKey];
-                const query = `${baseQuery} site:${domain}`;
+            // ── Step 2: Batched scrape — 3 sources at a time ─────────────────
+            // Running all 5 in parallel exhausts Firecrawl's proxy pool and causes
+            // ERR_TUNNEL_CONNECTION_FAILED. Batching limits concurrent renders to 3.
+            // Each source uses _scrapeWithRetry which retries proxy/tunnel errors.
+            const scrapeOpts = {
+                formats: [{
+                    type: 'json',
+                    prompt: buildSearchResultPrompt(city),
+                    schema: SEARCH_RESULT_SCHEMA,
+                }],
+                onlyMainContent: true,
+            };
 
-                // Wrap search operation with circuit breaker
-                return this.searchCircuit.execute(async () => {
-                    const response = await withTimeout(
-                        this.firecrawl.search(query, {
-                            limit: srcLimit,
-                            location: 'India',
-                            scrapeOptions: {
-                                formats: [{
-                                    type: 'json',
-                                    prompt: SEARCH_RESULT_PROMPT,
-                                    schema: SEARCH_RESULT_SCHEMA,
-                                }],
-                                onlyMainContent: true,
-                            },
-                        }),
-                        SEARCH_TIMEOUT_MS,
-                        `search:${sourceKey}`
-                    );
-
-                    const normalizedData = Array.isArray(response?.data)
-                        ? response.data
-                        : [
-                            ...(Array.isArray(response?.web) ? response.web : []),
-                            ...(Array.isArray(response?.news) ? response.news : []),
-                            ...(Array.isArray(response?.images) ? response.images : []),
-                        ];
-
-                    return normalizedData;
-                }).then(result => ({ sourceKey, data: Array.isArray(result) ? result : [], error: null }))
-                .catch(err => {
-                    log.warn(`[Firecrawl] Search failed for ${sourceKey}: ${err.message}`);
+            const scrapeOne = async ({ key: sourceKey, url }) => {
+                try {
+                    const result = await this._scrapeWithRetry(url, scrapeOpts, `findProperties:${sourceKey}`);
+                    return { sourceKey, data: [result], error: null };
+                } catch (err) {
+                    log.warn(`[Firecrawl] Scrape failed for ${sourceKey}: ${err.message}`);
                     return { sourceKey, data: [], error: err };
-                });
-            });
+                }
+            };
 
-            const searchResults = await Promise.all(searchPromises);
+            // Batch into groups of 3 — run each batch in parallel, batches sequentially
+            const BATCH_SIZE = 3;
+            const allResults = [];
+            for (let i = 0; i < sourceUrls.length; i += BATCH_SIZE) {
+                const batch = sourceUrls.slice(i, i + BATCH_SIZE);
+                const batchResults = await Promise.all(batch.map(scrapeOne));
+                allResults.push(...batchResults);
+                // Stop early if we already have enough raw properties
+                const soFar = allResults.reduce((n, r) => n + r.data.reduce((m, d) => m + (d.json?.properties?.length || 0), 0), 0);
+                if (soFar >= limit * 3) break;
+            }
+
+            const searchResults = allResults;
 
             // Check if ALL sources failed with 402 (insufficient credits)
             const all402 = searchResults.every(r => r.error && isCreditsExhaustedError(r.error));
@@ -495,6 +655,10 @@ class FirecrawlService {
                     for (const prop of items) {
                         extracted.push({
                             ...prop,
+                            // Strip hallucinated RERA placeholders (e.g. "RERA-123456").
+                            // Real Indian RERA numbers contain slashes or state-specific prefixes.
+                            // A purely numeric/sequential value like "RERA-123456" is invented by the extractor.
+                            rera_number: isRealReraNumber(prop.rera_number) ? prop.rera_number : '',
                             property_url: result.url,
                             source:       sourceKey,
                         });
@@ -503,10 +667,10 @@ class FirecrawlService {
                 return extracted;
             });
 
-            console.log('[DEBUG] ─── Search + Extract Results (all sources) ───────');
+            console.log('[DEBUG] ─── Scrape + Extract Results (all sources) ─────');
             searchResults.forEach(({ sourceKey, data }) => {
                 const propCount = data.reduce((n, r) => n + (r.json?.properties?.length || 0), 0);
-                console.log(`[DEBUG] ${sourceKey.padEnd(12)}: ${data.length} pages → ${propCount} properties`);
+                console.log(`[DEBUG] ${sourceKey.padEnd(12)}: ${propCount} properties extracted`);
             });
             console.log('[DEBUG] Total raw properties :', rawProperties.length);
             rawProperties.forEach((p, i) =>
@@ -519,16 +683,10 @@ class FirecrawlService {
             }
 
             // ── Step 4: Filter (reject PG / rental / out-of-budget) ─────────
-            // Calculate smart minimum price for logging
             const maxPriceNum = parseFloat(maxPrice) || 0;
-            let smartMinPrice = parseFloat(minPrice) || 0;
-            if (smartMinPrice === 0 && maxPriceNum >= 2) {
-                smartMinPrice = maxPriceNum * 0.30;
-            } else if (smartMinPrice === 0 && maxPriceNum >= 1) {
-                smartMinPrice = maxPriceNum * 0.25;
-            }
+            const smartMinPrice = parseFloat(minPrice) || (maxPriceNum >= 1 ? maxPriceNum * 0.10 : 0);
             if (smartMinPrice > 0) {
-                console.log(`[DEBUG] Smart min price      : ₹${smartMinPrice.toFixed(2)} Cr (${(smartMinPrice * 100).toFixed(0)} L floor for ${maxPriceNum} Cr budget)`);
+                console.log(`[DEBUG] Smart min price      : ₹${smartMinPrice.toFixed(2)} Cr (10% floor for ${maxPriceNum} Cr budget)`);
             }
 
             const filtered = filterValidProperties(rawProperties, minPrice, maxPrice);
@@ -551,7 +709,8 @@ class FirecrawlService {
                 area_sqft: p.carpet_area_sqft || p.superbuiltup_area_sqft || '',
             }));
 
-            log.info(`[Firecrawl] Returning ${properties.length} properties for ${city} (sources: ${activeSources.join(', ')})`);
+            const sourceNames = sourceUrls.map(s => s.key).join(', ');
+            log.info(`[Firecrawl] Returning ${properties.length} properties for ${city} (sources: ${sourceNames})`);
             return { properties };
 
         } catch (error) {

@@ -1,6 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { searchProperties, getLocationTrends, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
+import { searchProperties, getLocationTrends, getLocalitySuggestions, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
 import { transformAISearchRequest } from '../middleware/transformRequest.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/multer.js';
@@ -13,7 +13,7 @@ const router = express.Router();
 // Uses filesystem-based storage to work across multiple server instances.
 const distributedLimiter = createDistributedRateLimiter({
     windowMs: 60 * 60 * 1000, // 1 hour window
-    max: 10,                   // max 10 AI searches per IP per hour
+    max: process.env.NODE_ENV === 'production' ? 10 : 200, // dev: 200/hr, prod: 10/hr
     keyGenerator: (req) => {
         // Respect Render/Vercel proxy header
         const forwarded = req.headers['x-forwarded-for'];
@@ -37,6 +37,9 @@ router.post('/ai/search', aiLimiter, transformAISearchRequest, searchProperties)
 
 // Validate user-provided API keys before save/use
 router.post('/ai/validate-keys', validateApiKeys);
+
+// Locality autocomplete — harvested from cached scraped data, no AI keys needed
+router.get('/ai/localities', getLocalitySuggestions);
 
 // Location trends — same rate limit (shares the 10/hr budget)
 router.get('/locations/:city/trends', aiLimiter, getLocationTrends);

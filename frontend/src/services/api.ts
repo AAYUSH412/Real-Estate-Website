@@ -132,33 +132,142 @@ export const aiAPI = {
   }) => {
     const githubKey    = localStorage.getItem('buildestate_github_key');
     const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
+    const nvidiaKey    = localStorage.getItem('buildestate_nvidia_key');
     return apiClient.post('/ai/search', data, {
       headers: {
         ...(githubKey    && { 'X-Github-Key':    githubKey }),
         ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
+        ...(nvidiaKey    && { 'X-Nvidia-Key':    nvidiaKey  }),
       },
     });
   },
+
+  // SSE streaming search — sends Accept: text/event-stream, receives progress events
+  // then a final `result` event. Returns an abort function to cancel mid-flight.
+  searchStream: (
+    data: {
+      city?: string;
+      locality?: string;
+      bhk?: string;
+      possession?: string;
+      includeNoBroker?: boolean;
+      price?: { min: number; max: number };
+      type?: string;
+      category?: string;
+    },
+    callbacks: {
+      onStatus: (stage: string, message: string, count?: number) => void;
+      onResult: (result: Record<string, unknown>) => void;
+      onError:  (error: { message: string; error?: string; status?: number }) => void;
+      onDone?:  () => void;
+    }
+  ): (() => void) => {
+    const controller = new AbortController();
+
+    const githubKey    = localStorage.getItem('buildestate_github_key');
+    const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
+    const nvidiaKey    = localStorage.getItem('buildestate_nvidia_key');
+    const token        = localStorage.getItem('buildestate_token');
+
+    const headers: Record<string, string> = {
+      'Content-Type':  'application/json',
+      'Accept':        'text/event-stream',
+    };
+    if (githubKey)    headers['X-Github-Key']    = githubKey;
+    if (firecrawlKey) headers['X-Firecrawl-Key'] = firecrawlKey;
+    if (nvidiaKey)    headers['X-Nvidia-Key']    = nvidiaKey;
+    if (token)        headers['Authorization']   = `Bearer ${token}`;
+
+    fetch(`${API_BASE_URL}/ai/search`, {
+      method: 'POST',
+      headers,
+      body:   JSON.stringify(data),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        // Non-SSE error responses (rate limit, missing keys, etc. from middleware)
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          callbacks.onError({
+            message: body.message || 'Search failed',
+            error:   body.error,
+            status:  response.status,
+          });
+          return;
+        }
+
+        // Parse SSE stream using the standard event-field + data-field + blank-line protocol
+        const reader  = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer      = '';
+        let eventType   = 'message';
+        let dataBuffer  = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? ''; // keep incomplete last line for next chunk
+
+          for (const line of lines) {
+            if (line === '') {
+              // Blank line = end of event, dispatch it
+              if (dataBuffer) {
+                try {
+                  const parsed = JSON.parse(dataBuffer);
+                  if      (eventType === 'status') callbacks.onStatus(parsed.stage, parsed.message ?? '', parsed.count);
+                  else if (eventType === 'result') callbacks.onResult(parsed);
+                  else if (eventType === 'error')  callbacks.onError(parsed);
+                  else if (eventType === 'done')   callbacks.onDone?.();
+                } catch (_) { /* malformed data — skip */ }
+              }
+              eventType  = 'message';
+              dataBuffer = '';
+            } else if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              dataBuffer = line.slice(6);
+            }
+          }
+        }
+      })
+      .catch((err: Error) => {
+        if (err.name !== 'AbortError') {
+          callbacks.onError({ message: err.message || 'Network error' });
+        }
+      });
+
+    return () => controller.abort();
+  },
+
+  localities: (city: string, q?: string) =>
+    apiClient.get('/ai/localities', { params: { city, ...(q && { q }) } }),
 
   locationTrends: (city: string) => {
     const githubKey    = localStorage.getItem('buildestate_github_key');
     const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
+    const nvidiaKey    = localStorage.getItem('buildestate_nvidia_key');
     return apiClient.get(`/locations/${encodeURIComponent(city)}/trends`, {
       headers: {
         ...(githubKey    && { 'X-Github-Key':    githubKey }),
         ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
+        ...(nvidiaKey    && { 'X-Nvidia-Key':    nvidiaKey  }),
       },
     });
   },
 
-  validateKeys: (keys?: { githubKey?: string; firecrawlKey?: string }) => {
-    const githubKey = (keys?.githubKey ?? localStorage.getItem('buildestate_github_key') ?? '').trim();
+  validateKeys: (keys?: { githubKey?: string; firecrawlKey?: string; nvidiaKey?: string }) => {
+    const githubKey    = (keys?.githubKey    ?? localStorage.getItem('buildestate_github_key')    ?? '').trim();
     const firecrawlKey = (keys?.firecrawlKey ?? localStorage.getItem('buildestate_firecrawl_key') ?? '').trim();
+    const nvidiaKey    = (keys?.nvidiaKey    ?? localStorage.getItem('buildestate_nvidia_key')    ?? '').trim();
 
     return apiClient.post('/ai/validate-keys', {}, {
       headers: {
-        ...(githubKey && { 'X-Github-Key': githubKey }),
+        ...(githubKey    && { 'X-Github-Key':    githubKey    }),
         ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
+        ...(nvidiaKey    && { 'X-Nvidia-Key':    nvidiaKey    }),
       },
     });
   },
@@ -166,14 +275,27 @@ export const aiAPI = {
 
 // Helpers to read/write user API keys in localStorage
 export const apiKeyStorage = {
-  getGithubKey:    ()    => localStorage.getItem('buildestate_github_key') || '',
-  getFirecrawlKey: ()    => localStorage.getItem('buildestate_firecrawl_key') || '',
-  setGithubKey:    (key: string) => localStorage.setItem('buildestate_github_key', key),
+  getGithubKey:    ()          => localStorage.getItem('buildestate_github_key')    || '',
+  getFirecrawlKey: ()          => localStorage.getItem('buildestate_firecrawl_key') || '',
+  getNvidiaKey:    ()          => localStorage.getItem('buildestate_nvidia_key')     || '',
+  setGithubKey:    (key: string) => localStorage.setItem('buildestate_github_key',    key),
   setFirecrawlKey: (key: string) => localStorage.setItem('buildestate_firecrawl_key', key),
-  hasKeys: () => !!(localStorage.getItem('buildestate_github_key') && localStorage.getItem('buildestate_firecrawl_key')),
+  setNvidiaKey:    (key: string) => localStorage.setItem('buildestate_nvidia_key',     key),
+  // When VITE_SERVER_AI_ENABLED=true the backend supplies the NVIDIA key —
+  // users only need Firecrawl. Otherwise require Firecrawl + one AI key.
+  hasKeys: () => {
+    const hasFirecrawl  = !!localStorage.getItem('buildestate_firecrawl_key');
+    const serverHasAI   = import.meta.env.VITE_SERVER_AI_ENABLED === 'true';
+    if (serverHasAI) return hasFirecrawl;
+    const hasAI = !!(localStorage.getItem('buildestate_github_key') || localStorage.getItem('buildestate_nvidia_key'));
+    return hasFirecrawl && hasAI;
+  },
+  // Optional — true when NVIDIA NIM key is also set
+  hasNvidiaKey: () => !!localStorage.getItem('buildestate_nvidia_key'),
   clear: () => {
     localStorage.removeItem('buildestate_github_key');
     localStorage.removeItem('buildestate_firecrawl_key');
+    localStorage.removeItem('buildestate_nvidia_key');
   },
 };
 

@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, MapPin, IndianRupee, Home, Building2, Search, Loader2, KeyRound, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { SearchParams } from '../../pages/AIPropertyHubPage';
 import AIApiKeyModal from './AIApiKeyModal';
-import { apiKeyStorage } from '../../services/api';
+import { apiKeyStorage, aiAPI } from '../../services/api';
 
 interface AIHeroSectionProps {
   onSearch: (params: SearchParams) => void;
   loading: boolean;
+  sseStage?: 'searching' | 'analyzing' | null; // real-time SSE stage from backend
   externalOpenModal?: boolean;   // P1-1: parent can force-open key modal (e.g. on 403)
   onModalClosed?: () => void;    // callback to reset the flag after opening
 }
@@ -42,7 +43,7 @@ const LOAD_STEPS = [
 
 type BudgetUnit = 'Lakh' | 'Cr';
 
-const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, externalOpenModal, onModalClosed }) => {
+const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseStage, externalOpenModal, onModalClosed }) => {
   const [city, setCity] = useState('');
   const [locality, setLocality] = useState('');
   const [bhk, setBhk] = useState('Any');
@@ -53,15 +54,24 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
   const [propertyType, setPropertyType] = useState('Flat');
   const [category, setCategory] = useState('Residential');
 
-  // Autocomplete state
+  // City autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const cityInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
+  // Locality autocomplete state
+  const [localitySuggestions, setLocalitySuggestions] = useState<string[]>([]);
+  const [showLocalitySuggestions, setShowLocalitySuggestions] = useState(false);
+  const [localityHighlightedIndex, setLocalityHighlightedIndex] = useState(-1);
+  const localityInputRef = useRef<HTMLInputElement>(null);
+  const localitySuggestionsRef = useRef<HTMLDivElement>(null);
+  const localityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // API key modal + status
   const [showKeyModal, setShowKeyModal] = useState(false);
-  const [keysReady, setKeysReady] = useState(apiKeyStorage.hasKeys());
+  const [keysReady,   setKeysReady]   = useState(apiKeyStorage.hasKeys());
+  const [hasNvidia,   setHasNvidia]   = useState(apiKeyStorage.hasNvidiaKey());
 
   // P1-1: open modal when parent signals 403 error
   useEffect(() => {
@@ -71,18 +81,97 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
     }
   }, [externalOpenModal, onModalClosed]);
 
-  // Advance loading steps on a timer so the user sees progress while waiting
+  // Advance loading steps — SSE events drive real progress; timers are fallback only.
+  // Step 1 "Searching listings"    → activates when loading starts (SSE: searching)
+  // Step 2 "Reading property details" → timer fallback at 8s (Firecrawl scraping)
+  // Step 3 "Getting AI insights"   → SSE analyzing event OR timer fallback at 20s
   useEffect(() => {
     if (!loading) { setLoadStep(0); return; }
     setLoadStep(1);
-    const t2 = setTimeout(() => setLoadStep(2), 8_000);
-    const t3 = setTimeout(() => setLoadStep(3), 25_000);
+    const t2 = setTimeout(() => setLoadStep(prev => (prev < 2 ? 2 : prev)), 8_000);
+    const t3 = setTimeout(() => setLoadStep(prev => (prev < 3 ? 3 : prev)), 20_000);
     return () => { clearTimeout(t2); clearTimeout(t3); };
   }, [loading]);
 
+  // SSE stage events immediately advance the loader — no waiting for timers.
+  useEffect(() => {
+    if (!loading || !sseStage) return;
+    if (sseStage === 'searching') setLoadStep(prev => Math.max(prev, 1));
+    if (sseStage === 'analyzing') setLoadStep(3); // jump straight to step 3
+  }, [sseStage, loading]);
+
   const refreshKeyStatus = useCallback(() => {
     setKeysReady(apiKeyStorage.hasKeys());
+    setHasNvidia(apiKeyStorage.hasNvidiaKey());
   }, []);
+
+  // Clear locality when city changes
+  useEffect(() => {
+    setLocality('');
+    setLocalitySuggestions([]);
+    setShowLocalitySuggestions(false);
+  }, [city]);
+
+  // Debounced locality suggestions — fetches from MongoDB-cached scraped data
+  useEffect(() => {
+    if (localityDebounceRef.current) clearTimeout(localityDebounceRef.current);
+    if (!city.trim() || locality.trim().length < 1) {
+      setLocalitySuggestions([]);
+      setShowLocalitySuggestions(false);
+      return;
+    }
+    localityDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await aiAPI.localities(city.trim(), locality.trim());
+        const suggestions: string[] = res.data?.localities || [];
+        setLocalitySuggestions(suggestions);
+        setShowLocalitySuggestions(suggestions.length > 0);
+      } catch {
+        setLocalitySuggestions([]);
+      }
+    }, 300);
+    return () => {
+      if (localityDebounceRef.current) clearTimeout(localityDebounceRef.current);
+    };
+  }, [city, locality]);
+
+  // Close locality dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        localitySuggestionsRef.current &&
+        !localitySuggestionsRef.current.contains(e.target as Node) &&
+        localityInputRef.current &&
+        !localityInputRef.current.contains(e.target as Node)
+      ) {
+        setShowLocalitySuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectLocality = (loc: string) => {
+    setLocality(loc);
+    setShowLocalitySuggestions(false);
+    setLocalityHighlightedIndex(-1);
+  };
+
+  const handleLocalityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showLocalitySuggestions || localitySuggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setLocalityHighlightedIndex(prev => (prev < localitySuggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setLocalityHighlightedIndex(prev => (prev > 0 ? prev - 1 : localitySuggestions.length - 1));
+    } else if (e.key === 'Enter' && localityHighlightedIndex >= 0) {
+      e.preventDefault();
+      selectLocality(localitySuggestions[localityHighlightedIndex]);
+    } else if (e.key === 'Escape') {
+      setShowLocalitySuggestions(false);
+    }
+  };
 
   // Filter cities based on input
   const filteredCities = city.trim()
@@ -196,7 +285,11 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
             <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 shadow-sm rounded-xl px-5 py-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <p className="font-manrope text-sm font-medium text-emerald-800 flex-1">
-                Your API keys are active — AI searches use your own quota.
+                {hasNvidia
+                  ? 'NVIDIA NIM active — nemotron-nano (40 rpm) + GitHub Models fallback.'
+                  : import.meta.env.VITE_SERVER_AI_ENABLED === 'true'
+                    ? 'AI powered by server NVIDIA NIM — searches use your Firecrawl quota.'
+                    : 'API keys active — AI searches use your own GitHub Models quota.'}
               </p>
               <button
                 onClick={() => setShowKeyModal(true)}
@@ -297,15 +390,46 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, extern
               <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
                 Specific Area <span className="font-normal normal-case text-[#9CA3AF]">(optional — highest impact on results)</span>
               </label>
-              <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
-                <MapPin className="w-5 h-5 text-[#9CA3AF] shrink-0" />
-                <input
-                  type="text"
-                  value={locality}
-                  onChange={(e) => setLocality(e.target.value)}
-                  className="flex-1 bg-transparent font-manrope text-base text-[#221410] outline-none placeholder:text-[#9CA3AF] placeholder:font-light"
-                  placeholder="e.g. Powai, Andheri West, Koramangala, SG Highway…"
-                />
+              <div className="relative">
+                <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
+                  <MapPin className="w-5 h-5 text-[#9CA3AF] shrink-0" />
+                  <input
+                    ref={localityInputRef}
+                    type="text"
+                    value={locality}
+                    onChange={(e) => { setLocality(e.target.value); setLocalityHighlightedIndex(-1); }}
+                    onFocus={() => { if (localitySuggestions.length > 0) setShowLocalitySuggestions(true); }}
+                    onKeyDown={handleLocalityKeyDown}
+                    className="flex-1 bg-transparent font-manrope text-base text-[#221410] outline-none placeholder:text-[#9CA3AF] placeholder:font-light"
+                    placeholder={city.trim() ? `Search areas in ${city}…` : 'e.g. Powai, Andheri West, Koramangala…'}
+                    autoComplete="off"
+                  />
+                </div>
+
+                {/* Locality autocomplete dropdown */}
+                {showLocalitySuggestions && localitySuggestions.length > 0 && (
+                  <div
+                    ref={localitySuggestionsRef}
+                    className="absolute z-50 left-0 right-0 mt-2 bg-white border border-[#E6E0DA] rounded-xl shadow-xl overflow-hidden"
+                  >
+                    {localitySuggestions.map((loc, idx) => (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => selectLocality(loc)}
+                        onMouseEnter={() => setLocalityHighlightedIndex(idx)}
+                        className={`w-full text-left px-5 py-3.5 flex items-center gap-3 transition-colors ${
+                          idx === localityHighlightedIndex
+                            ? 'bg-[#FAF8F4] text-[#221410]'
+                            : 'text-[#6B7280] hover:bg-[#FAF8F4] hover:text-[#221410]'
+                        }`}
+                      >
+                        <MapPin className="w-4 h-4 text-[#D4755B] shrink-0" />
+                        <span className="font-manrope text-sm font-medium">{loc}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

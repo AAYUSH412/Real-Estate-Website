@@ -8,6 +8,28 @@ import SearchCache from '../models/searchCacheModel.js';
 import { coalesce, getInFlightCount } from '../utils/requestCoalescer.js';
 import logger from '../utils/logger.js';
 
+// ── SSE Progress Broadcaster ──────────────────────────────────────────────────
+// Maps cacheKey → Set of sendFn callbacks for all SSE clients waiting on that key.
+// When the coalescer work function broadcasts a milestone (e.g. firecrawl done),
+// all waiting SSE clients receive the event — not just the first requester.
+const progressSubs = new Map();
+
+function registerSSEClient(key, sendFn) {
+    if (!progressSubs.has(key)) progressSubs.set(key, new Set());
+    progressSubs.get(key).add(sendFn);
+    return () => {
+        const subs = progressSubs.get(key);
+        subs?.delete(sendFn);
+        if (subs?.size === 0) progressSubs.delete(key);
+    };
+}
+
+function broadcastProgress(key, event, data) {
+    progressSubs.get(key)?.forEach(fn => {
+        try { fn(event, data); } catch (_) {}
+    });
+}
+
 // ── MongoDB-based cache (10-minute TTL via TTL index) ────────────────────────
 // Replaces in-memory cache - works across all server instances
 
@@ -62,20 +84,84 @@ export async function getCacheStats() {
     }
 }
 
+// ── Locality autocomplete ─────────────────────────────────────────────────────
+// Harvests unique locality names from already-cached SearchCache documents.
+// No API keys required — reads only MongoDB data that's already been scraped.
+export async function getLocalitySuggestions(req, res) {
+    const city  = (req.query.city  || '').trim();
+    const q     = (req.query.q     || '').trim().toLowerCase();
+
+    if (!city) {
+        return res.status(400).json({ success: false, message: 'city is required' });
+    }
+
+    try {
+        // Escape regex special chars so city names like "Navi Mumbai" work safely
+        const escaped = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const docs = await SearchCache.find(
+            { cacheKey: { $regex: `^search:${escaped}:` } },
+            { 'data.properties': 1 }
+        ).limit(50).lean();
+
+        const seen       = new Set();
+        const localities = [];
+        const cityLower  = city.toLowerCase();
+
+        for (const doc of docs) {
+            const props = doc.data?.properties || [];
+            for (const p of props) {
+                const addr = (p.location_address || '').trim();
+                if (!addr) continue;
+
+                // Split "Baner, Pune" → ["Baner", "Pune"] and harvest each segment
+                const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+                for (const part of parts) {
+                    const lower = part.toLowerCase();
+                    if (lower === cityLower) continue;   // skip the city name itself
+                    if (seen.has(lower)) continue;
+                    if (q && !lower.includes(q)) continue;
+                    seen.add(lower);
+                    localities.push(part);
+                    if (localities.length >= 40) break;   // cap before slicing to 8
+                }
+                if (localities.length >= 40) break;
+            }
+            if (localities.length >= 40) break;
+        }
+
+        res.json({ success: true, localities: localities.slice(0, 8) });
+    } catch (err) {
+        logger.warn('Locality suggestions error', { city, error: err.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch locality suggestions' });
+    }
+}
+
 // ── Key validation ────────────────────────────────────────────────────────────
 
 /**
- * Strict gate: both user-provided keys MUST be present.
- * Throws a structured 403 error object if either is missing.
- * The server's own env-var keys are NEVER used as a fallback.
+ * Gate: Firecrawl is always required (user-provided).
+ * AI provider priority: user NVIDIA key → user GitHub key → server NVIDIA key (env fallback).
+ * Server NVIDIA key allows "Firecrawl only" onboarding for new users.
  */
 function resolveServices(req) {
-    const githubKey = req.headers['x-github-key']?.trim();
-    const firecrawlKey = req.headers['x-firecrawl-key']?.trim();
+    const userGithubKey  = req.headers['x-github-key']?.trim()    || null;
+    const firecrawlKey   = req.headers['x-firecrawl-key']?.trim() || null;
+    const userNvidiaKey  = req.headers['x-nvidia-key']?.trim()    || null;
+    const serverNvidiaKey = process.env.NVIDIA_API_KEY?.trim()    || null;
 
-    if (!githubKey || !firecrawlKey) {
+    if (!firecrawlKey) {
+        const err = new Error('Firecrawl API key is required for property search.');
+        err.statusCode = 403;
+        err.code = 'KEYS_REQUIRED';
+        throw err;
+    }
+
+    // Resolve AI provider: user keys first, then server fallback
+    const effectiveNvidiaKey = userNvidiaKey || (!userGithubKey ? serverNvidiaKey : null);
+
+    if (!userGithubKey && !effectiveNvidiaKey) {
         const err = new Error(
-            'API keys required. Please add your free GitHub Models and Firecrawl API keys to use the AI Hub.'
+            'Add at least one AI provider key — GitHub Models or NVIDIA NIM — or contact the site admin.'
         );
         err.statusCode = 403;
         err.code = 'KEYS_REQUIRED';
@@ -83,7 +169,7 @@ function resolveServices(req) {
     }
 
     return {
-        aiService: createAIService(githubKey),
+        aiService:        createAIService(userGithubKey, effectiveNvidiaKey),
         firecrawlService: createFirecrawlService(firecrawlKey),
     };
 }
@@ -91,7 +177,13 @@ function resolveServices(req) {
 function isUnauthorizedError(err) {
     const msg = String(err?.message || '').toLowerCase();
     const code = err?.statusCode || err?.status || 0;
-    return code === 401 || msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid token');
+    return code === 401
+        || msg.includes('401')
+        || msg.includes('unauthorized')
+        || msg.includes('invalid token')
+        || msg.includes('bad credentials')
+        || msg.includes('invalid api key')
+        || msg.includes('invalid key');
 }
 
 function isCreditsExhaustedError(err) {
@@ -103,6 +195,42 @@ function isCreditsExhaustedError(err) {
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 export const searchProperties = async (req, res) => {
+    // ── SSE detection ─────────────────────────────────────────────────────────
+    // Client signals SSE intent via Accept: text/event-stream header.
+    // Validation errors (400/403) that fire before flushHeaders() are still plain JSON
+    // so the client can detect !response.ok and surface them normally.
+    const isSSE = req.headers['accept'] === 'text/event-stream';
+
+    // Installed after SSE headers are flushed. Null in JSON mode.
+    let sseWrite = null;
+    let sseUnregister = null;
+
+    // Helper: write one SSE event. Silently ignores write errors (client disconnected).
+    function writeSSE(event, data) {
+        try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+    }
+
+    // Helper: finalize response — handles both SSE and JSON paths.
+    function sendResult(data) {
+        if (sseWrite) {
+            sseWrite('result', data);
+            sseWrite('done', {});
+            res.end();
+        } else {
+            res.json(data);
+        }
+    }
+
+    // Helper: send error — uses SSE error event if headers already flushed, else JSON.
+    function sendError(status, body) {
+        if (sseWrite) {
+            sseWrite('error', body);
+            res.end();
+        } else {
+            res.status(status).json(body);
+        }
+    }
+
     try {
         const {
             city,
@@ -117,11 +245,11 @@ export const searchProperties = async (req, res) => {
             limit           = 6,
         } = req.body;
 
+        // ── Early validation (before SSE headers — errors returned as plain JSON) ──
         if (!city || !maxPrice) {
             return res.status(400).json({ success: false, message: 'City and maxPrice are required' });
         }
 
-        // Gate: require user API keys
         let services;
         try {
             services = resolveServices(req);
@@ -136,19 +264,44 @@ export const searchProperties = async (req, res) => {
         const { firecrawlService, aiService } = services;
 
         // Cache key includes all search dimensions
-        const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:nb${includeNoBroker}:limit${limit}`;
+        const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:limit${limit}`;
 
-        // Check persistent MongoDB cache first
+        // ── Flush SSE headers now (after early validation, before slow work) ──────
+        if (isSSE) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
+            res.flushHeaders();
+            sseWrite = writeSSE;
+
+            // Clean up subscriber when client disconnects early
+            req.on('close', () => {
+                sseUnregister?.();
+                if (!res.writableEnded) res.end();
+            });
+        }
+
+        // ── Cache check ──────────────────────────────────────────────────────────
         const cached = await getCached(cacheKey);
         if (cached) {
             logger.info('Cache HIT', { key: cacheKey.substring(0, 50) });
-            return res.json({ success: true, ...cached, fromCache: true });
+            return sendResult({ success: true, ...cached, fromCache: true });
         }
 
         logger.info('Property search', { city, locality, bhk, maxPrice, propertyType, possession });
 
-        // Use coalescer to prevent duplicate in-flight requests
-        // If another request with the same key is already processing, wait for it
+        // ── Register SSE subscriber BEFORE entering coalescer ────────────────────
+        // This ensures even coalesced (secondary) requests receive broadcast events
+        // that fire from inside the coalescer work function.
+        if (sseWrite) {
+            sseWrite('status', {
+                stage:   'searching',
+                message: `Querying 99acres, MagicBricks, Housing.com for ${bhk !== 'Any' ? bhk + ' ' : ''}${(propertyType || 'properties').toLowerCase()}s in ${locality || city}…`,
+            });
+            sseUnregister = registerSSEClient(cacheKey, sseWrite);
+        }
+
         let result;
         try {
             result = await coalesce(cacheKey, async () => {
@@ -159,7 +312,7 @@ export const searchProperties = async (req, res) => {
                     return { ...rechecked, fromCoalesce: true };
                 }
 
-                // Step 1: Firecrawl — search then scrape individual pages
+                // Step 1: Firecrawl — search + scrape individual listing pages
                 const propertiesData = await firecrawlService.findProperties({
                     city,
                     locality,
@@ -180,6 +333,21 @@ export const searchProperties = async (req, res) => {
                     };
                 }
 
+                // Broadcast milestone: Firecrawl done, AI analysis starting.
+                // Reaches ALL SSE clients waiting on this cacheKey (primary + coalesced).
+                broadcastProgress(cacheKey, 'status', {
+                    stage:   'analyzing',
+                    count:   propertiesData.properties.length,
+                    message: `Found ${propertiesData.properties.length} properties — ranking with AI…`,
+                });
+
+                // Look up city benchmarks from cached trends (zero extra Firecrawl calls)
+                const trendsCacheData = await getCached(`trends:${city}`);
+                const cityBenchmarks  = trendsCacheData?.analysis?.trends || null;
+                if (cityBenchmarks) {
+                    logger.debug('City benchmarks loaded from trends cache', { city, count: cityBenchmarks.length });
+                }
+
                 // Step 2: AI analysis
                 let analysis;
                 try {
@@ -193,6 +361,7 @@ export const searchProperties = async (req, res) => {
                             maxPrice,
                             propertyType:     propertyType     || 'Flat',
                             propertyCategory: propertyCategory || 'Residential',
+                            cityBenchmarks,
                         }
                     );
                     analysis = validateAndFixPropertyAnalysis(rawAnalysis, propertiesData.properties);
@@ -213,19 +382,15 @@ export const searchProperties = async (req, res) => {
                 }
 
                 const payload = { properties: propertiesData.properties, analysis };
-
-                // Save to persistent cache
                 await setCache(cacheKey, payload);
                 logger.info('Cache SET', { key: cacheKey.substring(0, 50) });
-
                 return payload;
             });
         } catch (coalesceError) {
-            // Handle errors from the coalesced operation
             logger.error('Coalesce error', { error: coalesceError.message });
 
             if (coalesceError.code === 'FIRECRAWL_AUTH_ERROR' || isUnauthorizedError(coalesceError)) {
-                return res.status(403).json({
+                return sendError(403, {
                     success: false,
                     message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
                     error: 'KEYS_INVALID',
@@ -234,7 +399,7 @@ export const searchProperties = async (req, res) => {
             }
 
             if (coalesceError.code === 'FIRECRAWL_CREDITS_EXHAUSTED') {
-                return res.status(402).json({
+                return sendError(402, {
                     success: false,
                     message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
                     error: 'FIRECRAWL_CREDITS_EXHAUSTED',
@@ -242,16 +407,18 @@ export const searchProperties = async (req, res) => {
                 });
             }
 
-            return res.status(503).json({
+            return sendError(503, {
                 success: false,
                 message: 'Property search service temporarily unavailable. Please try again later.',
                 error: 'FIRECRAWL_ERROR',
             });
+        } finally {
+            sseUnregister?.();
+            sseUnregister = null;
         }
 
-        // Handle special cases from coalesced result
         if (result.notFound) {
-            return res.status(404).json({
+            return sendError(404, {
                 success: false,
                 message: result.message,
                 properties: [],
@@ -259,11 +426,17 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        res.json({ success: true, ...result });
+        sendResult({ success: true, ...result });
 
     } catch (error) {
-        logger.error("Error searching properties", { error: error.message, stack: error.stack });
-        res.status(500).json({ success: false, message: 'Failed to search properties', error: error.message });
+        logger.error('Error searching properties', { error: error.message, stack: error.stack });
+        sseUnregister?.();
+        if (sseWrite) {
+            sseWrite('error', { success: false, message: 'Failed to search properties', error: error.message });
+            if (!res.writableEnded) res.end();
+        } else {
+            res.status(500).json({ success: false, message: 'Failed to search properties', error: error.message });
+        }
     }
 };
 
@@ -388,75 +561,132 @@ export const getLocationTrends = async (req, res) => {
 };
 
 export const validateApiKeys = async (req, res) => {
-    let services;
-    try {
-        services = resolveServices(req);
-    } catch (keyErr) {
-        return res.status(keyErr.statusCode || 403).json({
-            success: false,
-            message: keyErr.message,
-            error: keyErr.code || 'KEYS_REQUIRED',
-        });
-    }
+    const githubKey    = req.headers['x-github-key']?.trim()    || null;
+    const firecrawlKey = req.headers['x-firecrawl-key']?.trim() || null;
+    const nvidiaKey    = req.headers['x-nvidia-key']?.trim()    || null;
 
-    const { aiService, firecrawlService } = services;
-
-    const [githubResult, firecrawlResult] = await Promise.allSettled([
-        aiService.validateApiKey(),
-        firecrawlService.validateApiKey(),
-    ]);
-
-    const githubErr = githubResult.status === 'rejected' ? githubResult.reason : null;
-    const firecrawlErr = firecrawlResult.status === 'rejected' ? firecrawlResult.reason : null;
-
-    logger.debug('Key validation', {
-        githubStatus: githubResult.status,
-        firecrawlStatus: firecrawlResult.status,
-        githubError: githubErr?.message || null,
-        firecrawlError: firecrawlErr?.message || null,
-    });
-
-    if (!githubErr && !firecrawlErr) {
-        return res.json({
-            success: true,
-            message: 'API keys are valid.',
-            github: { valid: true },
-            firecrawl: { valid: true },
-        });
-    }
-
-    if (githubErr && isUnauthorizedError(githubErr)) {
+    // Firecrawl is always required
+    if (!firecrawlKey) {
         return res.status(403).json({
             success: false,
-            message: 'Your GitHub Models API key is invalid or expired. Please update it and try again.',
-            error: 'KEYS_INVALID',
-            provider: 'github',
-        });
-    }
-
-    if (firecrawlErr && isUnauthorizedError(firecrawlErr)) {
-        return res.status(403).json({
-            success: false,
-            message: 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
-            error: 'KEYS_INVALID',
+            message: 'Firecrawl API key is required for property search.',
+            error: 'KEYS_REQUIRED',
             provider: 'firecrawl',
         });
     }
 
-    if (firecrawlErr && isCreditsExhaustedError(firecrawlErr)) {
-        return res.status(402).json({
+    // At least one AI provider required
+    if (!githubKey && !nvidiaKey) {
+        return res.status(403).json({
             success: false,
-            message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
-            error: 'FIRECRAWL_CREDITS_EXHAUSTED',
-            provider: 'firecrawl',
-            upgradeUrl: 'https://firecrawl.dev/pricing',
+            message: 'Add at least one AI provider key — GitHub Models or NVIDIA NIM.',
+            error: 'KEYS_REQUIRED',
         });
     }
 
-    return res.status(503).json({
-        success: false,
-        message: 'Unable to validate API keys right now. Please try again.',
-        error: 'KEY_VALIDATION_FAILED',
+    const { GitHubModelsProvider } = await import('../services/llm/GitHubModelsProvider.js');
+    const { NvidiaNimProvider }    = await import('../services/llm/NvidiaNimProvider.js');
+
+    // Validate whichever keys were provided
+    const validationTasks = [
+        createFirecrawlService(firecrawlKey).validateApiKey()
+            .then(r => ({ provider: 'firecrawl', valid: true,  ...r }))
+            .catch(e => ({ provider: 'firecrawl', valid: false, error: e.message, statusCode: e.statusCode })),
+    ];
+
+    if (githubKey) {
+        validationTasks.push(
+            new GitHubModelsProvider(githubKey).validateKey()
+                .then(r => ({ provider: 'github', ...r }))
+                .catch(e => ({ provider: 'github', valid: false, error: e.message, statusCode: e.statusCode }))
+        );
+    }
+
+    if (nvidiaKey) {
+        validationTasks.push(
+            new NvidiaNimProvider(nvidiaKey).validateKey()
+                .then(r => ({ provider: 'nvidia', ...r }))
+                .catch(e => ({ provider: 'nvidia', valid: false, error: e.message, statusCode: e.statusCode }))
+        );
+    }
+
+    const results = await Promise.all(validationTasks);
+    const byProvider = Object.fromEntries(results.map(r => [r.provider, r]));
+
+    logger.debug('Key validation results', byProvider);
+
+    const firecrawlResult = byProvider.firecrawl;
+    const githubResult    = byProvider.github   || null;
+    const nvidiaResult    = byProvider.nvidia   || null;
+
+    // Firecrawl failed
+    if (!firecrawlResult.valid) {
+        const isCredits = isCreditsExhaustedError({ statusCode: firecrawlResult.statusCode, message: firecrawlResult.error });
+        if (isCredits) {
+            return res.status(402).json({
+                success: false,
+                message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
+                error: 'FIRECRAWL_CREDITS_EXHAUSTED',
+                provider: 'firecrawl',
+                upgradeUrl: 'https://firecrawl.dev/pricing',
+            });
+        }
+        const isNetworkErr = /network|timeout|econnrefused|fetch/i.test(firecrawlResult.error || '');
+        return res.status(isNetworkErr ? 503 : 403).json({
+            success: false,
+            message: isNetworkErr
+                ? 'Could not reach Firecrawl right now. Please try again in a moment.'
+                : 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
+            error: isNetworkErr ? 'KEY_VALIDATION_FAILED' : 'KEYS_INVALID',
+            provider: 'firecrawl',
+        });
+    }
+
+    // GitHub provided but failed
+    if (githubResult && !githubResult.valid) {
+        // If NVIDIA is also provided and valid, don't block — GitHub failure is non-fatal
+        const nvidiaOk = nvidiaResult?.valid === true;
+        if (!nvidiaOk) {
+            const isNetworkErr = /network|timeout|econnrefused|fetch/i.test(githubResult.error || '');
+            return res.status(isNetworkErr ? 503 : 403).json({
+                success: false,
+                message: isNetworkErr
+                    ? 'Could not reach GitHub Models right now. Please try again in a moment.'
+                    : 'Your GitHub Models API key is invalid or expired. Get a new key at github.com/marketplace/models.',
+                error: isNetworkErr ? 'KEY_VALIDATION_FAILED' : 'KEYS_INVALID',
+                provider: 'github',
+            });
+        }
+        // NVIDIA is valid — save succeeds; warn about GitHub
+        logger.warn('GitHub key invalid but NVIDIA valid — proceeding with NVIDIA only');
+    }
+
+    // NVIDIA provided but failed (only if it's the sole AI provider)
+    if (nvidiaResult && !nvidiaResult.valid && !githubResult?.valid) {
+        return res.status(403).json({
+            success: false,
+            message: 'Your NVIDIA NIM key is invalid. Please check it at build.nvidia.com.',
+            error: 'KEYS_INVALID',
+            provider: 'nvidia',
+        });
+    }
+
+    // All required keys passed
+    return res.json({
+        success: true,
+        message: 'API keys are valid.',
+        firecrawl: { valid: true },
+        ...(githubResult  && { github: { valid: githubResult.valid,  error: githubResult.valid  ? null : githubResult.error  } }),
+        ...(nvidiaResult  && { nvidia: { valid: nvidiaResult.valid,  error: nvidiaResult.valid  ? null : nvidiaResult.error  } }),
+        ...(nvidiaResult && {
+            nvidia: {
+                valid:   nvidiaResult.valid,
+                error:   nvidiaResult.valid ? null : nvidiaResult.error,
+                message: nvidiaResult.valid
+                    ? 'NVIDIA NIM key verified — 40 rpm quota active.'
+                    : 'NVIDIA NIM key invalid. GitHub Models will be used instead.',
+            },
+        }),
     });
 };
 

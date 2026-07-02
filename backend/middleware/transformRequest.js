@@ -9,7 +9,7 @@
  *     propertyType, propertyCategory, possession, limit }
  */
 export const transformAISearchRequest = (req, res, next) => {
-  const { city, locality, price, type, category, bhk, possession, includeNoBroker } = req.body;
+  const { city, locality, price, type, category, bhk, possession } = req.body;
 
   // Convert price from absolute INR to Crores (1 Cr = 1,00,00,000)
   let maxPriceInCr = '5';
@@ -36,7 +36,6 @@ export const transformAISearchRequest = (req, res, next) => {
     propertyType:     typeMap[type] || type || 'Flat',
     propertyCategory: category || 'Residential',
     possession:       possession || 'any',
-    includeNoBroker:  includeNoBroker === true || includeNoBroker === 'true',
     limit:            req.body.limit || 12,
   };
 

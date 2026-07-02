@@ -125,7 +125,6 @@ export const aiAPI = {
     locality?: string;
     bhk?: string;
     possession?: string;
-    includeNoBroker?: boolean;
     price?: { min: number; max: number };
     type?: string;
     category?: string;
@@ -150,7 +149,6 @@ export const aiAPI = {
       locality?: string;
       bhk?: string;
       possession?: string;
-      includeNoBroker?: boolean;
       price?: { min: number; max: number };
       type?: string;
       category?: string;

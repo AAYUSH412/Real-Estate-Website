@@ -201,7 +201,7 @@ const SEARCH_RESULT_SCHEMA = {
                     nearby_landmarks:       { type: "array", items: { type: "string" }, description: "Nearby metro, school, hospital" },
                     description:            { type: "string", description: "Brief description max 50 words" },
                 },
-                required: ["building_name", "property_type", "location_address", "total_price"],
+                required: ["building_name", "property_type", "location_address"],
             },
         },
     },
@@ -230,7 +230,7 @@ function buildSearchResultPrompt(city) {
  * Direct URLs match exactly what a user sees when filtering on the website —
  * unlike the old search() approach which used Google web search.
  */
-function buildSourceUrls({ city, locality, bhk, minPrice, maxPrice, propertyType, includeNoBroker }) {
+function buildSourceUrls({ city, locality, bhk, minPrice, maxPrice, propertyType }) {
     // When a locality is specified, append it to city name for MagicBricks/housing
     const cityArg = locality ? `${locality}, ${city}` : city;
 
@@ -283,26 +283,61 @@ function parsePriceToCrores(priceStr) {
 }
 
 /**
- * Deduplicate scraped properties.
- * Two properties are considered duplicates when they share the same
- * building name (case-insensitive) AND the same BHK config.
+ * Reconstruct total_price from price_per_sqft × carpet area when total_price
+ * is missing. Prevents dropping otherwise good listings just because one field
+ * failed to extract. Marks reconstructed prices with _price_reconstructed flag
+ * so the AI prompt can treat them with appropriate uncertainty.
+ */
+function reconstructPrice(p) {
+    if (p.total_price && !/^\s*$/.test(p.total_price)) return p;
+
+    const ppsft = parseFloat((p.price_per_sqft || '').replace(/[^\d.]/g, ''));
+    const area  = parseFloat((p.carpet_area_sqft || p.superbuiltup_area_sqft || '').replace(/[^\d.]/g, ''));
+
+    if (ppsft > 100 && area > 100) {
+        const totalCr = (ppsft * area) / 1e7;
+        const formatted = totalCr >= 1
+            ? `₹${totalCr.toFixed(2)} Cr`
+            : `₹${Math.round(totalCr * 100)} L`;
+        return { ...p, total_price: formatted, _price_reconstructed: true };
+    }
+
+    // Can't reconstruct — mark as POR so it passes price filter and AI notes missing data
+    return { ...p, total_price: 'Price on Request' };
+}
+
+/**
+ * Normalize a building name for dedup comparison.
+ * Strips filler words and punctuation so "Lodha Park" and "Lodha The Park"
+ * collapse to the same key. Uses first 15 chars to tolerate suffix differences.
+ */
+function normalizeForDedup(name, bhk, address) {
+    const n = (name || '')
+        .toLowerCase()
+        .replace(/\b(the|by|at|phase|tower|wing|block|residency|residences|heights|enclave|gardens|garden)\b/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .substring(0, 15);
+    const b   = (bhk     || '').replace(/\s/g, '').toLowerCase().substring(0, 6);
+    const loc = (address || '').split(',')[0].toLowerCase().replace(/[^a-z]/g, '').substring(0, 8);
+    return `${n}:${b}:${loc}`;
+}
+
+/**
+ * Deduplicate scraped properties using a normalized key so spelling variants
+ * ("Lodha Park" vs "Lodha The Park") and missing BHK fields are handled.
  * When duplicates exist, the one with more populated fields wins.
  */
 function deduplicateProperties(properties) {
     const best = new Map();
 
     for (const p of properties) {
-        const key = [
-            (p.building_name || '').toLowerCase().trim(),
-            (p.bhk_config    || '').toLowerCase().trim(),
-        ].join('::');
+        const key = normalizeForDedup(p.building_name, p.bhk_config, p.location_address);
 
         if (!best.has(key)) {
             best.set(key, p);
         } else {
-            // Keep whichever has more non-empty fields
-            const existing     = best.get(key);
-            const countFilled  = obj => Object.values(obj).filter(v => v && v !== '').length;
+            const existing    = best.get(key);
+            const countFilled = obj => Object.values(obj).filter(v => v && v !== '').length;
             if (countFilled(p) > countFilled(existing)) best.set(key, p);
         }
     }
@@ -551,7 +586,6 @@ class FirecrawlService {
         propertyType   = 'Flat',
         propertyCategory = 'Residential',
         possession     = 'any',
-        includeNoBroker = false,
         limit          = 12,
     }) {
         try {
@@ -569,7 +603,7 @@ class FirecrawlService {
                 ? `${Math.round(priceNum * 100)} Lakhs`
                 : `${priceNum} Crores`;
 
-            const sourceUrls = buildSourceUrls({ city, locality, bhk, minPrice, maxPrice, propertyType, includeNoBroker });
+            const sourceUrls = buildSourceUrls({ city, locality, bhk, minPrice, maxPrice, propertyType });
 
             console.log('\n[DEBUG] ─── Firecrawl Direct URL Scraping ──────────────');
             console.log('[DEBUG] Mode         : scrapeUrl (direct search page)');
@@ -592,6 +626,7 @@ class FirecrawlService {
                     prompt: buildSearchResultPrompt(city),
                     schema: SEARCH_RESULT_SCHEMA,
                 }],
+                waitFor:         2000, // JS-heavy portals (especially Housing.com) render listings late
                 onlyMainContent: true,
             };
 
@@ -653,15 +688,14 @@ class FirecrawlService {
                     const items = result.json?.properties;
                     if (!Array.isArray(items) || items.length === 0) continue;
                     for (const prop of items) {
-                        extracted.push({
+                        const base = {
                             ...prop,
-                            // Strip hallucinated RERA placeholders (e.g. "RERA-123456").
-                            // Real Indian RERA numbers contain slashes or state-specific prefixes.
-                            // A purely numeric/sequential value like "RERA-123456" is invented by the extractor.
-                            rera_number: isRealReraNumber(prop.rera_number) ? prop.rera_number : '',
+                            rera_number:  isRealReraNumber(prop.rera_number) ? prop.rera_number : '',
                             property_url: result.url,
                             source:       sourceKey,
-                        });
+                        };
+                        // Recover listings whose total_price failed to extract
+                        extracted.push(reconstructPrice(base));
                     }
                 }
                 return extracted;

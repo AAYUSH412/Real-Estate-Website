@@ -241,7 +241,6 @@ export const searchProperties = async (req, res) => {
             propertyCategory,
             propertyType,
             possession      = 'any',
-            includeNoBroker = false,
             limit           = 6,
         } = req.body;
 
@@ -322,7 +321,6 @@ export const searchProperties = async (req, res) => {
                     propertyType:     propertyType || 'Flat',
                     propertyCategory: propertyCategory || 'Residential',
                     possession,
-                    includeNoBroker,
                     limit:            Math.min(limit, 20),
                 });
 

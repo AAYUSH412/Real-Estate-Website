@@ -283,6 +283,22 @@ function parsePriceToCrores(priceStr) {
 }
 
 /**
+ * Normalize area strings to sqft.
+ * MagicBricks sometimes returns values in sq yards (e.g. "223 sqyrd").
+ * 1 sq yard = 9 sq ft — without this, reconstructPrice computes wrong totals
+ * and the AI prompt receives misleading area figures.
+ */
+function normalizeAreaToSqft(areaStr) {
+    if (!areaStr || typeof areaStr !== 'string') return areaStr;
+    const match = areaStr.match(/^([\d,]+(?:\.\d+)?)\s*sq[\s.]?y(?:a?r?d?s?)?\.?$/i);
+    if (match) {
+        const sqYards = parseFloat(match[1].replace(/,/g, ''));
+        return `${Math.round(sqYards * 9)} sqft`;
+    }
+    return areaStr;
+}
+
+/**
  * Reconstruct total_price from price_per_sqft × carpet area when total_price
  * is missing. Prevents dropping otherwise good listings just because one field
  * failed to extract. Marks reconstructed prices with _price_reconstructed flag
@@ -690,9 +706,12 @@ class FirecrawlService {
                     for (const prop of items) {
                         const base = {
                             ...prop,
-                            rera_number:  isRealReraNumber(prop.rera_number) ? prop.rera_number : '',
-                            property_url: result.url,
-                            source:       sourceKey,
+                            // Normalize sqyrd → sqft so reconstructPrice and AI analysis get consistent units
+                            carpet_area_sqft:       normalizeAreaToSqft(prop.carpet_area_sqft),
+                            superbuiltup_area_sqft: normalizeAreaToSqft(prop.superbuiltup_area_sqft),
+                            rera_number:            isRealReraNumber(prop.rera_number) ? prop.rera_number : '',
+                            property_url:           result.url,
+                            source:                 sourceKey,
                         };
                         // Recover listings whose total_price failed to extract
                         extracted.push(reconstructPrice(base));

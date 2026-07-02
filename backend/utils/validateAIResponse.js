@@ -109,13 +109,18 @@ function buildReraLookup(properties) {
   return map;
 }
 
-// Strip "RERA ✓" from one_line_insight and highlight when the source property has no rera_number.
-// This is a code-level guard because model instructions alone are unreliable.
+// Strip false RERA claims when the source property has no rera_number.
+// Handles both checkmark variants (RERA ✓) and plain-text claims (RERA registration).
 function stripFalseRera(text, hasRera) {
   if (hasRera || !text) return text;
   return text
     .replace(/,?\s*RERA\s*[✓✔√]/g, '')
     .replace(/RERA\s*[✓✔√],?\s*/g, '')
+    // Plain-text claims: "RERA registration", "RERA registered", "RERA approved", etc.
+    .replace(/,?\s*RERA\s+(?:regist\w+|complian\w*|approv\w*|certif\w*)/gi, '')
+    .replace(/RERA\s+(?:regist\w+|complian\w*|approv\w*|certif\w*),?\s*/gi, '')
+    .replace(/\bdue\s+to\s*,/gi, 'due to')  // fix orphaned "due to ," → "due to "
+    .replace(/^[,\s]+/, '')  // strip orphaned leading comma if RERA phrase was first
     .replace(/\s{2,}/g, ' ')
     .trim();
 }

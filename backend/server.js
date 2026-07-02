@@ -4,6 +4,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import mongoSanitize from 'express-mongo-sanitize';
 import connectdb from './config/mongodb.js';
 import { trackAPIStats } from './middleware/statsMiddleware.js';
@@ -51,15 +52,8 @@ const limiter = rateLimit({
     if (req.path === '/status' || req.path === '/' || req.path.startsWith('/health')) return true;
     return process.env.NODE_ENV === 'development' && res.statusCode < 400;
   },
-  // Custom key generator to handle proxy scenarios
-  keyGenerator: (req) => {
-    // Use X-Forwarded-For in production, fallback to IP
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded && process.env.NODE_ENV === 'production') {
-      return forwarded.split(',')[0].trim();
-    }
-    return req.ip;
-  }
+  // req.ip respects the trust-proxy setting; parsing X-Forwarded-For ourselves
+  // lets clients spoof fresh rate-limit buckets with a forged first entry
 });
 
 // Security middlewares
@@ -81,6 +75,7 @@ app.use(compression());
 // Middleware — 500kb is plenty; 50mb was dangerously large
 app.use(express.json({ limit: '500kb' }));
 app.use(express.urlencoded({ extended: true, limit: '500kb' }));
+app.use(cookieParser()); // admin refresh token lives in an httpOnly cookie
 
 // Request ID middleware for tracing (early in chain)
 app.use(requestIdMiddleware);

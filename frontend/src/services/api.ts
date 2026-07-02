@@ -113,8 +113,9 @@ export const appointmentsAPI = {
   getByUser: () =>
     apiClient.get('/appointments/user'),
 
+  // backend reads req.body.reason
   cancel: (id: string, reason?: string) =>
-    apiClient.put(`/appointments/cancel/${id}`, { cancelReason: reason }),
+    apiClient.put(`/appointments/cancel/${id}`, { reason }),
 };
 
 // AI-Powered Property Search

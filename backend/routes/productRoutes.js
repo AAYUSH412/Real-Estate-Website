@@ -1,18 +1,20 @@
 import express from 'express';
 import { addproperty, listproperty, removeproperty, updateproperty,singleproperty } from '../controller/productController.js';
 import upload from '../middleware/multer.js';
+import { adminProtect } from '../middleware/authMiddleware.js';
 
 const propertyrouter = express.Router();
 
-propertyrouter.post('/add', upload.fields([
+// Mutations are admin-panel only; public users submit listings via /api/user/properties
+propertyrouter.post('/add', adminProtect, upload.fields([
     { name: "image1", maxCount: 1 },
     { name: "image2", maxCount: 1 },
     { name: "image3", maxCount: 1 },
     { name: "image4", maxCount: 1 },
 ]), addproperty);
 propertyrouter.get('/list', listproperty);
-propertyrouter.post('/remove', removeproperty);
-propertyrouter.post('/update', upload.fields([
+propertyrouter.post('/remove', adminProtect, removeproperty);
+propertyrouter.post('/update', adminProtect, upload.fields([
     { name: "image1", maxCount: 1 },
     { name: "image2", maxCount: 1 },
     { name: "image3", maxCount: 1 },

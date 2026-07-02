@@ -26,7 +26,11 @@ const UserSchema = new mongoose.Schema({
     suspendedAt: { type: Date },
     bannedBy: { type: String },      // Admin email
     suspendedBy: { type: String },   // Admin email
-    lastActive: { type: Date }
+    lastActive: { type: Date },
+
+    // Brute-force protection: 5 failed logins → 15 min lock
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date }
 }, {
     timestamps: true  // Adds createdAt and updatedAt
 });
@@ -43,7 +47,15 @@ const AdminSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, default: 'admin' },
-    lastLogin: { type: Date }
+    lastLogin: { type: Date },
+
+    // Brute-force protection
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date },
+
+    // Refresh token (SHA-256 hash of the httpOnly cookie value)
+    refreshTokenHash: { type: String },
+    refreshTokenExpiry: { type: Date }
 });
 
 // Hash password before saving

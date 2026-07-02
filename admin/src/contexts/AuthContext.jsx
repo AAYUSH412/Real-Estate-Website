@@ -22,21 +22,15 @@ export const AuthProvider = ({ children }) => {
       const isAdmin = localStorage.getItem(APP_CONSTANTS.IS_ADMIN_KEY);
       
       if (token && isAdmin === 'true') {
-        // Verify token expiration
+        // Presence check only — an expired access token is refreshed
+        // silently by the apiClient interceptor via the httpOnly cookie
         const tokenData = JSON.parse(atob(token.split('.')[1]));
-        const isExpired = tokenData.exp * 1000 < Date.now();
-        
-        if (!isExpired) {
-          setIsAuthenticated(true);
-          setUser({ 
-            email: tokenData.email || 'Admin',
-            role: 'admin',
-            id: tokenData.id
-          });
-        } else {
-          // Token expired, clear storage
-          logout();
-        }
+        setIsAuthenticated(true);
+        setUser({
+          email: tokenData.email || 'Admin',
+          role: 'admin',
+          id: tokenData.id
+        });
       }
     } catch (error) {
       console.error('Error checking auth status:', error);

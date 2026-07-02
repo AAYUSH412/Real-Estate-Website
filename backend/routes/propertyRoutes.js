@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { searchProperties, getLocationTrends, getLocalitySuggestions, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
 import { transformAISearchRequest } from '../middleware/transformRequest.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, adminProtect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/multer.js';
 import { createDistributedRateLimiter } from '../utils/distributedRateLimiter.js';
 
@@ -14,11 +14,9 @@ const router = express.Router();
 const distributedLimiter = createDistributedRateLimiter({
     windowMs: 60 * 60 * 1000, // 1 hour window
     max: process.env.NODE_ENV === 'production' ? 10 : 200, // dev: 200/hr, prod: 10/hr
-    keyGenerator: (req) => {
-        // Respect Render/Vercel proxy header
-        const forwarded = req.headers['x-forwarded-for'];
-        return forwarded ? forwarded.split(',')[0].trim() : req.ip;
-    },
+    // req.ip resolves the real client IP via Express trust-proxy;
+    // parsing X-Forwarded-For directly is client-spoofable
+    keyGenerator: (req) => req.ip,
     message: {
         success: false,
         message: 'AI search limit reached (10 searches per hour). Please try again later.',
@@ -51,7 +49,7 @@ router.put('/user/properties/:id', protect, upload.array('images', 4), updateUse
 router.delete('/user/properties/:id', protect, deleteUserListing);
 
 // ── Rate limiter stats (for monitoring) ──────────────────────────────────────
-router.get('/rate-limit/stats', async (req, res) => {
+router.get('/rate-limit/stats', adminProtect, async (req, res) => {
     try {
         const stats = await distributedLimiter.getStats();
         res.json({
@@ -70,7 +68,7 @@ router.get('/rate-limit/stats', async (req, res) => {
 });
 
 // ── Cache stats (for monitoring MongoDB cache) ──────────────────────────────
-router.get('/cache/stats', async (req, res) => {
+router.get('/cache/stats', adminProtect, async (req, res) => {
     try {
         const stats = await getCacheStats();
         res.json({

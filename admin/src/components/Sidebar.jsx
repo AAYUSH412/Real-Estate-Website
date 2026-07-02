@@ -18,6 +18,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import apiClient from '../services/apiClient';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
   const navigate = useNavigate();
@@ -33,7 +34,12 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
     setIsCollapsed(!isCollapsed);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/api/users/admin/logout'); // revokes the refresh cookie
+    } catch {
+      // best-effort — clear the local session regardless
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('isAdmin');
     navigate('/login');

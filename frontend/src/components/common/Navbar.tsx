@@ -74,6 +74,16 @@ const Navbar: React.FC = () => {
           {isAuthenticated && user ? (
             <>
               <Link
+                to="/dashboard"
+                className={`font-manrope transition-colors ${
+                  isActive('/dashboard')
+                    ? 'text-[#D4755B] font-semibold'
+                    : 'text-[#374151] hover:text-[#D4755B]'
+                }`}
+              >
+                Dashboard
+              </Link>
+              <Link
                 to="/my-listings"
                 className={`font-manrope transition-colors ${
                   isActive('/my-listings')
@@ -148,6 +158,13 @@ const Navbar: React.FC = () => {
                 <span className="font-manrope text-sm text-[#374151]">
                   Signed in as <span className="font-semibold">{user.name}</span>
                 </span>
+                <Link
+                  to="/dashboard"
+                  className="font-manrope font-semibold text-[#374151] hover:text-[#D4755B] transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Dashboard
+                </Link>
                 <Link
                   to="/my-listings"
                   className="font-manrope font-semibold text-[#374151] hover:text-[#D4755B] transition-colors py-2"

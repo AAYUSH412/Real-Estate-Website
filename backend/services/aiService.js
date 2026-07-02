@@ -8,7 +8,8 @@ Rules:
 - Always respond with valid JSON matching the requested schema.
 - Use INR currency (Lakhs/Crores) for all prices.
 - Keep analysis factual and data-driven — no speculation.
-- Never include markdown, code fences, or extra text outside the JSON.`;
+- Never include markdown, code fences, or extra text outside the JSON.
+- Language: professional Indian English. Say "flat" not "apartment", "crore" not "Cr" in full text, "lakh" not "L" in full text. Never use American real-estate terms.`;
 
 class AIService {
   constructor(router) {
@@ -20,6 +21,12 @@ class AIService {
   }
 
   // ── Data Preparation ──────────────────────────────────────────
+
+  // Source reliability ranking (for AI scoring weight):
+  // 99acres    → highest data quality (verified listings, accurate pricing)
+  // magicbricks → high quality (established portal, good data)
+  // nobroker    → owner-direct listings (price may differ from market norm)
+  static SOURCE_QUALITY = { '99acres': 'high', 'magicbricks': 'high', 'nobroker': 'owner-direct' };
 
   _preparePropertyData(properties, maxProperties = 8) {
     return properties.slice(0, maxProperties).map(p => ({
@@ -42,6 +49,7 @@ class AIService {
       description:       p.description
         ? p.description.substring(0, 150) + (p.description.length > 150 ? '...' : '')
         : '',
+      data_source:       AIService.SOURCE_QUALITY[p.source] ? `${p.source} (${AIService.SOURCE_QUALITY[p.source]})` : (p.source || 'unknown'),
     }));
   }
 
@@ -129,6 +137,7 @@ Rank each property based on:
 4. RERA registration — rera_number present means legally safe; missing is a red flag
 5. Connectivity — metro station, school, hospital in nearby_landmarks scores higher
 6. Premium amenities — Pool, Gym, Clubhouse, Sports facilities add significant value
+7. Data source reliability — data_source "99acres (high)" or "magicbricks (high)" → pricing is verified; "nobroker (owner-direct)" → price may be negotiated differently, note this in one_line_insight if relevant
 
 investment_horizon definitions:
 - short_term = exit within 3 years for capital gain
@@ -208,6 +217,17 @@ Correct output for this property:
   ],
   "price_trend_context": "Baner prices have risen 12% YoY but new supply is increasing, moderating future gains"
 }
+
+PHRASING RULES — one_line_insight must be specific, not generic:
+BAD (reject these patterns):
+  "Great property with good amenities and excellent location"
+  "Well-maintained apartment near good schools and hospitals"
+  "Affordable flat with modern facilities — good investment"
+GOOD (use this pattern — cite actual data fields):
+  "₹6,100/sqft — 11% below Wakad avg, RERA ✓, Hinjewadi IT Park 1.5km"
+  "No RERA, Dec 2027 possession, price undisclosed — high risk"
+  "Owner-direct (NoBroker), ₹8,400/sqft, Ready to Move, D-Mart 300m"
+Rule: every one_line_insight must contain at least one number (price, %, distance) and one named data point (RERA, landmark, possession date, builder).
 
 ━━━ END EXAMPLES — now analyse the actual properties above ━━━
 

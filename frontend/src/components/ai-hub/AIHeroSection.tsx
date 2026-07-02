@@ -70,8 +70,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
   // API key modal + status
   const [showKeyModal, setShowKeyModal] = useState(false);
-  const [keysReady,   setKeysReady]   = useState(apiKeyStorage.hasKeys());
-  const [hasNvidia,   setHasNvidia]   = useState(apiKeyStorage.hasNvidiaKey());
+  const [keysReady,    setKeysReady]   = useState(apiKeyStorage.hasKeys());
 
   // P1-1: open modal when parent signals 403 error
   useEffect(() => {
@@ -102,7 +101,6 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
   const refreshKeyStatus = useCallback(() => {
     setKeysReady(apiKeyStorage.hasKeys());
-    setHasNvidia(apiKeyStorage.hasNvidiaKey());
   }, []);
 
   // Clear locality when city changes
@@ -285,30 +283,26 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
             <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 shadow-sm rounded-xl px-5 py-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <p className="font-manrope text-sm font-medium text-emerald-800 flex-1">
-                {hasNvidia
-                  ? 'NVIDIA NIM active — nemotron-nano (40 rpm) + GitHub Models fallback.'
-                  : import.meta.env.VITE_SERVER_AI_ENABLED === 'true'
-                    ? 'AI powered by server NVIDIA NIM — searches use your Firecrawl quota.'
-                    : 'API keys active — AI searches use your own GitHub Models quota.'}
+                Firecrawl key active — AI analysis powered by our servers, searches use your scraping quota.
               </p>
               <button
                 onClick={() => setShowKeyModal(true)}
                 className="flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 text-emerald-700 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-all whitespace-nowrap"
               >
-                <KeyRound className="w-3.5 h-3.5" /> Manage Keys
+                <KeyRound className="w-3.5 h-3.5" /> Manage Key
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 shadow-sm rounded-xl px-5 py-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
               <p className="font-manrope text-sm font-medium text-amber-800 flex-1">
-                Add your <strong className="text-amber-900 font-bold">free</strong> GitHub Models &amp; Firecrawl keys — use your own quota.
+                Add your <strong className="text-amber-900 font-bold">free</strong> Firecrawl key to enable live property search — AI is powered by our servers.
               </p>
               <button
                 onClick={() => setShowKeyModal(true)}
                 className="flex items-center gap-1.5 bg-amber-100 hover:bg-amber-200 border border-amber-200 text-amber-800 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-all whitespace-nowrap"
               >
-                <KeyRound className="w-3.5 h-3.5" /> Set Up Keys
+                <KeyRound className="w-3.5 h-3.5" /> Add Key
               </button>
             </div>
           )}
@@ -599,7 +593,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
               {/* Tooltip shown when keys are missing */}
               {!keysReady && !loading && (
                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#221410] border border-[#E6E0DA]/20 text-white font-manrope text-xs rounded-lg px-4 py-2 whitespace-nowrap pointer-events-none shadow-xl z-10 transition-opacity">
-                  Add your GitHub Models &amp; Firecrawl keys first
+                  Add your free Firecrawl key first
                   <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#221410] border-b border-r border-[#E6E0DA]/20 rotate-45" />
                 </div>
               )}

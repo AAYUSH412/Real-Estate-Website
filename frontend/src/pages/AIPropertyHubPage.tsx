@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import { useSEO } from '../hooks/useSEO';
@@ -319,15 +320,17 @@ const AIHubDevPage: React.FC = () => {
   const [locationAnalysis, setLocationAnalysis] = useState<LocationAnalysis | null>(null);
 
   // UI flags
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [trendsLoading, setTrendsLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [trendsError, setTrendsError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [searchLoading,   setSearchLoading]   = useState(false); // Firecrawl phase
+  const [analysisLoading, setAnalysisLoading] = useState(false); // AI phase (cards visible, analysis loading)
+  const [trendsLoading,   setTrendsLoading]   = useState(false);
+  const [searchError,     setSearchError]     = useState<string | null>(null);
+  const [trendsError,     setTrendsError]     = useState<string | null>(null);
+  const [hasSearched,     setHasSearched]     = useState(false);
   const [hasLoadedTrends, setHasLoadedTrends] = useState(false);
-  // SSE stage drives the real-time loader in AIHeroSection
-  const [sseStage, setSseStage] = useState<'searching' | 'analyzing' | null>(null);
-  // For P1-1: auto-open key modal on 403
+  // SSE stage + message drive the real-time loader
+  const [sseStage, setSseStage]       = useState<'searching' | 'analyzing' | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  // auto-open key modal on 403
   const [openKeyModal, setOpenKeyModal] = useState(false);
 
   const resultsRef    = useRef<HTMLDivElement>(null);
@@ -344,7 +347,7 @@ const AIHubDevPage: React.FC = () => {
     const serverMsg  = err.message ?? '';
 
     if (status === 403 || serverCode === 'KEYS_REQUIRED' || serverCode === 'KEYS_INVALID')
-      return { msg: 'Your API keys are missing or invalid. Please add your GitHub Models and Firecrawl keys.', isKeyError: true };
+      return { msg: 'Your Firecrawl key is missing or invalid. Please add or update it.', isKeyError: true };
     if (serverCode === 'KEY_VALIDATION_FAILED')
       return { msg: 'We could not validate your API keys right now. Please try again shortly.', isKeyError: false };
     if (status === 402 || serverCode === 'FIRECRAWL_CREDITS_EXHAUSTED')
@@ -367,11 +370,13 @@ const AIHubDevPage: React.FC = () => {
 
     setSearchParams(params);
     setSearchLoading(true);
+    setAnalysisLoading(false);
     setSearchError(null);
     setProperties([]);
     setAnalysis(null);
     setHasSearched(true);
     setSseStage(null);
+    setStatusMessage('');
     setLocations([]);
     setLocationAnalysis(null);
     setHasLoadedTrends(false);
@@ -389,13 +394,30 @@ const AIHubDevPage: React.FC = () => {
         category:  params.category,
       },
       {
-        onStatus: (stage: string, _message: string, _count?: number) => {
+        onStatus: (stage: string, message: string) => {
           setSseStage(stage as 'searching' | 'analyzing');
+          if (message) setStatusMessage(message);
         },
+        // Phase 1: Firecrawl done — render cards immediately, AI still running
+        onProperties: (data: Record<string, unknown>) => {
+          setProperties((data.properties as typeof properties) || []);
+          setSearchLoading(false);
+          setAnalysisLoading(true);
+          setSseStage('analyzing');
+          setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        },
+        // Phase 2: AI done — enrich cards with scores, flags, insights
+        onAnalysis: (data: Record<string, unknown>) => {
+          setAnalysis((data.analysis as typeof analysis) || null);
+          setAnalysisLoading(false);
+          setSseStage(null);
+        },
+        // Cache hit: full payload arrives in one shot
         onResult: (data: Record<string, unknown>) => {
           setProperties((data.properties as typeof properties) || []);
           setAnalysis((data.analysis as typeof analysis) || null);
           setSearchLoading(false);
+          setAnalysisLoading(false);
           setSseStage(null);
           setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         },
@@ -404,10 +426,12 @@ const AIHubDevPage: React.FC = () => {
           setSearchError(msg);
           if (isKeyError) setOpenKeyModal(true);
           setSearchLoading(false);
+          setAnalysisLoading(false);
           setSseStage(null);
         },
         onDone: () => {
           setSearchLoading(false);
+          setAnalysisLoading(false);
           setSseStage(null);
         },
       }
@@ -466,40 +490,50 @@ const AIHubDevPage: React.FC = () => {
 
       {/* Results — two-column layout */}
       <div ref={resultsRef}>
-        {hasSearched && AISearchResults && AIAnalysisPanel && (
-          <React.Suspense fallback={null}>
-            <section className="bg-[#FAF8F4] py-14 border-t border-[#E6E0DA]/50">
-              <div className="max-w-7xl mx-auto px-6">
-                <div className="flex flex-col lg:flex-row gap-8 items-start">
-                  {/* Left col: property cards — grows to fill remaining space */}
-                  <div className="w-full lg:flex-1 min-w-0 order-2 lg:order-1">
-                    <AISearchResults
-                      properties={properties}
-                      loading={searchLoading}
-                      error={searchError}
-                      city={searchParams.city}
-                      analysis={analysis}
-                    />
-                  </div>
+        <AnimatePresence>
+          {hasSearched && AISearchResults && AIAnalysisPanel && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
+            >
+              <React.Suspense fallback={null}>
+                <section className="bg-[#FAF8F4] py-14 border-t border-[#E6E0DA]/50">
+                  <div className="max-w-7xl mx-auto px-6">
+                    <div className="flex flex-col lg:flex-row gap-8 items-start">
+                      {/* Left col: property cards */}
+                      <div className="w-full lg:flex-1 min-w-0 order-2 lg:order-1">
+                        <AISearchResults
+                          properties={properties}
+                          loading={searchLoading}
+                          sseStage={sseStage}
+                          statusMessage={statusMessage}
+                          error={searchError}
+                          city={searchParams.city}
+                          analysis={analysis}
+                        />
+                      </div>
 
-                  {/* Right col: sticky AI analysis sidebar — fixed 340px width */}
-                  <div className="w-full lg:w-[340px] shrink-0 order-1 lg:order-2 lg:sticky lg:top-8">
-                    <AIAnalysisPanel
-                      analysis={analysis}
-                      loading={searchLoading}
-                      error={searchError}
-                      city={searchParams.city}
-                    />
+                      {/* Right col: sticky AI analysis sidebar */}
+                      <div className="w-full lg:w-[340px] shrink-0 order-1 lg:order-2 lg:sticky lg:top-8">
+                        <AIAnalysisPanel
+                          analysis={analysis}
+                          loading={searchLoading || analysisLoading}
+                          error={searchError}
+                          city={searchParams.city}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </section>
-          </React.Suspense>
-        )}
+                </section>
+              </React.Suspense>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* P2-2: Location trends — explicit button, not auto-fired */}
-      {hasSearched && !searchLoading && properties.length > 0 && AILocationTrends && (
+      {hasSearched && !searchLoading && !analysisLoading && properties.length > 0 && AILocationTrends && (
         <React.Suspense fallback={null}>
           {!hasLoadedTrends ? (
             <section className="bg-[#FAF8F4] py-10 border-t border-[#E6E0DA]">

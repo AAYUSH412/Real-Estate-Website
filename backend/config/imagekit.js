@@ -21,6 +21,4 @@ if (!process.env.IMAGEKIT_URL_ENDPOINT) {
   throw new Error('Missing IMAGEKIT_URL_ENDPOINT');
 }
 
-console.log("ImageKit connected successfully!");
-
 export default imagekit;

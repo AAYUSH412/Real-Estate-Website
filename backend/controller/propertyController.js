@@ -5,6 +5,7 @@ import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '
 import imagekit from '../config/imagekit.js';
 import Property from '../models/propertyModel.js';
 import SearchCache from '../models/searchCacheModel.js';
+import TrendsCache from '../models/trendsCacheModel.js';
 import { coalesce, getInFlightCount } from '../utils/requestCoalescer.js';
 import logger from '../utils/logger.js';
 
@@ -30,17 +31,18 @@ function broadcastProgress(key, event, data) {
     });
 }
 
-// ── MongoDB-based cache (10-minute TTL via TTL index) ────────────────────────
-// Replaces in-memory cache - works across all server instances
+// ── MongoDB-based cache ───────────────────────────────────────────────────────
+// SearchCache: 3-day TTL  |  TrendsCache: 7-day TTL
+// Keys prefixed with "trends:" route to TrendsCache; everything else → SearchCache
 
-/**
- * Get cached data from MongoDB
- * @param {string} key - Cache key
- * @returns {Promise<any|null>} - Cached data or null
- */
+function _modelForKey(key) {
+    return key.startsWith('trends:') ? TrendsCache : SearchCache;
+}
+
 async function getCached(key) {
     try {
-        const cached = await SearchCache.findOne({ cacheKey: key });
+        const Model  = _modelForKey(key);
+        const cached = await Model.findOne({ cacheKey: key });
         return cached?.data || null;
     } catch (err) {
         logger.warn('Cache MongoDB read error', { key: key.substring(0, 30), error: err.message });
@@ -48,14 +50,10 @@ async function getCached(key) {
     }
 }
 
-/**
- * Set cached data in MongoDB
- * @param {string} key - Cache key
- * @param {any} data - Data to cache
- */
 async function setCache(key, data) {
     try {
-        await SearchCache.findOneAndUpdate(
+        const Model = _modelForKey(key);
+        await Model.findOneAndUpdate(
             { cacheKey: key },
             { cacheKey: key, data, createdAt: new Date() },
             { upsert: true, new: true }
@@ -139,15 +137,14 @@ export async function getLocalitySuggestions(req, res) {
 // ── Key validation ────────────────────────────────────────────────────────────
 
 /**
- * Gate: Firecrawl is always required (user-provided).
- * AI provider priority: user NVIDIA key → user GitHub key → server NVIDIA key (env fallback).
- * Server NVIDIA key allows "Firecrawl only" onboarding for new users.
+ * Gate: Firecrawl key comes from the user (request header).
+ * AI keys (GitHub Models / NVIDIA NIM) are server-side only — loaded from env vars.
+ * Users only need to supply their own Firecrawl key.
  */
 function resolveServices(req) {
-    const userGithubKey  = req.headers['x-github-key']?.trim()    || null;
-    const firecrawlKey   = req.headers['x-firecrawl-key']?.trim() || null;
-    const userNvidiaKey  = req.headers['x-nvidia-key']?.trim()    || null;
-    const serverNvidiaKey = process.env.NVIDIA_API_KEY?.trim()    || null;
+    const firecrawlKey    = req.headers['x-firecrawl-key']?.trim() || null;
+    const serverGithubKey = process.env.GITHUB_MODELS_API_KEY?.trim() || null;
+    const serverNvidiaKey = process.env.NVIDIA_API_KEY?.trim()      || null;
 
     if (!firecrawlKey) {
         const err = new Error('Firecrawl API key is required for property search.');
@@ -156,20 +153,15 @@ function resolveServices(req) {
         throw err;
     }
 
-    // Resolve AI provider: user keys first, then server fallback
-    const effectiveNvidiaKey = userNvidiaKey || (!userGithubKey ? serverNvidiaKey : null);
-
-    if (!userGithubKey && !effectiveNvidiaKey) {
-        const err = new Error(
-            'Add at least one AI provider key — GitHub Models or NVIDIA NIM — or contact the site admin.'
-        );
-        err.statusCode = 403;
-        err.code = 'KEYS_REQUIRED';
+    if (!serverGithubKey && !serverNvidiaKey) {
+        const err = new Error('AI service temporarily unavailable — please try again later.');
+        err.statusCode = 503;
+        err.code = 'SERVER_AI_UNAVAILABLE';
         throw err;
     }
 
     return {
-        aiService:        createAIService(userGithubKey, effectiveNvidiaKey),
+        aiService:        createAIService(serverGithubKey, serverNvidiaKey),
         firecrawlService: createFirecrawlService(firecrawlKey),
     };
 }
@@ -331,6 +323,12 @@ export const searchProperties = async (req, res) => {
                     };
                 }
 
+                // Phase 1 complete: emit raw properties immediately so the frontend
+                // can render property cards while AI analysis runs in the background.
+                broadcastProgress(cacheKey, 'properties', {
+                    properties: propertiesData.properties,
+                });
+
                 // Broadcast milestone: Firecrawl done, AI analysis starting.
                 // Reaches ALL SSE clients waiting on this cacheKey (primary + coalesced).
                 broadcastProgress(cacheKey, 'status', {
@@ -379,6 +377,10 @@ export const searchProperties = async (req, res) => {
                     };
                 }
 
+                // Phase 2 complete: emit analysis so the frontend enriches the
+                // already-rendered cards with match scores, red flags, and insights.
+                broadcastProgress(cacheKey, 'analysis', { analysis });
+
                 const payload = { properties: propertiesData.properties, analysis };
                 await setCache(cacheKey, payload);
                 logger.info('Cache SET', { key: cacheKey.substring(0, 50) });
@@ -424,7 +426,15 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        sendResult({ success: true, ...result });
+        // SSE phased flow: properties + analysis already sent via broadcastProgress.
+        // Only exception: fromCoalesce = inner cache hit where no phases were broadcast.
+        // JSON mode always uses sendResult (full payload in one response).
+        if (isSSE && !result.fromCoalesce) {
+            sseWrite?.('done', {});
+            if (!res.writableEnded) res.end();
+        } else {
+            sendResult({ success: true, ...result });
+        }
 
     } catch (error) {
         logger.error('Error searching properties', { error: error.message, stack: error.stack });
@@ -558,134 +568,40 @@ export const getLocationTrends = async (req, res) => {
     }
 };
 
+// Only Firecrawl key is validated here — AI keys are server-side env vars.
 export const validateApiKeys = async (req, res) => {
-    const githubKey    = req.headers['x-github-key']?.trim()    || null;
     const firecrawlKey = req.headers['x-firecrawl-key']?.trim() || null;
-    const nvidiaKey    = req.headers['x-nvidia-key']?.trim()    || null;
 
-    // Firecrawl is always required
     if (!firecrawlKey) {
         return res.status(403).json({
             success: false,
             message: 'Firecrawl API key is required for property search.',
             error: 'KEYS_REQUIRED',
-            provider: 'firecrawl',
         });
     }
 
-    // At least one AI provider required
-    if (!githubKey && !nvidiaKey) {
-        return res.status(403).json({
-            success: false,
-            message: 'Add at least one AI provider key — GitHub Models or NVIDIA NIM.',
-            error: 'KEYS_REQUIRED',
-        });
-    }
-
-    const { GitHubModelsProvider } = await import('../services/llm/GitHubModelsProvider.js');
-    const { NvidiaNimProvider }    = await import('../services/llm/NvidiaNimProvider.js');
-
-    // Validate whichever keys were provided
-    const validationTasks = [
-        createFirecrawlService(firecrawlKey).validateApiKey()
-            .then(r => ({ provider: 'firecrawl', valid: true,  ...r }))
-            .catch(e => ({ provider: 'firecrawl', valid: false, error: e.message, statusCode: e.statusCode })),
-    ];
-
-    if (githubKey) {
-        validationTasks.push(
-            new GitHubModelsProvider(githubKey).validateKey()
-                .then(r => ({ provider: 'github', ...r }))
-                .catch(e => ({ provider: 'github', valid: false, error: e.message, statusCode: e.statusCode }))
-        );
-    }
-
-    if (nvidiaKey) {
-        validationTasks.push(
-            new NvidiaNimProvider(nvidiaKey).validateKey()
-                .then(r => ({ provider: 'nvidia', ...r }))
-                .catch(e => ({ provider: 'nvidia', valid: false, error: e.message, statusCode: e.statusCode }))
-        );
-    }
-
-    const results = await Promise.all(validationTasks);
-    const byProvider = Object.fromEntries(results.map(r => [r.provider, r]));
-
-    logger.debug('Key validation results', byProvider);
-
-    const firecrawlResult = byProvider.firecrawl;
-    const githubResult    = byProvider.github   || null;
-    const nvidiaResult    = byProvider.nvidia   || null;
-
-    // Firecrawl failed
-    if (!firecrawlResult.valid) {
-        const isCredits = isCreditsExhaustedError({ statusCode: firecrawlResult.statusCode, message: firecrawlResult.error });
+    try {
+        const result = await createFirecrawlService(firecrawlKey).validateApiKey();
+        return res.json({ success: true, message: 'Firecrawl key verified.', firecrawl: { valid: true, ...result } });
+    } catch (err) {
+        const isCredits = isCreditsExhaustedError(err);
         if (isCredits) {
             return res.status(402).json({
                 success: false,
-                message: 'Your Firecrawl API credits have been exhausted. Please upgrade your plan or add more credits.',
+                message: 'Your Firecrawl API credits have been exhausted.',
                 error: 'FIRECRAWL_CREDITS_EXHAUSTED',
-                provider: 'firecrawl',
                 upgradeUrl: 'https://firecrawl.dev/pricing',
             });
         }
-        const isNetworkErr = /network|timeout|econnrefused|fetch/i.test(firecrawlResult.error || '');
-        return res.status(isNetworkErr ? 503 : 403).json({
+        const isNetwork = /network|timeout|econnrefused|fetch/i.test(err.message || '');
+        return res.status(isNetwork ? 503 : 403).json({
             success: false,
-            message: isNetworkErr
-                ? 'Could not reach Firecrawl right now. Please try again in a moment.'
-                : 'Your Firecrawl API key is invalid or expired. Please update it and try again.',
-            error: isNetworkErr ? 'KEY_VALIDATION_FAILED' : 'KEYS_INVALID',
-            provider: 'firecrawl',
+            message: isNetwork
+                ? 'Could not reach Firecrawl right now — please try again.'
+                : 'Your Firecrawl API key is invalid or expired.',
+            error: isNetwork ? 'KEY_VALIDATION_FAILED' : 'KEYS_INVALID',
         });
     }
-
-    // GitHub provided but failed
-    if (githubResult && !githubResult.valid) {
-        // If NVIDIA is also provided and valid, don't block — GitHub failure is non-fatal
-        const nvidiaOk = nvidiaResult?.valid === true;
-        if (!nvidiaOk) {
-            const isNetworkErr = /network|timeout|econnrefused|fetch/i.test(githubResult.error || '');
-            return res.status(isNetworkErr ? 503 : 403).json({
-                success: false,
-                message: isNetworkErr
-                    ? 'Could not reach GitHub Models right now. Please try again in a moment.'
-                    : 'Your GitHub Models API key is invalid or expired. Get a new key at github.com/marketplace/models.',
-                error: isNetworkErr ? 'KEY_VALIDATION_FAILED' : 'KEYS_INVALID',
-                provider: 'github',
-            });
-        }
-        // NVIDIA is valid — save succeeds; warn about GitHub
-        logger.warn('GitHub key invalid but NVIDIA valid — proceeding with NVIDIA only');
-    }
-
-    // NVIDIA provided but failed (only if it's the sole AI provider)
-    if (nvidiaResult && !nvidiaResult.valid && !githubResult?.valid) {
-        return res.status(403).json({
-            success: false,
-            message: 'Your NVIDIA NIM key is invalid. Please check it at build.nvidia.com.',
-            error: 'KEYS_INVALID',
-            provider: 'nvidia',
-        });
-    }
-
-    // All required keys passed
-    return res.json({
-        success: true,
-        message: 'API keys are valid.',
-        firecrawl: { valid: true },
-        ...(githubResult  && { github: { valid: githubResult.valid,  error: githubResult.valid  ? null : githubResult.error  } }),
-        ...(nvidiaResult  && { nvidia: { valid: nvidiaResult.valid,  error: nvidiaResult.valid  ? null : nvidiaResult.error  } }),
-        ...(nvidiaResult && {
-            nvidia: {
-                valid:   nvidiaResult.valid,
-                error:   nvidiaResult.valid ? null : nvidiaResult.error,
-                message: nvidiaResult.valid
-                    ? 'NVIDIA NIM key verified — 40 rpm quota active.'
-                    : 'NVIDIA NIM key invalid. GitHub Models will be used instead.',
-            },
-        }),
-    });
 };
 
 // ── User property listing CRUD ────────────────────────────────────────────────

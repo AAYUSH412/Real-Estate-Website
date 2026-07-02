@@ -20,6 +20,7 @@ import healthRouter from './routes/healthRoutes.js';
 import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
 import { startAutoUnsuspendJob } from './utils/autoUnsuspend.js';
+import { printBanner } from './utils/banner.js';
 
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config({ path: './.env.local' });
@@ -126,11 +127,13 @@ const allowedOrigins = [
 ];
 
 const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
-logger.info('Server starting', {
-  environment: process.env.NODE_ENV || 'development',
-  port: process.env.PORT || 4000,
-  allowedOrigins: uniqueAllowedOrigins.length ? uniqueAllowedOrigins : ['<none-configured>'],
-});
+if (process.env.NODE_ENV === 'production') {
+  logger.info('Server starting', {
+    environment: process.env.NODE_ENV,
+    port: process.env.PORT || 4000,
+    allowedOrigins: uniqueAllowedOrigins.length ? uniqueAllowedOrigins : ['<none-configured>'],
+  });
+}
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -150,9 +153,16 @@ app.use(cors({
 
 // Database connection
 connectdb().then(() => {
-  logger.info('Database connected successfully');
+  if (process.env.NODE_ENV === 'production') logger.info('Database connected successfully');
   startExpireListingsJob();
   startAutoUnsuspendJob();
+  printBanner({
+    port: process.env.PORT || 4000,
+    env: process.env.NODE_ENV || 'development',
+    db: true,
+    imagekit: !!(process.env.IMAGEKIT_PUBLIC_KEY && process.env.IMAGEKIT_PRIVATE_KEY),
+    nvidia: !!process.env.NVIDIA_API_KEY,
+  });
 }).catch(err => {
   logger.error('Database connection error', { error: err.message, stack: err.stack });
   // Don't exit immediately - attempt to retry or continue without DB for health checks
@@ -292,7 +302,9 @@ const port = process.env.PORT || 4000;
 // Start server
 if (process.env.NODE_ENV !== 'test') {
   server = app.listen(port, '0.0.0.0', () => {
-    logger.info('Server running', { port, host: '0.0.0.0' });
+    if (process.env.NODE_ENV === 'production') {
+      logger.info('Server running', { port, host: '0.0.0.0' });
+    }
   });
 }
 

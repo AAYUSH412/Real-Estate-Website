@@ -27,5 +27,5 @@ export function startExpireListingsJob() {
         }
     });
 
-    console.log('[ExpireListings] Cron job scheduled — runs daily at 00:05.');
+    // startup line intentionally removed — covered by banner
 }

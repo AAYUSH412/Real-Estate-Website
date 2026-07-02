@@ -39,7 +39,7 @@ export function startAutoUnsuspendJob() {
     }
   });
 
-  console.log('✅ Auto-unsuspend cron job scheduled (daily at 00:10)');
+  // startup line intentionally removed — covered by banner
 }
 
 /**

@@ -15,7 +15,7 @@ const connectdb = async () => {
       socketTimeoutMS: 45000
     });
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    if (process.env.NODE_ENV === 'production') console.log(`MongoDB Connected: ${conn.connection.host}`);
     
     // Handle connection events
     mongoose.connection.on('error', (err) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { appointmentsAPI, userListingsAPI } from '../services/api';
+import { appointmentsAPI, userListingsAPI, userAPI } from '../services/api';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import {
@@ -68,11 +68,142 @@ function isUpcoming(apt: Appointment): boolean {
   );
 }
 
+// ── Settings tab ──────────────────────────────────────────────────────────────
+
+const SettingsTab: React.FC = () => {
+  const { user, updateUser } = useAuth();
+  const [name, setName] = useState(user?.name ?? '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { toast.error('Name cannot be empty.'); return; }
+
+    setSaving(true);
+    try {
+      const payload: { name?: string; currentPassword?: string; newPassword?: string } = {};
+      if (name.trim() !== user?.name) payload.name = name.trim();
+
+      if (newPassword) {
+        if (newPassword.length < 8) { toast.error('New password must be at least 8 characters.'); setSaving(false); return; }
+        if (newPassword !== confirmPassword) { toast.error('Passwords do not match.'); setSaving(false); return; }
+        if (!currentPassword) { toast.error('Enter your current password to set a new one.'); setSaving(false); return; }
+        payload.currentPassword = currentPassword;
+        payload.newPassword = newPassword;
+      }
+
+      if (Object.keys(payload).length === 0) { toast.info('No changes to save.'); setSaving(false); return; }
+
+      const { data } = await userAPI.updateProfile(payload);
+      if (data.success) {
+        if (data.user) updateUser(data.user);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        toast.success('Profile updated.');
+      } else {
+        toast.error(data.message || 'Update failed.');
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Update failed. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSaveProfile} className="max-w-lg space-y-8">
+      {/* Profile */}
+      <section className="bg-white border border-[#E6E0DA] rounded-2xl p-6">
+        <h3 className="font-syne font-bold text-base text-[#221410] mb-5">Profile</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="font-manrope text-xs font-semibold text-[#4B5563] mb-1.5 block">Full Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              placeholder="Your name"
+            />
+          </div>
+          <div>
+            <label className="font-manrope text-xs font-semibold text-[#4B5563] mb-1.5 block">Email</label>
+            <input
+              type="email"
+              value={user?.email ?? ''}
+              disabled
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#9CA3AF] bg-[#FAF8F4] cursor-not-allowed"
+            />
+            <p className="font-manrope text-[11px] text-[#9CA3AF] mt-1">Email cannot be changed.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Password */}
+      <section className="bg-white border border-[#E6E0DA] rounded-2xl p-6">
+        <h3 className="font-syne font-bold text-base text-[#221410] mb-1">Change Password</h3>
+        <p className="font-manrope text-xs text-[#9CA3AF] mb-5">Leave blank to keep your current password.</p>
+        <div className="space-y-4">
+          <div>
+            <label className="font-manrope text-xs font-semibold text-[#4B5563] mb-1.5 block">Current Password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
+          <div>
+            <label className="font-manrope text-xs font-semibold text-[#4B5563] mb-1.5 block">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              placeholder="Min 8 characters"
+              autoComplete="new-password"
+            />
+          </div>
+          <div>
+            <label className="font-manrope text-xs font-semibold text-[#4B5563] mb-1.5 block">Confirm New Password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              placeholder="••••••••"
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+      </section>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="bg-[#D4755B] font-manrope font-bold text-sm text-white px-6 py-2.5 rounded-xl hover:bg-[#B86851] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {saving ? 'Saving…' : 'Save Changes'}
+      </button>
+    </form>
+  );
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
+
+type Tab = 'overview' | 'settings';
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [listings, setListings] = useState<ListingSummary[]>([]);
@@ -158,7 +289,7 @@ const DashboardPage: React.FC = () => {
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-28 pb-16">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="font-syne font-bold text-3xl text-[#221410] mb-1">
             Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
           </h1>
@@ -167,6 +298,26 @@ const DashboardPage: React.FC = () => {
           </p>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 mb-8 border-b border-[#E6E0DA]">
+          {(['overview', 'settings'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`font-manrope font-semibold text-sm px-5 py-2.5 -mb-px border-b-2 transition-colors capitalize ${
+                activeTab === tab
+                  ? 'border-[#D4755B] text-[#D4755B]'
+                  : 'border-transparent text-[#4B5563] hover:text-[#221410]'
+              }`}
+            >
+              {tab === 'overview' ? 'Overview' : 'Settings'}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'settings' && <SettingsTab />}
+
+        {activeTab === 'overview' && <>
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
           {stats.map(({ label, value, icon }) => (
@@ -313,6 +464,7 @@ const DashboardPage: React.FC = () => {
             </div>
           )}
         </section>
+        </>}
       </main>
 
       <Footer />

@@ -15,6 +15,7 @@ interface AuthContextType {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (fullName: string, email: string, phone: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -71,6 +72,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      localStorage.setItem('buildestate_user', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -81,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        updateUser,
       }}
     >
       {children}

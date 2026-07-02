@@ -53,7 +53,7 @@ export const userAPI = {
       password: data.password,
     }),
 
-  login: (data: { email: string; password: string }) =>
+  login: (data: { email: string; password: string; rememberMe?: boolean }) =>
     apiClient.post('/users/login', data),
 
   forgotPassword: (email: string) =>
@@ -67,6 +67,9 @@ export const userAPI = {
 
   getProfile: () =>
     apiClient.get('/users/me'),
+
+  updateProfile: (data: { name?: string; currentPassword?: string; newPassword?: string }) =>
+    apiClient.put('/users/me', data),
 };
 
 // Properties (CRUD — admin-managed listings)

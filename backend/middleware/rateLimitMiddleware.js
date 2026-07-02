@@ -68,6 +68,24 @@ export const passwordResetLimiter = rateLimit({
 });
 
 /**
+ * Password reset token verification limiter
+ * Limits: 5 attempts per hour per IP — prevents brute-forcing the reset token
+ */
+export const passwordResetVerifyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: {
+    message: 'Too many password reset attempts. Please try again later.',
+    success: false,
+    retryAfter: '1 hour'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => req.ip,
+});
+
+/**
  * Email verification resend limiter
  * Limits: 3 resend requests per hour per IP
  */

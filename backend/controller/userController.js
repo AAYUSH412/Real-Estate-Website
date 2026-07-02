@@ -420,8 +420,6 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-// get name and email
-
 const getname = async (req, res) => {
   try {
     const user = await userModel.findById(req.user.id).select("-password");
@@ -433,6 +431,44 @@ const getname = async (req, res) => {
   }
 }
 
+const updateProfile = async (req, res) => {
+  try {
+    const { name, currentPassword, newPassword } = req.body;
+    const user = await userModel.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found", success: false });
+
+    if (name !== undefined) {
+      const trimmed = name.trim();
+      if (!trimmed) return res.status(400).json({ message: "Name cannot be empty", success: false });
+      user.name = trimmed;
+    }
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Current password is required to change your password", success: false });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Current password is incorrect", success: false });
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "New password must be at least 8 characters", success: false });
+      }
+      user.password = await bcrypt.hash(newPassword, 12);
+    }
+
+    await user.save();
+    return res.json({
+      message: "Profile updated successfully",
+      success: true,
+      user: { name: user.name, email: user.email },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error", success: false });
+  }
+};
 
 
-export { login, register, forgotpassword, resetpassword, adminlogin, adminRefresh, adminLogout, logout, getname, verifyEmail };
+
+export { login, register, forgotpassword, resetpassword, adminlogin, adminRefresh, adminLogout, logout, getname, verifyEmail, updateProfile };

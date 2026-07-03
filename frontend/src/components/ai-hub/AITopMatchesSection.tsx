@@ -75,9 +75,11 @@ const AITopMatchesSection: React.FC = () => {
             >
               {/* Image */}
               <div className="relative aspect-[382/286.5] overflow-hidden">
-                <img 
+                <img
                   src={property.image}
                   alt={property.name}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute h-[133.33%] w-full object-cover top-[-16.67%] group-hover:scale-105 transition-transform duration-500"
                 />
                 {/* Gradient Overlay */}

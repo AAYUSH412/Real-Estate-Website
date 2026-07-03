@@ -30,7 +30,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all hover:-translate-y-2 cursor-pointer">
       <div className="relative h-64">
-        <img src={image} alt={title} className="w-full h-full object-cover" />
+        <img src={image} alt={title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         {featured && (
           <div className="absolute top-4 left-4 bg-[#D4755B] text-white px-3 py-1 rounded-lg font-manrope font-bold text-xs">
             FEATURED

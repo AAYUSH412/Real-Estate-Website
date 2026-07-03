@@ -53,7 +53,7 @@ function AnimatedRoutes() {
       <StructuredData type="organization" />
       <StructuredData type="localBusiness" />
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
           <Route path="/properties" element={<PageTransition><PropertiesPage /></PageTransition>} />

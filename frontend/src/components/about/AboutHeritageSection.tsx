@@ -15,9 +15,11 @@ const AboutHeritageSection: React.FC = () => {
               <div className="relative h-[735px] bg-[rgba(242,239,233,0.3)] border border-[rgba(230,224,218,0.5)] rounded-lg overflow-hidden">
                 <div className="absolute inset-4">
                   <div className="relative h-full w-full overflow-hidden">
-                    <img 
+                    <img
                       src={heritageImage}
                       alt="Architectural detail"
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-white mix-blend-saturation" />

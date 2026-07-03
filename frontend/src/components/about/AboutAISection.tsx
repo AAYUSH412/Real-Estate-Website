@@ -78,9 +78,11 @@ const AboutAISection: React.FC = () => {
 
             {/* Main Image Container */}
             <div className="relative aspect-[560/700] rounded-lg overflow-hidden shadow-[0px_20px_25px_-5px_rgba(0,0,0,0.1),0px_8px_10px_-6px_rgba(0,0,0,0.1)]">
-              <img 
+              <img
                 src={imgVerticalArchitecturalDetail}
                 alt="AI Property Intelligence"
+                loading="lazy"
+                decoding="async"
                 className="absolute h-full left-[-12.5%] w-[125%] object-cover"
               />
 

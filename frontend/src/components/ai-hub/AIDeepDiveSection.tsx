@@ -38,9 +38,11 @@ const AIDeepDiveSection: React.FC = () => {
           <div className="bg-white border border-[#E6E0DA] rounded-xl overflow-hidden shadow-lg">
             {/* Image */}
             <div className="relative aspect-[382/286.5] overflow-hidden">
-              <img 
+              <img
                 src={imgContainer}
                 alt="Property analysis"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent h-12" />

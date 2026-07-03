@@ -95,9 +95,11 @@ const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property }) =
       {/* Agent Info */}
       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-[#E6E0DA]">
         <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-          <img 
+          <img
             src={imgBackground}
             alt="Agent"
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover mt-2"
           />
         </div>

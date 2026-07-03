@@ -7,9 +7,11 @@ const ContactMapSection: React.FC = () => {
       <div className="max-w-[1280px] mx-auto px-8">
         <div className="relative aspect-[1280/400] rounded-2xl overflow-hidden border border-[#E6E0DA] bg-gray-100">
           {/* Map Image */}
-          <img 
+          <img
             src={mapLocationImage}
             alt="Office location map"
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover"
           />
           

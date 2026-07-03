@@ -33,9 +33,11 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
       <div className="bg-white border border-[#E6E0DA] rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 group cursor-pointer">
       {/* Image Container */}
       <div className="relative aspect-[340/240] overflow-hidden">
-        <img 
+        <img
           src={image}
           alt={name}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
 

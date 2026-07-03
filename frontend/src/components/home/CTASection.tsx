@@ -5,9 +5,12 @@ const CTASection: React.FC = () => {
   return (
     <section className="bg-[#EC4613] py-24 relative overflow-hidden">
       {/* Background Pattern */}
-        <img 
-          src="/src/images/Abstract architectural texture with light and shadow.png" 
-          alt="Background Texture"
+        <img
+          src="/src/images/Abstract architectural texture with light and shadow.png"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover mix-blend-overlay"
         />
         <div className="absolute top-0 left-1/4 w-96"/>

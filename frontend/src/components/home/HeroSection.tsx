@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import happyHomeowner1 from '../../images/Happy Homeowners_1.jpg';
 import happyHomeowner2 from '../../images/Happy Homeowners_2.jpg';
@@ -7,6 +7,7 @@ import happyHomeowner3 from '../../images/Team section.jpg';
 import rightFeatureCard from '../../images/Right side feature card.jpg';
 
 const HeroSection: React.FC = () => {
+  const prefersReducedMotion = useReducedMotion();
   const propertyImages = [
     happyHomeowner1,
     happyHomeowner2,
@@ -37,34 +38,34 @@ const HeroSection: React.FC = () => {
   return (
     <section className="relative bg-[#F8F6F6] pt-20 pb-32 overflow-hidden">
         {/* Background decorative blurs */}
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={prefersReducedMotion ? {} : {
             scale: [1, 1.2, 1],
             opacity: [0.3, 0.5, 0.3],
             x: [0, 20, 0],
             y: [0, -20, 0],
           }}
-          transition={{ 
+          transition={{
             duration: 8,
-            repeat: Infinity,
+            repeat: prefersReducedMotion ? 0 : Infinity,
             ease: "easeInOut" as const
           }}
-          className="absolute right-0 top-14 w-64 h-64 bg-[rgba(236,70,19,0.1)] rounded-full blur-[32px]" 
+          className="absolute right-0 top-14 w-64 h-64 bg-[rgba(236,70,19,0.1)] rounded-full blur-[32px]"
         />
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={prefersReducedMotion ? {} : {
             scale: [1, 1.1, 1],
             opacity: [0.2, 0.4, 0.2],
-            x: [0, -30, 0], 
+            x: [0, -30, 0],
             y: [0, 30, 0],
           }}
-          transition={{ 
+          transition={{
             duration: 10,
             delay: 1,
-            repeat: Infinity,
+            repeat: prefersReducedMotion ? 0 : Infinity,
             ease: "easeInOut" as const
           }}
-          className="absolute left-[738px] bottom-22 w-64 h-64 bg-[rgba(254,215,170,0.2)] rounded-full blur-[32px]" 
+          className="absolute left-[738px] bottom-22 w-64 h-64 bg-[rgba(254,215,170,0.2)] rounded-full blur-[32px]"
         />
 
         <div className="max-w-[1280px] mx-auto px-8 relative z-10">

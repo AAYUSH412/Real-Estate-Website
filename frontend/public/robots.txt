@@ -14,3 +14,6 @@ Disallow: /my-listings
 Disallow: /add-property
 
 Sitemap: https://buildestate.vercel.app/sitemap.xml
+
+# AI crawler context file
+# https://buildestate.vercel.app/llms.txt

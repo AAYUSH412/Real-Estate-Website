@@ -1,0 +1,40 @@
+# BuildEstate — AI-Powered Real Estate Platform
+
+> BuildEstate helps users find residential and commercial properties across India using GPT-4 powered search, live market scraping from 99acres, MagicBricks, and Housing.com, and location trend analysis.
+
+## What BuildEstate Is
+
+BuildEstate is an AI-powered real estate platform serving homebuyers, sellers, and renters across India. Users search for flats, villas, apartments, and houses using natural language; the platform scrapes live listings from major Indian property portals and ranks results using GPT-4.1.
+
+## Core Features
+
+- **AI Property Search**: Natural language search powered by GPT-4.1. Firecrawl scrapes live listings from 99acres, MagicBricks, and Housing.com in real time.
+- **Location Trend Analysis**: AI-generated market insights for Indian cities — price trends, demand signals, investment outlook.
+- **Property Listing Management**: Verified sellers can list and manage properties directly on the platform.
+- **Appointment Booking**: Users can schedule property viewings through the platform.
+- **Admin Dashboard**: Full property lifecycle management with analytics.
+
+## Cities Covered
+
+Mumbai, Delhi NCR, Bangalore, Ahmedabad, Pune, Hyderabad, Chennai
+
+## Property Types
+
+Apartments (1BHK, 2BHK, 3BHK, 4BHK+), Villas, Independent Houses, Commercial Spaces, Plots
+
+## Technology
+
+- Frontend: React 18 + TypeScript + Vite (hosted on Vercel)
+- Backend: Node.js + Express + MongoDB (hosted on Render)
+- AI: GPT-4.1 via GitHub Models API (user-supplied key)
+- Scraping: Firecrawl (user-supplied key, real-time scraping)
+- Auth: JWT + httpOnly refresh tokens, email verification
+
+## Links
+
+- Website: https://buildestate.vercel.app
+- Properties: https://buildestate.vercel.app/properties
+- AI Hub: https://buildestate.vercel.app/ai-hub
+- About: https://buildestate.vercel.app/about
+- Contact: https://buildestate.vercel.app/contact
+- Source code: https://github.com/AAYUSH412/Real-Estate-Website

@@ -28,8 +28,8 @@ const AboutHeroSection: React.FC = () => {
           {/* Divider */}
           <div className="w-24 h-px bg-[rgba(242,239,233,0.4)] mx-auto mb-8" />
           
-          <p className="font-manrope font-extralight text-lg text-[rgba(242,239,233,0.9)] tracking-wide">
-            Where data-driven precision meets the art of living.
+          <p data-speakable className="font-manrope font-extralight text-lg text-[rgba(242,239,233,0.9)] tracking-wide">
+            BuildEstate is an AI-powered real estate platform serving homebuyers and sellers across Mumbai, Delhi, Bangalore, Ahmedabad, and Pune — where data-driven precision meets the art of living.
           </p>
         </div>
       </div>

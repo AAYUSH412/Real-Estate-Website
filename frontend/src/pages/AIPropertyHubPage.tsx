@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
+import StructuredData from '../components/common/StructuredData';
 import { useSEO } from '../hooks/useSEO';
 
 /* ── Only import AI components when enabled ──────────────── */
@@ -152,9 +153,10 @@ const AIHubProductionPage: React.FC = () => {
             <h1 className="font-fraunces text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
               AI Property Hub
             </h1>
-            <p className="font-manrope text-lg text-[#9ca3af] leading-relaxed mb-10 max-w-2xl mx-auto">
-              Our AI Property Hub uses GPT-4.1 to analyze real estate data, provide market insights,
-              and help you find the perfect property. This feature is available when you run the project locally.
+            <p data-speakable className="font-manrope text-lg text-[#9ca3af] leading-relaxed mb-10 max-w-2xl mx-auto">
+              Search for flats, villas, and apartments across India using AI. BuildEstate's AI Property Hub
+              scrapes live listings from 99acres, MagicBricks, and Housing.com using Firecrawl, then ranks
+              results with GPT-4 based on your requirements. Available when running the project locally.
             </p>
 
             {/* CTA Buttons */}
@@ -268,14 +270,16 @@ const AIHubProductionPage: React.FC = () => {
 
 const AIPropertyHubPage: React.FC = () => {
   useSEO({
-    title: 'AI Property Hub',
-    description: 'AI-powered property search, market analysis, location trends, and investment insights for India real estate.',
+    title: 'AI Property Hub — Search Flats & Houses in India with GPT-4',
+    description: 'Search for flats, villas, and apartments across India using AI. BuildEstate scrapes live listings from 99acres, MagicBricks, and Housing.com, then ranks results with GPT-4.',
+    url: 'https://buildestate.vercel.app/ai-hub',
   });
 
   /* ── AI Hub disabled → show "download & run locally" page ── */
   if (!AI_HUB_ENABLED) {
     return (
       <div className="bg-[#FAF8F4] min-h-screen">
+        <StructuredData type="speakable" data={{ cssSelector: ['h1', '[data-speakable]'] }} />
         <Navbar />
         <AIHubProductionPage />
         <Footer />

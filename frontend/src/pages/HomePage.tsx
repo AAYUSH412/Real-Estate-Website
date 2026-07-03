@@ -14,12 +14,17 @@ import CTASection from '../components/home/CTASection';
 
 const HomePage: React.FC = () => {
   useSEO({
-    title: 'Premium Real Estate Platform',
-    description: 'BuildEstate offers AI-powered property search, location trends analysis, and investment insights to find your perfect property in India.',
+    title: 'Find Flats, Villas & Apartments in India with AI',
+    description: 'BuildEstate helps you find flats, villas, and apartments in Mumbai, Delhi, Bangalore, Ahmedabad, and Pune using AI-powered search and live market analysis.',
+    url: 'https://buildestate.vercel.app',
   });
 
   return (
     <div className="bg-[#F8F6F6] min-h-screen">
+      <StructuredData
+        type="speakable"
+        data={{ cssSelector: ['h1', '[data-speakable]'] }}
+      />
       <StructuredData
         type="howTo"
         data={{

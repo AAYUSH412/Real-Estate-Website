@@ -2,6 +2,7 @@ import React from 'react';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import { useSEO } from '../hooks/useSEO';
+import StructuredData from '../components/common/StructuredData';
 import AboutHeroSection from '../components/about/AboutHeroSection';
 import AboutHeritageSection from '../components/about/AboutHeritageSection';
 import AboutStatsSection from '../components/about/AboutStatsSection';
@@ -11,12 +12,15 @@ import AboutCTASection from '../components/about/AboutCTASection';
 
 const AboutUsPage: React.FC = () => {
   useSEO({
-    title: 'About Us',
-    description: 'Learn about BuildEstate — our mission, values, and the AI-powered technology behind luxury real estate in India.',
+    title: 'About BuildEstate — AI-Powered Real Estate in India',
+    description: 'BuildEstate is an AI-powered real estate platform serving homebuyers and sellers across Mumbai, Delhi, Bangalore, Ahmedabad, and Pune. Learn about our mission and technology.',
+    url: 'https://buildestate.vercel.app/about',
   });
 
   return (
     <div className="bg-white min-h-screen">
+      <StructuredData type="speakable" data={{ cssSelector: ['h1', '[data-speakable]'] }} />
+
       {/* Sticky Navigation */}
       <Navbar />
 

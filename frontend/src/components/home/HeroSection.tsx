@@ -84,17 +84,16 @@ const HeroSection: React.FC = () => {
               </motion.div>
 
               {/* Heading */}
-              <motion.h1 variants={itemVariants} className="font-fraunces text-[56px] lg:text-[70px] leading-[1.1] text-[#111827] mb-8">
+              <motion.h1 data-speakable variants={itemVariants} className="font-fraunces text-[56px] lg:text-[70px] leading-[1.1] text-[#111827] mb-8">
                 Discover Your<br />
                 <span className="italic text-[#D4755B]">Dream Home</span> with<br />
                 AI Intelligence
               </motion.h1>
 
               {/* Description */}
-              <motion.p variants={itemVariants} className="font-manrope font-light text-xl leading-7 text-[#4b5563] mb-12 max-w-[676px]">
-                Experience the future of real estate. Our proprietary AI curates the market's
-                finest listings tailored specifically to your lifestyle, removing the noise from
-                your property search.
+              <motion.p data-speakable variants={itemVariants} className="font-manrope font-light text-xl leading-7 text-[#4b5563] mb-12 max-w-[676px]">
+                Find flats, villas, and apartments in Mumbai, Delhi, Bangalore, Ahmedabad, and Pune.
+                BuildEstate uses AI-powered search and live market analysis to match you with the right property.
               </motion.p>
 
               {/* CTA Buttons */}

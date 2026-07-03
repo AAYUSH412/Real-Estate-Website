@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 const SITE_URL = 'https://buildestate.vercel.app';
 
 interface StructuredDataProps {
-  type: 'website' | 'organization' | 'property' | 'aiHub' | 'localBusiness' | 'breadcrumb' | 'faqPage' | 'howTo';
+  type: 'website' | 'organization' | 'property' | 'aiHub' | 'localBusiness' | 'breadcrumb' | 'faqPage' | 'howTo' | 'speakable';
   data?: {
     // property listing
     title?: string;
@@ -25,6 +25,8 @@ interface StructuredDataProps {
     howToName?: string;
     howToDescription?: string;
     steps?: Array<{ name: string; text: string }>;
+    // speakable
+    cssSelector?: string[];
   };
 }
 
@@ -145,6 +147,16 @@ const StructuredData: React.FC<StructuredDataProps> = ({ type, data }) => {
         name: faq.question,
         acceptedAnswer: { '@type': 'Answer', text: faq.answer },
       })),
+    },
+
+    speakable: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      url: currentUrl,
+      speakable: {
+        '@type': 'SpeakableSpecification',
+        cssSelector: data?.cssSelector || ['h1', '[data-speakable]'],
+      },
     },
 
     howTo: {

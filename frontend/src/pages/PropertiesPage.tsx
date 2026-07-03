@@ -26,8 +26,9 @@ export interface Property {
 
 const PropertiesPage: React.FC = () => {
   useSEO({
-    title: 'Properties - Browse Listings',
-    description: 'Browse apartments, houses, villas, and more. Filter by location, price, bedrooms, and amenities.',
+    title: 'Browse Properties in Mumbai, Delhi, Bangalore & More',
+    description: 'Browse flats, villas, apartments, and houses for sale or rent in Mumbai, Delhi, Bangalore, Ahmedabad, and Pune. Filter by price, bedrooms, and location.',
+    url: 'https://buildestate.vercel.app/properties',
   });
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');

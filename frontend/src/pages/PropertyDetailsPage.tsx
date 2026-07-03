@@ -44,6 +44,9 @@ const PropertyDetailsPage: React.FC = () => {
     description: property
       ? `${property.title} in ${property.location}. ${property.beds} beds, ${property.baths} baths, ${property.sqft} sqft. ${property.type}.`
       : 'View property details on BuildEstate.',
+    image: property?.image?.[0] || undefined,
+    url: property ? `https://buildestate.vercel.app/property/${property._id}` : undefined,
+    type: 'article',
   });
 
   useEffect(() => {

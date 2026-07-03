@@ -1,8 +1,16 @@
 User-agent: *
 Allow: /
+
+# Auth flows — no crawl value
 Disallow: /signin
 Disallow: /signup
 Disallow: /forgot-password
 Disallow: /reset/
+Disallow: /verify-email/
+
+# Authenticated-only pages
+Disallow: /dashboard
+Disallow: /my-listings
+Disallow: /add-property
 
 Sitemap: https://buildestate.vercel.app/sitemap.xml

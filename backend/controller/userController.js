@@ -12,10 +12,31 @@ import { validateEmail, isDisposableEmail } from "../utils/emailValidation.js";
 
 const backendurl = process.env.BACKEND_URL;
 
-const createtoken = (id, rememberMe = false) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: rememberMe ? "30d" : "7d", // 30 days if Remember Me, else 7 days
+// ── User session: short-lived access token + rotating httpOnly refresh token ──
+const USER_REFRESH_COOKIE = 'user_refresh';
+
+const userRefreshCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  path: '/',
+});
+
+// rememberMe → 30d refresh token; else → 7d
+const issueUserSession = async (res, user, rememberMe = false) => {
+  const ttlMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+  const refreshToken = crypto.randomBytes(48).toString('hex');
+  user.userRefreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  user.userRefreshTokenExpiry = new Date(Date.now() + ttlMs);
+  await user.save();
+
+  res.cookie(USER_REFRESH_COOKIE, refreshToken, {
+    ...userRefreshCookieOptions(),
+    maxAge: ttlMs,
   });
+
+  // Short-lived access token — refresh token handles persistence
+  return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 dotenv.config();
@@ -121,12 +142,11 @@ const login = async (req, res) => {
       }
     }
 
-    const token = createtoken(Registeruser._id, rememberMe);
+    const token = await issueUserSession(res, Registeruser, rememberMe);
     return res.json({
       token,
       user: { name: Registeruser.name, email: Registeruser.email },
       success: true,
-      expiresIn: rememberMe ? "30 days" : "7 days"
     });
   } catch (error) {
     console.error(error);
@@ -155,8 +175,8 @@ const register = async (req, res) => {
       return res.json({ message: "An account with this email already exists.", success: false });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password (cost 12 — ~250ms on modern hardware, well above brute-force threshold)
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Generate email verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
@@ -362,13 +382,49 @@ const adminLogout = async (req, res) => {
   }
 };
 
-const logout = async (req, res) => {
-    try {
-        return res.json({ message: "Logged out", success: true });
-    } catch (error) {
-        console.error(error);
-        return res.json({ message: "Server error", success: false });
+const userRefresh = async (req, res) => {
+  try {
+    const raw = req.cookies?.[USER_REFRESH_COOKIE];
+    if (!raw) {
+      return res.status(401).json({ message: 'Session expired. Please login again.', success: false });
     }
+
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    const user = await userModel.findOne({
+      userRefreshTokenHash: hash,
+      userRefreshTokenExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
+      return res.status(401).json({ message: 'Session expired. Please login again.', success: false });
+    }
+
+    // Rotate — single-use token
+    const token = await issueUserSession(res, user);
+    return res.json({ token, success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error', success: false });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    const raw = req.cookies?.[USER_REFRESH_COOKIE];
+    if (raw) {
+      const hash = crypto.createHash('sha256').update(raw).digest('hex');
+      await userModel.updateOne(
+        { userRefreshTokenHash: hash },
+        { $unset: { userRefreshTokenHash: '', userRefreshTokenExpiry: '' } }
+      );
+    }
+    res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
+    return res.json({ message: 'Logged out', success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error', success: false });
+  }
 };
 
 // Email verification endpoint
@@ -405,8 +461,8 @@ const verifyEmail = async (req, res) => {
       // Don't fail verification if welcome email fails
     }
 
-    // Return token so user can be logged in automatically (30 days for convenience after verification)
-    const authToken = createtoken(user._id, true);
+    // Auto-login after verification — issue a session with rememberMe=true (30d refresh cookie)
+    const authToken = await issueUserSession(res, user, true);
 
     return res.status(200).json({
       message: "Email verified successfully! You can now log in.",
@@ -471,4 +527,4 @@ const updateProfile = async (req, res) => {
 
 
 
-export { login, register, forgotpassword, resetpassword, adminlogin, adminRefresh, adminLogout, logout, getname, verifyEmail, updateProfile };
+export { login, register, forgotpassword, resetpassword, adminlogin, adminRefresh, adminLogout, logout, userRefresh, getname, verifyEmail, updateProfile };

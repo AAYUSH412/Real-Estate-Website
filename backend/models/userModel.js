@@ -30,7 +30,11 @@ const UserSchema = new mongoose.Schema({
 
     // Brute-force protection: 5 failed logins → 15 min lock
     failedLoginAttempts: { type: Number, default: 0 },
-    lockUntil: { type: Date }
+    lockUntil: { type: Date },
+
+    // Rotating httpOnly refresh token (SHA-256 hash of the cookie value)
+    userRefreshTokenHash: { type: String },
+    userRefreshTokenExpiry: { type: Date }
 }, {
     timestamps: true  // Adds createdAt and updatedAt
 });

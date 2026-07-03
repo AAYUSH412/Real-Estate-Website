@@ -66,6 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
+    // Fire-and-forget — revokes the httpOnly refresh cookie server-side
+    userAPI.logout().catch(() => {});
     localStorage.removeItem('buildestate_token');
     localStorage.removeItem('buildestate_user');
     setToken(null);

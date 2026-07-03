@@ -8,32 +8,66 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 // Create axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // sends httpOnly user_refresh cookie on every request
 });
 
 // ── Request interceptor: attach auth token ──────────────────
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('buildestate_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ── Response interceptor: auto-logout on 401 ────────────────
+// ── Silent refresh on 401 ───────────────────────────────────
+let _refreshPromise: Promise<unknown> | null = null;
+
+const attemptRefresh = () => {
+  if (!_refreshPromise) {
+    _refreshPromise = axios
+      .post(`${API_BASE_URL}/users/refresh`, {}, { withCredentials: true })
+      .finally(() => { _refreshPromise = null; });
+  }
+  return _refreshPromise;
+};
+
+const clearSession = () => {
+  localStorage.removeItem('buildestate_token');
+  localStorage.removeItem('buildestate_user');
+  if (window.location.pathname !== '/signin') window.location.href = '/signin';
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('buildestate_token');
-      // Optionally redirect to login
-      // window.location.href = '/signin';
+  async (error) => {
+    const original = error.config as typeof error.config & { _retried?: boolean };
+    const url: string = original?.url ?? '';
+
+    // Don't try to refresh on auth endpoints themselves
+    const isAuthEndpoint = url.includes('/users/refresh') || url.includes('/users/login') || url.includes('/users/logout');
+
+    if (error.response?.status === 401 && !original._retried && !isAuthEndpoint) {
+      original._retried = true;
+      try {
+        const { data } = await attemptRefresh() as { data: { token: string; success: boolean } };
+        if (data.success && data.token) {
+          localStorage.setItem('buildestate_token', data.token);
+          original.headers.Authorization = `Bearer ${data.token}`;
+          return apiClient(original);
+        }
+      } catch {
+        clearSession();
+        return Promise.reject(error);
+      }
     }
+
+    if (error.response?.status === 401) {
+      clearSession();
+    }
+
     return Promise.reject(error);
   }
 );
@@ -70,6 +104,9 @@ export const userAPI = {
 
   updateProfile: (data: { name?: string; currentPassword?: string; newPassword?: string }) =>
     apiClient.put('/users/me', data),
+
+  refresh: () => apiClient.post('/users/refresh', {}),
+  logout: () => apiClient.post('/users/logout', {}),
 };
 
 // Properties (CRUD — admin-managed listings)

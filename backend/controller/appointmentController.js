@@ -2,8 +2,8 @@ import Stats from '../models/statsModel.js';
 import Property from '../models/propertyModel.js';
 import Appointment from '../models/appointmentModel.js';
 import User from '../models/userModel.js';
-import transporter from "../config/nodemailer.js";
-import { getSchedulingEmailTemplate,getEmailTemplate } from '../email.js';
+import emailService from '../services/emailService.js';
+import { getMeetingLinkTemplate } from '../email.js';
 
 // Format helpers
 const formatRecentProperties = (properties) => {
@@ -185,56 +185,6 @@ export const getAllAppointments = async (req, res) => {
   }
 };
 
-export const updateAppointmentStatus = async (req, res) => {
-  try {
-    const { appointmentId, status } = req.body;
-    
-    const appointment = await Appointment.findByIdAndUpdate(
-      appointmentId,
-      { status },
-      { new: true }
-    ).populate('propertyId userId');
-
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Appointment not found'
-      });
-    }
-
-    // Send email notification
-    const recipientEmail = appointment.userId?.email || appointment.guestInfo?.email;
-    if (recipientEmail) {
-      try {
-        const mailOptions = {
-          from: process.env.EMAIL,
-          to: recipientEmail,
-          subject: `Viewing Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} - BuildEstate`,
-          html: getEmailTemplate(appointment, status)
-        };
-
-        transporter.sendMail(mailOptions).catch(emailErr => {
-          console.error('Background status email failed:', emailErr.message);
-        });
-      } catch (emailErr) {
-        console.error('Status email dispatch error:', emailErr.message);
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Appointment ${status} successfully`,
-      appointment
-    });
-  } catch (error) {
-    console.error('Error updating appointment:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating appointment'
-    });
-  }
-};
-
 // Schedule viewing — supports both authenticated and guest bookings
 export const scheduleViewing = async (req, res) => {
   try {
@@ -291,21 +241,20 @@ export const scheduleViewing = async (req, res) => {
     // Send confirmation email
     const recipientEmail = userId ? req.user.email : guestEmail;
     if (recipientEmail) {
-      try {
-        const mailOptions = {
-          from: process.env.EMAIL,
-          to: recipientEmail,
-          subject: 'Viewing Scheduled - BuildEstate',
-          html: getSchedulingEmailTemplate(appointment, date, time, notes || message || '')
-        };
-        transporter.sendMail(mailOptions).catch(emailErr => {
-          console.error('Background confirmation email failed:', emailErr.message);
-        });
-      } catch (emailErr) {
-        console.error('Confirmation email dispatch error:', emailErr.message);
-        // Don't fail the request if email fails
-      }
+      emailService.sendAppointmentScheduled(recipientEmail, appointment, date, time, notes || message || '').catch(emailErr => {
+        console.error('Confirmation email failed:', emailErr.message);
+      });
     }
+
+    // Notify admin of new booking (non-fatal)
+    const userDetails = {
+      name: userId ? req.user.name : (guestName || 'Guest'),
+      email: userId ? req.user.email : guestEmail,
+      phone: phone || '',
+    };
+    emailService.sendAppointmentNotificationToAdmin(appointment, userDetails).catch(err => {
+      console.error('Admin appointment notification failed:', err.message);
+    });
 
     res.status(201).json({
       success: true,
@@ -351,20 +300,9 @@ export const cancelAppointment = async (req, res) => {
     // Send cancellation email
     const recipientEmail = appointment.userId?.email || appointment.guestInfo?.email;
     if (recipientEmail) {
-      try {
-        const mailOptions = {
-          from: process.env.EMAIL,
-          to: recipientEmail,
-          subject: 'Appointment Cancelled - BuildEstate',
-          html: getEmailTemplate(appointment, 'cancelled')
-        };
-
-        transporter.sendMail(mailOptions).catch(emailErr => {
-          console.error('Background cancellation email failed:', emailErr.message);
-        });
-      } catch (emailErr) {
-        console.error('Cancellation email dispatch error:', emailErr.message);
-      }
+      emailService.sendAppointmentStatusUpdate(recipientEmail, appointment, 'cancelled').catch(emailErr => {
+        console.error('Cancellation email failed:', emailErr.message);
+      });
     }
 
     res.json({
@@ -417,23 +355,14 @@ export const updateAppointmentMeetingLink = async (req, res) => {
       });
     }
 
-    // Send email notification with meeting link
+    // Send meeting link email
     const recipientEmail = appointment.userId?.email || appointment.guestInfo?.email;
     if (recipientEmail) {
-      try {
-        const mailOptions = {
-          from: process.env.EMAIL,
-          to: recipientEmail,
-          subject: 'Meeting Link Updated - BuildEstate',
-          html: getEmailTemplate(appointment, 'confirmed')
-        };
-
-        transporter.sendMail(mailOptions).catch(emailErr => {
-            console.error('Background meeting link email failed:', emailErr.message);
-        });
-      } catch (emailErr) {
-        console.error('Meeting link email dispatch error:', emailErr.message);
-      }
+      emailService.sendEmailSafely(
+        recipientEmail,
+        'Your Virtual Meeting Link - BuildEstate',
+        getMeetingLinkTemplate(appointment, meetingLink)
+      );
     }
 
     res.json({

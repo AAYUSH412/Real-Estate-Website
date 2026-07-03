@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader, ArrowLeft, Mail } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, ArrowLeft } from 'lucide-react';
 import AuthHeader from '../components/auth/AuthHeader';
 import { userAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 type VerificationStatus = 'loading' | 'success' | 'error';
 
 const VerifyEmailPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
   const [status, setStatus] = useState<VerificationStatus>('loading');
   const [message, setMessage] = useState('');
 
@@ -25,8 +27,15 @@ const VerifyEmailPage: React.FC = () => {
         if (data.success) {
           setStatus('success');
           setMessage(data.message || 'Your email has been verified successfully!');
-          // Auto-redirect to signin after 4 seconds
-          setTimeout(() => navigate('/signin'), 4000);
+          // If backend returned a token, log the user in automatically
+          if (data.token && data.user) {
+            localStorage.setItem('buildestate_token', data.token);
+            localStorage.setItem('buildestate_user', JSON.stringify(data.user));
+            updateUser(data.user);
+            setTimeout(() => navigate('/'), 3000);
+          } else {
+            setTimeout(() => navigate('/signin'), 4000);
+          }
         } else {
           setStatus('error');
           setMessage(data.message || 'Verification failed. Please try again.');
@@ -42,7 +51,7 @@ const VerifyEmailPage: React.FC = () => {
     };
 
     verifyEmail();
-  }, [token, navigate]);
+  }, [token, navigate, updateUser]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] flex items-center justify-center py-12 px-4">
@@ -78,7 +87,7 @@ const VerifyEmailPage: React.FC = () => {
                 {message}
               </p>
               <p className="font-manrope text-xs text-[#9CA3AF] mb-6">
-                Redirecting you to sign in...
+                Redirecting you now...
               </p>
               <Link
                 to="/signin"

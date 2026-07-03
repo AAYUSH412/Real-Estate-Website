@@ -13,7 +13,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  register: (fullName: string, email: string, phone: string, password: string) => Promise<void>;
+  register: (fullName: string, email: string, phone: string, password: string) => Promise<{ requiresVerification?: boolean }>;
   logout: () => void;
   updateUser: (partial: Partial<User>) => void;
 }
@@ -55,14 +55,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(async (fullName: string, email: string, phone: string, password: string) => {
     const { data } = await userAPI.register({ fullName, email, phone, password });
+    if (data.success && data.requiresVerification) {
+      return { requiresVerification: true };
+    }
     if (data.success && data.token) {
       localStorage.setItem('buildestate_token', data.token);
       localStorage.setItem('buildestate_user', JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
-    } else {
-      throw new Error(data.message || 'Registration failed');
+      return {};
     }
+    throw new Error(data.message || 'Registration failed');
   }, []);
 
   const logout = useCallback(() => {

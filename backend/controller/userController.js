@@ -223,7 +223,8 @@ const forgotpassword = async (req, res) => {
     const { email } = req.body;
     const user = await userModel.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "Email not found", success: false });
+      // Return 200 to prevent user enumeration
+      return res.status(200).json({ message: "If an account with that email exists, a reset link has been sent.", success: true });
     }
 
     // Generate cryptographically secure token
@@ -236,11 +237,16 @@ const forgotpassword = async (req, res) => {
     user.resetTokenExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    // Send password reset email
+    // Send password reset email (non-fatal — token is already saved)
     const resetUrl = `${process.env.WEBSITE_URL}/reset/${resetToken}`;
-    await emailService.sendPasswordResetEmail(email, resetUrl);
+    try {
+      await emailService.sendPasswordResetEmail(email, resetUrl);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+    }
 
-    return res.status(200).json({ message: "Email sent", success: true });
+    // Generic message regardless of whether email exists — prevents user enumeration
+    return res.status(200).json({ message: "If an account with that email exists, a reset link has been sent.", success: true });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error", success: false });
@@ -527,4 +533,39 @@ const updateProfile = async (req, res) => {
 
 
 
-export { login, register, forgotpassword, resetpassword, adminlogin, adminRefresh, adminLogout, logout, userRefresh, getname, verifyEmail, updateProfile };
+const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required', success: false });
+    }
+
+    const user = await userModel.findOne({ email: email.toLowerCase().trim() });
+
+    // Generic response to prevent user enumeration
+    if (!user || user.isEmailVerified) {
+      return res.status(200).json({ message: 'If this account exists and is unverified, a new link has been sent.', success: true });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+    user.emailVerificationToken = hashedToken;
+    user.verificationTokenExpiry = Date.now() + 24 * 60 * 60 * 1000;
+    await user.save();
+
+    try {
+      const verificationUrl = `${process.env.WEBSITE_URL}/verify-email/${verificationToken}`;
+      await emailService.sendEmailVerification(email, user.name, verificationUrl);
+    } catch (emailError) {
+      console.error('Failed to resend verification email:', emailError);
+    }
+
+    return res.status(200).json({ message: 'If this account exists and is unverified, a new link has been sent.', success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error', success: false });
+  }
+};
+
+export { login, register, forgotpassword, resetpassword, adminlogin, adminRefresh, adminLogout, logout, userRefresh, getname, verifyEmail, updateProfile, resendVerification };

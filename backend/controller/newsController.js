@@ -59,4 +59,19 @@ const submitNewsletter = async (req, res) => {
   }
 };
 
-export { submitNewsletter };
+const unsubscribeNewsletter = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required', success: false });
+    }
+    await News.deleteOne({ email: email.toLowerCase().trim() });
+    // Generic response regardless of whether email was subscribed
+    return res.status(200).json({ message: 'You have been unsubscribed.', success: true });
+  } catch (error) {
+    console.error('Error unsubscribing:', error);
+    return res.status(500).json({ message: 'Server error', success: false });
+  }
+};
+
+export { submitNewsletter, unsubscribeNewsletter };

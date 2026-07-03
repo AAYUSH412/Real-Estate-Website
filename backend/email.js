@@ -14,13 +14,28 @@ const BRAND = {
   year: new Date().getFullYear(),
 };
 
-// Shared wrapper — keeps every email consistent
-const wrap = (title, body) => `
+// HTML-escape user-controlled strings to prevent XSS injection in email clients
+const escHtml = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+// Shared wrapper — full HTML document so email clients render in standards mode
+const wrap = (title, body, unsubscribeUrl = '') => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escHtml(title)}</title>
+</head>
+<body style="margin:0;padding:16px;background:#f0ece6;">
 <div style="max-width:600px;margin:0 auto;font-family:'Helvetica Neue',Arial,sans-serif;color:${BRAND.text};line-height:1.7;background:${BRAND.bg};border-radius:12px;overflow:hidden;border:1px solid ${BRAND.border};">
 
   <!-- Header -->
   <div style="background:${BRAND.dark};padding:32px 28px;text-align:center;">
-    <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">${title}</h1>
+    <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">${escHtml(title)}</h1>
     <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.7);">BuildEstate</p>
   </div>
 
@@ -36,9 +51,13 @@ const wrap = (title, body) => `
       <a href="${BRAND.site}" style="color:${BRAND.color};text-decoration:none;">Website</a>
       &nbsp;&middot;&nbsp;
       <a href="${BRAND.site}/contact" style="color:${BRAND.color};text-decoration:none;">Contact Us</a>
+      ${unsubscribeUrl ? `&nbsp;&middot;&nbsp;<a href="${unsubscribeUrl}" style="color:${BRAND.muted};text-decoration:none;">Unsubscribe</a>` : ''}
     </p>
+    <p style="margin:8px 0 0;font-size:11px;color:${BRAND.muted};">BuildEstate, India</p>
   </div>
-</div>`;
+</div>
+</body>
+</html>`;
 
 // Reusable detail row
 const row = (label, value) =>
@@ -69,10 +88,10 @@ export const getSchedulingEmailTemplate = (appointment, date, time, notes) => wr
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Property', appointment.propertyId.title)}
+      ${row('Property', escHtml(appointment.propertyId.title))}
       ${row('Date', new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}
-      ${row('Time', time)}
-      ${notes ? row('Notes', notes) : ''}
+      ${row('Time', escHtml(time))}
+      ${notes ? row('Notes', escHtml(notes)) : ''}
       ${row('Status', badge('pending'))}
     </table>
   </div>
@@ -88,9 +107,9 @@ export const getEmailTemplate = (appointment, status) => wrap(
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Property', appointment.propertyId.title)}
+      ${row('Property', escHtml(appointment.propertyId.title))}
       ${row('Date', new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}
-      ${row('Time', appointment.time)}
+      ${row('Time', escHtml(appointment.time))}
       ${row('Status', badge(status))}
     </table>
   </div>
@@ -111,9 +130,9 @@ export const getEmailTemplate = (appointment, status) => wrap(
 
 // ─── 3. Newsletter Subscription ──────────────────────────
 
-export const getNewsletterTemplate = (email) => wrap(
+export const getNewsletterTemplate = (email, unsubscribeUrl = '') => wrap(
   'Welcome to Our Newsletter',
-  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${email}</strong>,</p>
+  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${escHtml(email)}</strong>,</p>
   <p style="margin:0 0 24px;font-size:15px;">Thank you for subscribing! You'll now receive updates on:</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:16px 20px;margin-bottom:24px;">
@@ -125,14 +144,15 @@ export const getNewsletterTemplate = (email) => wrap(
     </ul>
   </div>
 
-  ${btn(BRAND.site + '/properties', 'Explore Properties')}`
+  ${btn(BRAND.site + '/properties', 'Explore Properties')}`,
+  unsubscribeUrl
 );
 
 // ─── 4. Welcome (Registration) ──────────────────────────
 
 export const getWelcomeTemplate = (name) => wrap(
   'Welcome to BuildEstate',
-  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${name}</strong>,</p>
+  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${escHtml(name)}</strong>,</p>
   <p style="margin:0 0 24px;font-size:15px;">Your account has been created successfully. Here's what you can do:</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:16px 20px;margin-bottom:24px;">
@@ -153,7 +173,7 @@ export const getWelcomeTemplate = (name) => wrap(
 
 export const getEmailVerificationTemplate = (name, verificationUrl) => wrap(
   'Verify Your Email Address',
-  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${name}</strong>,</p>
+  `<p style="margin:0 0 20px;font-size:15px;">Hello <strong style="color:${BRAND.color};">${escHtml(name)}</strong>,</p>
   <p style="margin:0 0 24px;font-size:15px;">Thanks for signing up with BuildEstate! To complete your registration and start exploring properties, please verify your email address.</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;text-align:center;">
@@ -197,7 +217,7 @@ export const getListingApprovedTemplate = (propertyTitle, propertyId) => wrap(
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Listing', propertyTitle)}
+      ${row('Listing', escHtml(propertyTitle))}
       ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#dcfce7;color:#166534;">Live</span>')}
     </table>
   </div>
@@ -219,9 +239,9 @@ export const getListingRejectedTemplate = (propertyTitle, reason) => wrap(
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Listing', propertyTitle)}
+      ${row('Listing', escHtml(propertyTitle))}
       ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#fee2e2;color:#991b1b;">Not Approved</span>')}
-      ${row('Reason', reason || 'Please contact us for more details.')}
+      ${row('Reason', escHtml(reason || 'Please contact us for more details.'))}
     </table>
   </div>
 
@@ -237,17 +257,17 @@ export const getListingRejectedTemplate = (propertyTitle, reason) => wrap(
 
 export const getUserSuspendedTemplate = (userName, days, reason, suspendedUntil) => wrap(
   'Account Temporarily Suspended',
-  `<p style="margin:0 0 20px;font-size:15px;">Hello ${userName},</p>
-  
-  <p style="margin:0 0 20px;font-size:15px;">Your BuildEstate account has been temporarily suspended for ${days} day${days > 1 ? 's' : ''}. During this period, you will not be able to access your account or post new listings.</p>
+  `<p style="margin:0 0 20px;font-size:15px;">Hello ${escHtml(userName)},</p>
+
+  <p style="margin:0 0 20px;font-size:15px;">Your BuildEstate account has been temporarily suspended for ${escHtml(String(days))} day${days > 1 ? 's' : ''}. During this period, you will not be able to access your account or post new listings.</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Account', userName)}
+      ${row('Account', escHtml(userName))}
       ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#fef3c7;color:#92400e;">Suspended</span>')}
-      ${row('Duration', `${days} day${days > 1 ? 's' : ''}`)}
+      ${row('Duration', `${escHtml(String(days))} day${days > 1 ? 's' : ''}`)}
       ${row('Reactivation Date', new Date(suspendedUntil).toLocaleDateString())}
-      ${row('Reason', reason)}
+      ${row('Reason', escHtml(reason))}
     </table>
   </div>
 
@@ -267,16 +287,16 @@ export const getUserSuspendedTemplate = (userName, days, reason, suspendedUntil)
 
 export const getUserBannedTemplate = (userName, reason) => wrap(
   'Account Permanently Banned',
-  `<p style="margin:0 0 20px;font-size:15px;">Hello ${userName},</p>
-  
+  `<p style="margin:0 0 20px;font-size:15px;">Hello ${escHtml(userName)},</p>
+
   <p style="margin:0 0 20px;font-size:15px;">After careful review, your BuildEstate account has been permanently banned due to violations of our terms of service.</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Account', userName)}
+      ${row('Account', escHtml(userName))}
       ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#fee2e2;color:#991b1b;">Permanently Banned</span>')}
       ${row('Effective Date', new Date().toLocaleDateString())}
-      ${row('Reason', reason)}
+      ${row('Reason', escHtml(reason))}
     </table>
   </div>
 
@@ -296,13 +316,13 @@ export const getUserBannedTemplate = (userName, reason) => wrap(
 
 export const getUserReactivatedTemplate = (userName) => wrap(
   'Account Reactivated - Welcome Back!',
-  `<p style="margin:0 0 20px;font-size:15px;">Hello ${userName},</p>
-  
+  `<p style="margin:0 0 20px;font-size:15px;">Hello ${escHtml(userName)},</p>
+
   <p style="margin:0 0 20px;font-size:15px;">Great news! Your BuildEstate account has been reactivated and you now have full access to all platform features.</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Account', userName)}
+      ${row('Account', escHtml(userName))}
       ${row('Status', '<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:#dcfce7;color:#166534;">Active</span>')}
       ${row('Reactivated On', new Date().toLocaleDateString())}
     </table>
@@ -320,4 +340,29 @@ export const getUserReactivatedTemplate = (userName) => wrap(
   ${btn(BRAND.site + '/login', 'Log In to Your Account')}
 
   <p style="font-size:13px;color:${BRAND.muted};margin:0;">Thank you for being part of the BuildEstate community.</p>`
+);
+
+// ─── 8. Meeting Link ──────────────────────────────────────
+
+export const getMeetingLinkTemplate = (appointment, meetingLink) => wrap(
+  'Your Virtual Meeting Link is Ready',
+  `<p style="margin:0 0 20px;font-size:15px;">Your property viewing has been confirmed and a virtual meeting link has been added.</p>
+
+  <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('Property', escHtml(appointment.propertyId.title))}
+      ${row('Date', new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}
+      ${row('Time', escHtml(appointment.time))}
+      ${row('Status', badge('confirmed'))}
+    </table>
+  </div>
+
+  <div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:14px 16px;border-radius:6px;font-size:14px;color:#166534;margin-bottom:24px;">
+    <strong>Virtual Meeting Link:</strong><br>
+    <a href="${escHtml(meetingLink)}" style="color:${BRAND.color};word-break:break-all;">${escHtml(meetingLink)}</a>
+  </div>
+
+  ${btn(meetingLink, 'Join Meeting')}
+
+  <p style="font-size:13px;color:${BRAND.muted};margin:0;">Please join 5 minutes early. If you have any issues, reply to this email.</p>`
 );

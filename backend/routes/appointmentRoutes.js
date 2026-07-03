@@ -3,7 +3,6 @@ import { protect, adminProtect } from '../middleware/authMiddleware.js';
 import {
   scheduleViewing,
   getAllAppointments,
-  updateAppointmentStatus,
   getAppointmentsByUser,
   cancelAppointment,
   updateAppointmentMeetingLink,
@@ -11,6 +10,7 @@ import {
   submitAppointmentFeedback,
   getUpcomingAppointments
 } from "../controller/appointmentController.js";
+import { updateAppointmentStatus } from "../controller/adminController.js";
 
 
 const router = express.Router();

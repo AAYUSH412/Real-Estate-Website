@@ -76,6 +76,12 @@ apiClient.interceptors.response.use(
 // API Endpoints — aligned with backend routes
 // ═══════════════════════════════════════════════════════════
 
+// Newsletter
+export const newsAPI = {
+  subscribe: (email: string) =>
+    apiClient.post('/news/newsdata', { email }),
+};
+
 // User Authentication
 // Backend register expects { name, email, password }
 // We transform fullName → name here so the UI can keep using fullName

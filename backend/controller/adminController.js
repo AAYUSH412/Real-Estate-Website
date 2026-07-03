@@ -202,16 +202,14 @@ export const updateAppointmentStatus = async (req, res) => {
       });
     }
 
-    // Send email notification
-    try {
-      await emailService.sendAppointmentStatusUpdate(
-        appointment.userId.email,
-        appointment,
-        status
-      );
-    } catch (emailError) {
-      console.error('Failed to send appointment status email:', emailError);
-      // Don't fail the status update if email fails
+    // Send email notification (guest bookings may have no userId)
+    const recipientEmail = appointment.userId?.email || appointment.guestInfo?.email;
+    if (recipientEmail) {
+      try {
+        await emailService.sendAppointmentStatusUpdate(recipientEmail, appointment, status);
+      } catch (emailError) {
+        console.error('Failed to send appointment status email:', emailError);
+      }
     }
 
     res.json({

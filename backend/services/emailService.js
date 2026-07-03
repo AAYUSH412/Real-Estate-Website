@@ -7,6 +7,7 @@
  */
 
 import { sendEmail } from '../config/nodemailer.js';
+import logger from '../utils/logger.js';
 import {
   getSchedulingEmailTemplate,
   getEmailTemplate,
@@ -39,13 +40,13 @@ class EmailService {
         ...options
       };
 
-      console.log(`📧 Sending email: ${subject} to ${to}`);
+      logger.info(`Sending email: ${subject} to ${to}`);
       const result = await sendEmail(mailOptions);
-      console.log(`✅ Email sent successfully: ${subject} to ${to}`);
+      logger.info(`Email sent: ${subject} to ${to}`);
 
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error(`❌ Failed to send email: ${subject} to ${to}`, error);
+      logger.error(`Failed to send email: ${subject} to ${to}`, { error: error.message });
       throw new Error(`Email sending failed: ${error.message}`);
     }
   }
@@ -104,8 +105,10 @@ class EmailService {
    * Send newsletter subscription confirmation email
    */
   async sendNewsletterWelcome(userEmail) {
-    const subject = 'Welcome to BuildEstate Newsletter 📧';
-    const htmlContent = getNewsletterTemplate(userEmail);
+    const subject = 'Welcome to BuildEstate Newsletter';
+    const siteUrl = process.env.WEBSITE_URL || 'https://buildestate.vercel.app';
+    const unsubscribeUrl = `${siteUrl}/unsubscribe?email=${encodeURIComponent(userEmail)}`;
+    const htmlContent = getNewsletterTemplate(userEmail, unsubscribeUrl);
 
     return await this.sendEmail(userEmail, subject, htmlContent);
   }
@@ -114,7 +117,7 @@ class EmailService {
    * Send listing approved notification email
    */
   async sendListingApproved(userEmail, propertyTitle, propertyId) {
-    const subject = '🎉 Your Property Listing is Now Live!';
+    const subject = 'Your Property Listing is Now Live!';
     const htmlContent = getListingApprovedTemplate(propertyTitle, propertyId);
 
     return await this.sendEmail(userEmail, subject, htmlContent);
@@ -160,7 +163,7 @@ class EmailService {
         const result = await this.sendEmail(recipient, subject, htmlContent);
         results.push({ email: recipient, success: true, ...result });
       } catch (error) {
-        console.error(`Failed to send email to ${recipient}:`, error);
+        logger.error(`Failed to send email to ${recipient}:`, { error: error.message });
         results.push({ email: recipient, success: false, error: error.message });
       }
     }
@@ -168,7 +171,7 @@ class EmailService {
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
 
-    console.log(`📊 Bulk email results: ${successCount} sent, ${failureCount} failed`);
+    logger.info(`Bulk email: ${successCount} sent, ${failureCount} failed`);
 
     return {
       totalSent: successCount,
@@ -185,7 +188,7 @@ class EmailService {
     try {
       return await this.sendEmail(to, subject, htmlContent, options);
     } catch (error) {
-      console.error(`Email send failed gracefully: ${error.message}`);
+      logger.error(`Email send failed gracefully: ${error.message}`);
       // Return a result indicating failure but don't throw
       return { success: false, error: error.message };
     }

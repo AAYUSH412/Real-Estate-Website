@@ -161,27 +161,19 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
                     key={item.path}
                     to={item.path}
                     className={cn(
-                      'relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 group',
+                      'relative flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 group border-l-2',
                       isCollapsed ? 'px-3 py-2.5 justify-center' : 'px-3 py-2.5',
                       isActive(item.path)
-                        ? 'bg-[#D4755B] text-white shadow-md'
-                        : 'text-[#9CA3AF] hover:text-[#FAF8F4] hover:bg-white/10'
+                        ? 'bg-white/8 border-[#D4755B] text-white'
+                        : 'border-transparent text-[#9CA3AF] hover:text-[#FAF8F4] hover:bg-white/5'
                     )}
-                    title={isCollapsed ? item.label : ''} // Tooltip on hover when collapsed
+                    title={isCollapsed ? item.label : ''}
                   >
                     <item.icon className={cn(
-                      'h-5 w-5 flex-shrink-0',
-                      isActive(item.path) ? 'text-white' : 'text-[#9CA3AF] group-hover:text-[#FAF8F4]'
+                      'h-5 w-5 flex-shrink-0 transition-colors duration-200',
+                      isActive(item.path) ? 'text-[#D4755B]' : 'text-[#9CA3AF] group-hover:text-[#FAF8F4]'
                     )} />
                     {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                    {isActive(item.path) && (
-                      <motion.div
-                        layoutId="activeSidebarItem"
-                        className="absolute inset-0 bg-[#D4755B] rounded-lg"
-                        style={{ zIndex: -1 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                      />
-                    )}
                   </Link>
                 ))}
               </div>

@@ -236,25 +236,53 @@ const UsersManagement = () => {
     { key: 'banned', label: 'Banned', count: statusCounts.banned },
   ];
 
+  // ── User initials avatar ──
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ").filter(Boolean);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : name.slice(0, 2).toUpperCase();
+  };
+
+  const statusStyles = {
+    active: "text-emerald-700 bg-emerald-50 border-emerald-200/60",
+    suspended: "text-amber-700 bg-amber-50 border-amber-200/60",
+    banned: "text-red-700 bg-red-50 border-red-200/60",
+  };
+
+  const avatarColors = [
+    "bg-violet-100 text-violet-700",
+    "bg-blue-100 text-blue-700",
+    "bg-emerald-100 text-emerald-700",
+    "bg-amber-100 text-amber-700",
+    "bg-rose-100 text-rose-700",
+    "bg-cyan-100 text-cyan-700",
+  ];
+
+  const getAvatarColor = (name = "") => {
+    const idx = name.charCodeAt(0) % avatarColors.length;
+    return avatarColors[idx];
+  };
+
   // Loading State
   if (loading) {
     return (
-      <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
+      <div className="min-h-screen bg-[#F5F5F3] px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <div className="h-8 w-48 bg-[#E6D5C3] rounded-xl animate-pulse mb-2" />
-            <div className="h-4 w-64 bg-[#E6D5C3] rounded-lg animate-pulse" />
-          </div>
-          <div className="grid grid-cols-1 gap-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 border border-[#E6D5C3] animate-pulse">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#E6D5C3] rounded-full" />
-                  <div className="flex-1">
-                    <div className="h-4 w-32 bg-[#E6D5C3] rounded mb-2" />
-                    <div className="h-3 w-48 bg-[#E6D5C3] rounded" />
-                  </div>
+          <div className="h-7 w-44 bg-[#EBEBEA] rounded animate-pulse mb-2" />
+          <div className="h-4 w-64 bg-[#EBEBEA] rounded animate-pulse mb-8" />
+          <div className="bg-white rounded-2xl border border-[#E8E7E5] overflow-hidden">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-[#F0EFED] last:border-0">
+                <div className="w-4 h-4 bg-[#EBEBEA] rounded animate-pulse" />
+                <div className="w-9 h-9 bg-[#EBEBEA] rounded-full animate-pulse" />
+                <div className="flex-1">
+                  <div className="h-4 w-36 bg-[#EBEBEA] rounded animate-pulse mb-1.5" />
+                  <div className="h-3 w-48 bg-[#EBEBEA] rounded animate-pulse" />
                 </div>
+                <div className="h-5 w-16 bg-[#EBEBEA] rounded-full animate-pulse" />
+                <div className="h-4 w-20 bg-[#EBEBEA] rounded animate-pulse" />
               </div>
             ))}
           </div>
@@ -266,17 +294,15 @@ const UsersManagement = () => {
   // Error State
   if (error) {
     return (
-      <div className="min-h-screen pt-8 flex items-center justify-center bg-[#FAF8F4]">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-500" />
+      <div className="min-h-screen bg-[#F5F5F3] flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-7 h-7 text-red-500" />
           </div>
-          <h3 className="text-lg font-bold text-[#1C1B1A] mb-2">Failed to load users</h3>
-          <p className="text-[#5A5856] mb-6 text-sm">{error}</p>
-          <button
-            onClick={() => fetchUsers()}
-            className="px-6 py-3 bg-[#D4755B] text-white rounded-xl font-semibold text-sm hover:bg-[#C05E44] transition-colors"
-          >
+          <h3 className="font-semibold text-[#111110] mb-1">Failed to load users</h3>
+          <p className="text-sm text-[#9B9B99] mb-5">{error}</p>
+          <button onClick={() => fetchUsers()}
+            className="px-5 py-2.5 bg-[#D4755B] text-white rounded-lg text-sm font-medium hover:bg-[#C05E44] active:scale-[0.98] transition-all">
             Try Again
           </button>
         </div>
@@ -285,202 +311,205 @@ const UsersManagement = () => {
   }
 
   return (
-    <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
+    <div className="min-h-screen bg-[#F5F5F3] px-6 py-8">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
-        >
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-[#1C1B1A] mb-1">User Management</h1>
-            <p className="text-[#5A5856] text-sm">
-              Manage registered users, suspensions, and account status
+            <h1 className="text-2xl font-bold text-[#111110] tracking-tight mb-0.5">Users</h1>
+            <p className="text-sm text-[#9B9B99]">
+              {pagination.totalUsers ?? users.length} registered accounts
             </p>
           </div>
-          <motion.button
+          <button
             onClick={() => fetchUsers(true)}
             disabled={refreshing}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E6D5C3] text-[#1C1B1A] rounded-xl text-sm font-medium hover:border-[#D4755B] hover:text-[#D4755B] transition-all duration-200 shadow-card disabled:opacity-60"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E8E7E5] text-[#6B6B6A] rounded-lg text-sm font-medium hover:border-[#D4755B] hover:text-[#D4755B] active:scale-[0.97] transition-all shadow-sm disabled:opacity-50"
           >
-            <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </motion.button>
-        </motion.div>
+            <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
 
-        {/* Filter Tabs */}
-        <div className="bg-white rounded-2xl border border-[#E6D5C3] shadow-card mb-6">
-          <div className="border-b border-[#E6D5C3] px-6 py-4">
-            <div className="flex flex-wrap gap-2">
-              {filterTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => {
-                    setStatusFilter(tab.key);
-                    setCurrentPage(1);
-                  }}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-medium transition-all",
-                    statusFilter === tab.key
-                      ? "bg-[#D4755B] text-white"
-                      : "bg-[#F5F1E8] text-[#5A5856] hover:bg-[#E6D5C3]"
-                  )}
-                >
-                  {tab.label}
-                  {tab.count !== undefined && (
-                    <span className="ml-2 px-2 py-0.5 bg-black/10 rounded-full text-xs">
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+        {/* Filter + Search bar */}
+        <div className="bg-white rounded-2xl border border-[#E8E7E5] mb-5 overflow-hidden">
+          {/* Status tabs */}
+          <div className="flex border-b border-[#F0EFED]">
+            {filterTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => { setStatusFilter(tab.key); setCurrentPage(1); }}
+                className={cn(
+                  "px-5 py-3.5 text-sm font-medium transition-all border-b-2 -mb-px",
+                  statusFilter === tab.key
+                    ? "border-[#D4755B] text-[#D4755B]"
+                    : "border-transparent text-[#9B9B99] hover:text-[#111110]"
+                )}
+              >
+                {tab.label}
+                {tab.count !== undefined && (
+                  <span className={cn(
+                    "ml-2 px-1.5 py-0.5 rounded text-xs tabular-nums",
+                    statusFilter === tab.key ? "bg-[#D4755B]/10 text-[#D4755B]" : "bg-[#F5F5F3] text-[#9B9B99]"
+                  )}>
+                    {tab.count ?? 0}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
-          {/* Search & Sort */}
-          <div className="p-6 flex flex-col sm:flex-row gap-4">
+          {/* Search + sort */}
+          <div className="flex gap-3 px-5 py-3.5">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9B99]" />
               <input
                 type="text"
-                placeholder="Search by name or email..."
+                placeholder="Search by name or email…"
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-2.5 border border-[#E6D5C3] rounded-xl bg-white text-[#1C1B1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#D4755B]/20 focus:border-[#D4755B] transition-all"
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="w-full pl-10 pr-4 py-2 border border-[#E8E7E5] rounded-lg text-sm text-[#111110] placeholder:text-[#9B9B99] focus:outline-none focus:ring-2 focus:ring-[#D4755B]/15 focus:border-[#D4755B] transition-all"
               />
             </div>
-            <div className="flex gap-3">
-              <select
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2.5 border border-[#E6D5C3] rounded-xl bg-white text-[#1C1B1A] focus:outline-none focus:ring-2 focus:ring-[#D4755B]/20 focus:border-[#D4755B] transition-all"
-              >
-                <option value="createdAt">Date Joined</option>
-                <option value="lastActive">Last Active</option>
-                <option value="name">Name</option>
-              </select>
-              <button
-                onClick={() => {
-                  setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2.5 border border-[#E6D5C3] rounded-xl bg-white text-[#1C1B1A] hover:bg-[#F5F1E8] transition-colors"
-              >
-                {sortOrder === 'asc' ? '↑' : '↓'}
-              </button>
-            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
+              className="px-3 py-2 border border-[#E8E7E5] rounded-lg bg-white text-sm text-[#6B6B6A] focus:outline-none focus:border-[#D4755B] transition-all"
+            >
+              <option value="createdAt">Date Joined</option>
+              <option value="lastActive">Last Active</option>
+              <option value="name">Name</option>
+            </select>
+            <button
+              onClick={() => { setSortOrder(sortOrder === "asc" ? "desc" : "asc"); setCurrentPage(1); }}
+              className="px-3 py-2 border border-[#E8E7E5] rounded-lg bg-white text-sm text-[#6B6B6A] hover:bg-[#F5F5F3] transition-colors font-space-mono"
+              title={sortOrder === "asc" ? "Sort descending" : "Sort ascending"}
+            >
+              {sortOrder === "asc" ? "↑" : "↓"}
+            </button>
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-2xl border border-[#E6D5C3] shadow-card overflow-hidden">
+        {/* Users table */}
+        <div className="bg-white rounded-2xl border border-[#E8E7E5] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[#F5F1E8] border-b border-[#E6D5C3]">
-                <tr>
-                  <th className="px-6 py-4 text-left">
+              <thead>
+                <tr className="border-b border-[#F0EFED]">
+                  <th className="pl-5 pr-3 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedUsers.size === users.length && users.length > 0}
                       onChange={handleSelectAll}
-                      className="w-4 h-4 text-[#D4755B] rounded border-[#E6D5C3] focus:ring-[#D4755B]/20"
+                      className="w-4 h-4 rounded border-[#D0CFCE] accent-[#D4755B] cursor-pointer"
                     />
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#1C1B1A]">User</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#1C1B1A]">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#1C1B1A]">Properties</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#1C1B1A]">Joined</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#1C1B1A]">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#9B9B99] uppercase tracking-wider">User</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#9B9B99] uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#9B9B99] uppercase tracking-wider">Properties</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#9B9B99] uppercase tracking-wider">Joined</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-[#9B9B99] uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user, index) => (
                   <motion.tr
                     key={user._id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="border-b border-[#E6D5C3] hover:bg-[#FAF8F4] transition-colors"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="border-b border-[#F8F8F7] last:border-0 hover:bg-[#FAFAF9] transition-colors"
                   >
-                    <td className="px-6 py-4">
+                    <td className="pl-5 pr-3 py-3.5">
                       <input
                         type="checkbox"
                         checked={selectedUsers.has(user._id)}
                         onChange={() => handleSelectUser(user._id)}
-                        className="w-4 h-4 text-[#D4755B] rounded border-[#E6D5C3] focus:ring-[#D4755B]/20"
+                        className="w-4 h-4 rounded border-[#D0CFCE] accent-[#D4755B] cursor-pointer"
                       />
                     </td>
-                    <td className="px-6 py-4">
+
+                    {/* User cell */}
+                    <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#D4755B]/10 rounded-full flex items-center justify-center">
-                          <Users className="w-5 h-5 text-[#D4755B]" />
+                        <div className={cn(
+                          "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                          getAvatarColor(user.name)
+                        )}>
+                          {getInitials(user.name)}
                         </div>
-                        <div>
-                          <p className="font-semibold text-[#1C1B1A]">{user.name}</p>
-                          <p className="text-sm text-[#5A5856]">{user.email}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[#111110] truncate">{user.name}</p>
+                          <p className="text-xs text-[#9B9B99] truncate">{user.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <UserStatusBadge status={user.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-[#1C1B1A]">{user.propertyCount || 0}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-[#5A5856]">
-                        {formatDate(user.createdAt)}
+
+                    {/* Status */}
+                    <td className="px-4 py-3.5">
+                      <span className={cn(
+                        "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border capitalize",
+                        statusStyles[user.status] || "text-[#6B6B6A] bg-[#F5F5F3] border-[#E8E7E5]"
+                      )}>
+                        <span className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          user.status === "active" ? "bg-emerald-500" :
+                          user.status === "suspended" ? "bg-amber-500" : "bg-red-500"
+                        )} />
+                        {user.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {user.status === 'active' && (
+
+                    {/* Properties */}
+                    <td className="px-4 py-3.5">
+                      <span className="font-space-mono text-sm text-[#111110] tabular-nums">
+                        {user.propertyCount || 0}
+                      </span>
+                    </td>
+
+                    {/* Joined */}
+                    <td className="px-4 py-3.5">
+                      <span className="text-sm text-[#9B9B99]">{formatDate(user.createdAt)}</span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        {user.status === "active" && (
                           <>
                             <button
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setShowSuspendModal(true);
-                              }}
-                              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Suspend User"
+                              onClick={() => { setSelectedUser(user); setShowSuspendModal(true); }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/60"
+                              title="Suspend"
                             >
-                              <Clock className="w-4 h-4" />
+                              <Clock className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Suspend</span>
                             </button>
                             <button
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setShowBanModal(true);
-                              }}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Ban User"
+                              onClick={() => { setSelectedUser(user); setShowBanModal(true); }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200/60"
+                              title="Ban"
                             >
-                              <Ban className="w-4 h-4" />
+                              <Ban className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Ban</span>
                             </button>
                           </>
                         )}
-                        {(user.status === 'suspended' || user.status === 'banned') && (
+                        {(user.status === "suspended" || user.status === "banned") && (
                           <button
                             onClick={() => handleUnbanUser(user)}
                             disabled={actionLoading}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Reactivate User"
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 disabled:opacity-50"
                           >
-                            <UserCheck className="w-4 h-4" />
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Reactivate</span>
                           </button>
                         )}
                         <button
                           onClick={() => navigate(`/users/${user._id}`)}
-                          className="p-2 text-[#5A5856] hover:bg-[#F5F1E8] rounded-lg transition-colors"
-                          title="View Details"
+                          className="p-1.5 text-[#9B9B99] hover:text-[#111110] hover:bg-[#F5F5F3] rounded-lg transition-colors"
+                          title="View profile"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -492,42 +521,42 @@ const UsersManagement = () => {
             </table>
           </div>
 
+          {/* Empty */}
+          {users.length === 0 && (
+            <div className="py-16 text-center">
+              <Users className="w-10 h-10 text-[#D0CFCE] mx-auto mb-3" />
+              <p className="text-sm font-medium text-[#6B6B6A] mb-1">No users found</p>
+              <p className="text-xs text-[#9B9B99]">
+                {searchTerm || statusFilter !== "all"
+                  ? "Try adjusting your filters or search"
+                  : "Users will appear here once they register"}
+              </p>
+            </div>
+          )}
+
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-[#E6D5C3] flex items-center justify-between">
-              <p className="text-sm text-[#5A5856]">
-                Showing {pagination.currentPage} of {pagination.totalPages} pages
-                ({pagination.totalUsers} total users)
+            <div className="px-5 py-3.5 border-t border-[#F0EFED] flex items-center justify-between">
+              <p className="text-xs text-[#9B9B99]">
+                Page {pagination.currentPage} of {pagination.totalPages}
+                <span className="ml-1 text-[#6B6B6A]">({pagination.totalUsers} users)</span>
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={!pagination.hasPreviousPage}
-                  className="px-3 py-2 border border-[#E6D5C3] rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#F5F1E8] transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium border border-[#E8E7E5] rounded-lg disabled:opacity-40 hover:bg-[#F5F5F3] transition-colors"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={!pagination.hasNextPage}
-                  className="px-3 py-2 border border-[#E6D5C3] rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#F5F1E8] transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium border border-[#E8E7E5] rounded-lg disabled:opacity-40 hover:bg-[#F5F5F3] transition-colors"
                 >
                   Next
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {users.length === 0 && !loading && (
-            <div className="px-6 py-12 text-center">
-              <Users className="w-12 h-12 text-[#E6D5C3] mx-auto mb-4" />
-              <p className="text-[#5A5856] mb-2">No users found</p>
-              <p className="text-sm text-[#9CA3AF]">
-                {searchTerm || statusFilter !== 'all'
-                  ? "Try adjusting your filters or search terms"
-                  : "Users will appear here once they register"}
-              </p>
             </div>
           )}
         </div>

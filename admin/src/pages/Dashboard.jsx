@@ -1,148 +1,182 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
-  Home, Users, Calendar, TrendingUp, RefreshCw, Activity,
-  Building2, Eye, BarChart3, AlertCircle, UserCheck, UserX,
-  UserMinus, DollarSign, ClipboardList, ExternalLink
+  RefreshCw, AlertTriangle, ArrowRight, AlertCircle,
+  Building2, Users, Calendar, DollarSign, Activity,
+  CheckCircle2, XCircle, Clock, TrendingUp,
 } from "lucide-react";
 import {
-  Chart as ChartJS,
-  CategoryScale, LinearScale, BarElement, LineElement,
-  PointElement, ArcElement, Title, Tooltip, Legend, Filler,
-} from "chart.js";
-import { Bar, Doughnut, Line } from "react-chartjs-2";
+  AreaChart, Area, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import apiClient from "../services/apiClient";
-import { cn, formatDate } from "../lib/utils";
+import { cn } from "../lib/utils";
 
-ChartJS.register(
-  CategoryScale, LinearScale, BarElement, LineElement,
-  PointElement, ArcElement, Title, Tooltip, Legend, Filler
-);
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const timeAgo = (dateStr) => {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+};
 
-// ─── Stat Card ───────────────────────────────────────────────────────────────
-const StatCard = ({ title, value, icon: Icon, accent, description, index }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: index * 0.08 }}
-    className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card hover:shadow-card-hover transition-all duration-300 group"
-  >
-    <div className="flex items-start justify-between mb-4">
-      <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110", accent.bg)}>
-        <Icon className={cn("w-5 h-5", accent.icon)} />
-      </div>
-    </div>
-    <div className="text-3xl font-bold text-[#1C1B1A] mb-1 tabular-nums">
-      {value ?? <span className="text-[#9CA3AF] text-xl">—</span>}
-    </div>
-    <div className="text-sm font-semibold text-[#1C1B1A] mb-0.5">{title}</div>
-    <div className="text-xs text-[#9CA3AF]">{description}</div>
-  </motion.div>
-);
+const today = new Date().toLocaleDateString("en-IN", {
+  weekday: "long", day: "numeric", month: "long", year: "numeric",
+});
 
-// ─── Quick Action Card ────────────────────────────────────────────────────────
-const QuickActionCard = ({ title, count, icon: Icon, accent, to, index }) => (
-  <motion.div
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ delay: index * 0.1 }}
-  >
-    <Link
-      to={to}
-      className="block bg-white rounded-xl p-4 border border-[#E6D5C3] shadow-card hover:shadow-card-hover hover:border-[#D4755B] transition-all duration-200 group"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-2xl font-bold text-[#1C1B1A] mb-1 tabular-nums">
-            {count ?? <span className="text-[#9CA3AF] text-base">—</span>}
-          </div>
-          <div className="text-sm font-medium text-[#1C1B1A] mb-0.5">{title}</div>
-        </div>
-        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110", accent.bg)}>
-          <Icon className={cn("w-5 h-5", accent.icon)} />
-        </div>
-      </div>
-      <div className="mt-3 flex items-center text-xs font-medium text-[#D4755B] group-hover:text-[#C05E44] transition-colors">
-        View details
-        <ExternalLink className="w-3 h-3 ml-1 transition-transform group-hover:translate-x-0.5" />
-      </div>
-    </Link>
-  </motion.div>
-);
-
-// ─── Activity Item ────────────────────────────────────────────────────────────
-const ActivityItem = ({ item }) => {
-  // Handle both old format and new AdminActivity format
-  const isAdminLog = item.action && item.adminEmail;
-  const isProperty = item.type === "property" || (isAdminLog && item.targetType === "property");
-  const isUser = isAdminLog && item.targetType === "user";
-
-  const getActionIcon = () => {
-    if (isAdminLog) {
-      if (item.action.includes('approve')) return <Building2 className="w-4 h-4 text-green-600" />;
-      if (item.action.includes('reject')) return <Building2 className="w-4 h-4 text-red-600" />;
-      if (item.action.includes('suspend') || item.action.includes('ban')) return <UserMinus className="w-4 h-4 text-amber-600" />;
-      if (item.action.includes('user')) return <Users className="w-4 h-4 text-blue-600" />;
-      if (item.action.includes('property')) return <Building2 className="w-4 h-4 text-[#D4755B]" />;
-    }
-
-    return isProperty
-      ? <Building2 className="w-4 h-4 text-[#D4755B]" />
-      : <Calendar className="w-4 h-4 text-blue-500" />;
-  };
-
-  const getActionColor = () => {
-    if (isAdminLog) {
-      if (item.action.includes('approve')) return "bg-green-50";
-      if (item.action.includes('reject')) return "bg-red-50";
-      if (item.action.includes('suspend') || item.action.includes('ban')) return "bg-amber-50";
-      if (item.action.includes('user')) return "bg-blue-50";
-      if (item.action.includes('property')) return "bg-[#D4755B]/10";
-    }
-
-    return isProperty ? "bg-[#D4755B]/10" : "bg-blue-50";
-  };
-
-  const formatActionText = (action) => {
-    return action.split('_').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
-
-  const getDescription = () => {
-    if (isAdminLog) {
-      const actionText = formatActionText(item.action);
-      const target = item.targetName ? `"${item.targetName}"` : `${item.targetType}`;
-      return `${actionText}: ${target}`;
-    }
-    return item.description;
-  };
-
+// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+const ChartTooltip = ({ active, payload, label, unit = "" }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-[#F5F1E8] last:border-0">
-      <div className={cn(
-        "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
-        getActionColor()
-      )}>
-        {getActionIcon()}
+    <div className="bg-[#111110] rounded-lg px-3 py-2 shadow-xl border border-white/10">
+      <p className="text-[10px] text-white/40 font-manrope mb-0.5">{label}</p>
+      <p className="text-sm font-bold text-white tabular-nums">
+        {payload[0].value}{unit}
+      </p>
+    </div>
+  );
+};
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+const KPICard = ({ label, value, sub, icon: Icon, accent, index }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: index * 0.06, duration: 0.3 }}
+    className={cn(
+      "bg-white rounded-xl p-5 border transition-shadow duration-200 hover:shadow-sm",
+      accent ? "border-[#D4755B]/25 shadow-[inset_0_0_0_1px_rgba(212,117,91,0.15)]" : "border-[#E8E7E5]"
+    )}
+  >
+    <div className="flex items-start justify-between mb-3">
+      <p className="text-xs font-medium text-[#9B9B99] uppercase tracking-wider">{label}</p>
+      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", accent ? "bg-[#D4755B]/10" : "bg-[#F5F5F3]")}>
+        <Icon className={cn("w-3.5 h-3.5", accent ? "text-[#D4755B]" : "text-[#9B9B99]")} />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#1C1B1A] truncate">{getDescription()}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <p className="text-xs text-[#9CA3AF]">
-            {formatDate(item.createdAt || item.timestamp)}
-          </p>
-          {isAdminLog && (
-            <span className="text-xs text-[#9CA3AF]">
-              by {item.adminEmail}
-            </span>
-          )}
-        </div>
+    </div>
+    <p className="font-space-mono text-3xl font-bold text-[#111110] tabular-nums leading-none mb-1.5">
+      {value ?? <span className="text-[#CCCCC9] text-xl">—</span>}
+    </p>
+    {sub && <p className="text-xs text-[#9B9B99]">{sub}</p>}
+  </motion.div>
+);
+
+// ─── Activity Timeline ────────────────────────────────────────────────────────
+const activityConfig = (item) => {
+  const a = item.action || "";
+  if (a.includes("approve")) return { color: "#10B981", Icon: CheckCircle2, label: "Approved" };
+  if (a.includes("reject")) return { color: "#EF4444", Icon: XCircle, label: "Rejected" };
+  if (a.includes("suspend") || a.includes("ban")) return { color: "#F59E0B", Icon: AlertTriangle, label: "Suspended" };
+  if (a.includes("user")) return { color: "#3B82F6", Icon: Users, label: "User" };
+  return { color: "#D4755B", Icon: Activity, label: "Action" };
+};
+
+const ActivityTimeline = ({ items }) => {
+  if (!items?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <Activity className="w-8 h-8 text-[#D0CEC9] mb-2" />
+        <p className="text-sm text-[#9B9B99]">No recent activity</p>
+      </div>
+    );
+  }
+  return (
+    <div className="relative">
+      <div className="absolute left-3 top-0 bottom-4 w-px bg-[#EBEBEA]" />
+      <div className="space-y-0">
+        {items.slice(0, 8).map((item, i) => {
+          const { color, Icon } = activityConfig(item);
+          const actionText = (item.action || "").split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+          const desc = item.targetName
+            ? `${actionText}: "${item.targetName}"`
+            : item.description || actionText || "Admin action";
+          return (
+            <div key={item._id || i} className="relative flex gap-3.5 pb-5 last:pb-0">
+              <div
+                className="relative z-10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ backgroundColor: color + "18" }}
+              >
+                <Icon className="w-3 h-3" style={{ color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-[#111110] leading-snug line-clamp-2">{desc}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-[#9B9B99]">{timeAgo(item.createdAt || item.timestamp)}</span>
+                  {item.adminEmail && (
+                    <>
+                      <span className="text-[#D0CEC9] text-xs">·</span>
+                      <span className="text-xs text-[#9B9B99] truncate max-w-[120px]">{item.adminEmail}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 };
+
+// ─── Stat Bar ─────────────────────────────────────────────────────────────────
+const StatBar = ({ label, value, total, color }) => {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-[#6B6B6A]">{label}</span>
+        <span className="font-space-mono text-xs tabular-nums text-[#111110] font-semibold">{value ?? 0}</span>
+      </div>
+      <div className="h-1.5 bg-[#F0EFED] rounded-full overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, delay: 0.3, ease: [0.2, 0, 0, 1] }}
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ─── Listing Review Bar ───────────────────────────────────────────────────────
+const ReviewBar = ({ label, value, total, color, Icon }) => {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color + "15" }}>
+        <Icon className="w-3.5 h-3.5" style={{ color }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between mb-1">
+          <span className="text-xs text-[#6B6B6A]">{label}</span>
+          <span className="font-space-mono text-xs tabular-nums text-[#111110] font-semibold">{value}</span>
+        </div>
+        <div className="h-1.5 bg-[#F0EFED] rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.7, delay: 0.4, ease: [0.2, 0, 0, 1] }}
+            className="h-full rounded-full"
+            style={{ backgroundColor: color }}
+          />
+        </div>
+        <p className="text-[10px] text-[#9B9B99] mt-0.5">{pct}% of submissions</p>
+      </div>
+    </div>
+  );
+};
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+const Skeleton = ({ className }) => (
+  <div className={cn("bg-[#EBEBEA] rounded-lg animate-pulse", className)} />
+);
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 const Dashboard = () => {
@@ -153,373 +187,144 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [isRequestInProgress, setIsRequestInProgress] = useState(false);
+  const [inFlight, setInFlight] = useState(false);
 
   const fetchStats = useCallback(async (isRefresh = false) => {
-    // Prevent multiple simultaneous requests
-    if (isRequestInProgress) {
-      console.log('Request already in progress, skipping...');
-      return;
-    }
-
+    if (inFlight) return;
     try {
-      setIsRequestInProgress(true);
+      setInFlight(true);
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      let hasBasicStats = false;
+      const [overviewRes, userRes, propertyRes, activityRes] = await Promise.allSettled([
+        apiClient.get("/api/admin/stats/overview"),
+        apiClient.get("/api/admin/stats/users"),
+        apiClient.get("/api/admin/stats/properties"),
+        apiClient.get("/api/admin/activity-logs?limit=10"),
+      ]);
 
-      // Try enhanced stats first, with graceful fallbacks
-      try {
-        const [overviewRes, userRes, propertyRes, activityRes] = await Promise.allSettled([
-          apiClient.get('/api/admin/stats/overview'),
-          apiClient.get('/api/admin/stats/users'),
-          apiClient.get('/api/admin/stats/properties'),
-          apiClient.get('/api/admin/activity-logs?limit=10')
-        ]);
-
-        // Process results with fallbacks
-        if (overviewRes.status === 'fulfilled' && overviewRes.value.data.success) {
-          setStats(overviewRes.value.data.data);
-          hasBasicStats = true;
-        }
-
-        if (userRes.status === 'fulfilled' && userRes.value.data.success) {
-          setUserStats(userRes.value.data.data);
-        }
-
-        if (propertyRes.status === 'fulfilled' && propertyRes.value.data.success) {
-          setPropertyStats(propertyRes.value.data.data);
-        }
-
-        if (activityRes.status === 'fulfilled' && activityRes.value.data.success) {
-          setRecentActivity(activityRes.value.data.data || []);
-        }
-      } catch (enhancedError) {
-        console.log('Enhanced stats failed, falling back to basic stats');
+      let overviewData = null;
+      if (overviewRes.status === "fulfilled" && overviewRes.value.data.success) {
+        overviewData = overviewRes.value.data.data;
+        setStats(overviewData);
       }
+      if (userRes.status === "fulfilled" && userRes.value.data.success)
+        setUserStats(userRes.value.data.data);
+      if (propertyRes.status === "fulfilled" && propertyRes.value.data.success)
+        setPropertyStats(propertyRes.value.data.data);
 
-      // Fallback to basic stats only if we don't have enhanced stats
-      if (!hasBasicStats) {
-        try {
-          const response = await apiClient.get('/api/admin/stats');
-
-          if (response.data.success) {
-            setStats(response.data.stats);
-          }
-        } catch (basicError) {
-          console.error('Basic stats also failed:', basicError);
+      // Activity: try dedicated endpoint first, fall back to overview's recentActivity
+      if (activityRes.status === "fulfilled" && activityRes.value.data.success) {
+        const logs = activityRes.value.data.data || activityRes.value.data.logs || [];
+        if (logs.length > 0) {
+          setRecentActivity(logs);
+        } else if (overviewData?.recentActivity?.length) {
+          setRecentActivity(overviewData.recentActivity);
         }
+      } else if (overviewData?.recentActivity?.length) {
+        setRecentActivity(overviewData.recentActivity);
       }
 
       setError(null);
-    } catch (err) {
-      console.error("Dashboard stats error:", err);
-      setError("Unable to connect to the server. Please try again.");
+    } catch {
+      setError("Unable to connect. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setIsRequestInProgress(false);
+      setInFlight(false);
     }
-  }, []); // ✅ Empty dependency array - no circular dependency
+  }, []);
 
-  useEffect(() => {
-    fetchStats();
-  }, []); // ✅ Run only once on mount
+  useEffect(() => { fetchStats(); }, []);
 
-  const statCards = [
+  // Transform data for Recharts
+  const viewsData = (stats?.viewsData?.labels || []).map((d, i) => ({
+    date: new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    views: stats.viewsData.datasets?.[0]?.data?.[i] ?? 0,
+  }));
+
+  const usersData = (userStats?.newUsersByDay || []).map((item) => ({
+    date: new Date(item._id).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    users: item.count,
+  }));
+
+  const pendingListings = stats?.pendingListings ?? 0;
+  const pendingAppts = stats?.pendingAppointments ?? 0;
+  const hasActions = pendingListings > 0 || pendingAppts > 0;
+
+  const reviewTotal = (propertyStats?.approvedCount ?? 0) + (propertyStats?.rejectedCount ?? 0) + (propertyStats?.pendingCount ?? 0);
+
+  const kpis = [
     {
-      title: "Total Properties",
+      label: "Total Properties",
       value: stats?.totalProperties,
-      icon: Home,
-      accent: { bg: "bg-[#D4755B]/10", icon: "text-[#D4755B]" },
-      description: "All listed properties",
-    },
-    {
-      title: "Active Listings",
-      value: stats?.activeListings,
+      sub: "All listed properties",
       icon: Building2,
-      accent: { bg: "bg-emerald-50", icon: "text-emerald-600" },
-      description: "Currently active",
+      accent: false,
     },
     {
-      title: "Total Users",
+      label: "Total Users",
       value: userStats?.Total || stats?.totalUsers,
+      sub: `${userStats?.Active ?? 0} active`,
       icon: Users,
-      accent: { bg: "bg-blue-50", icon: "text-blue-600" },
-      description: "Registered accounts",
+      accent: false,
     },
     {
-      title: "Active Users",
-      value: userStats?.Active,
-      icon: UserCheck,
-      accent: { bg: "bg-green-50", icon: "text-green-600" },
-      description: "Currently active users",
-    },
-    {
-      title: "Suspended Users",
-      value: userStats?.Suspended,
-      icon: UserMinus,
-      accent: { bg: "bg-amber-50", icon: "text-amber-600" },
-      description: "Temporarily suspended",
-    },
-    {
-      title: "Banned Users",
-      value: userStats?.Banned,
-      icon: UserX,
-      accent: { bg: "bg-red-50", icon: "text-red-600" },
-      description: "Permanently banned",
-    },
-    {
-      title: "Avg Property Price",
-      value: stats?.avgPropertyPrice ? `₹${(stats.avgPropertyPrice / 100000).toFixed(1)}L` : null,
-      icon: DollarSign,
-      accent: { bg: "bg-purple-50", icon: "text-purple-600" },
-      description: "Average listing price",
-    },
-    {
-      title: "Pending Appointments",
+      label: "Pending Appointments",
       value: stats?.pendingAppointments,
+      sub: "Awaiting confirmation",
       icon: Calendar,
-      accent: { bg: "bg-cyan-50", icon: "text-cyan-600" },
-      description: "Awaiting confirmation",
+      accent: (stats?.pendingAppointments ?? 0) > 0,
+    },
+    {
+      label: "Avg Property Price",
+      value: stats?.avgPropertyPrice
+        ? `₹${(stats.avgPropertyPrice / 100000).toFixed(1)}L`
+        : null,
+      sub: "Average listing price",
+      icon: DollarSign,
+      accent: false,
     },
   ];
 
-  const quickActions = [
-    {
-      title: "Review Queue",
-      count: stats?.pendingListings || 0,
-      icon: ClipboardList,
-      accent: { bg: "bg-[#D4755B]/10", icon: "text-[#D4755B]" },
-      to: "/pending-listings"
-    },
-    {
-      title: "Suspended Users",
-      count: userStats?.Suspended || 0,
-      icon: UserMinus,
-      accent: { bg: "bg-amber-50", icon: "text-amber-600" },
-      to: "/users?status=suspended"
-    }
-  ];
-
-  // Chart data
-  const viewsChartData = {
-    labels: stats?.viewsData?.labels?.map(dateStr => {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Property Views",
-        data: stats?.viewsData?.datasets?.[0]?.data ?? [0, 0, 0, 0, 0, 0, 0],
-        backgroundColor: "rgba(212, 117, 91, 0.15)",
-        borderColor: "#D4755B",
-        borderWidth: 2,
-        borderRadius: 6,
-        borderSkipped: false,
-      },
-    ],
-  };
-
-  // New Users Over Time (Line Chart)
-  const newUsersChartData = {
-    labels: userStats?.newUsersByDay?.map(item => {
-      const date = new Date(item._id);
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }) ?? [],
-    datasets: [
-      {
-        label: "New Users",
-        data: userStats?.newUsersByDay?.map(item => item.count) ?? [],
-        borderColor: "#3B82F6",
-        backgroundColor: "rgba(59, 130, 246, 0.1)",
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 4,
-        pointBackgroundColor: "#3B82F6",
-        pointBorderColor: "#FFFFFF",
-        pointBorderWidth: 2,
-      },
-    ],
-  };
-
-  // User Status Breakdown (Doughnut Chart)
-  const userStatusChartData = {
-    labels: ["Active Users", "Suspended Users", "Banned Users"],
-    datasets: [
-      {
-        data: [
-          userStats?.Active ?? 0,
-          userStats?.Suspended ?? 0,
-          userStats?.Banned ?? 0,
-        ],
-        backgroundColor: ["#10B981", "#F59E0B", "#EF4444"],
-        borderColor: ["#059669", "#D97706", "#DC2626"],
-        borderWidth: 1,
-        hoverOffset: 6,
-      },
-    ],
-  };
-
-  // Property Approval Rate (Bar Chart)
-  const approvalRateData = {
-    labels: ["Approved", "Rejected", "Pending"],
-    datasets: [
-      {
-        label: "Properties",
-        data: [
-          propertyStats?.approvedCount ?? 0,
-          propertyStats?.rejectedCount ?? 0,
-          propertyStats?.pendingCount ?? 0,
-        ],
-        backgroundColor: ["#10B981", "#EF4444", "#F59E0B"],
-        borderColor: ["#059669", "#DC2626", "#D97706"],
-        borderWidth: 1,
-        borderRadius: 6,
-        borderSkipped: false,
-      },
-    ],
-  };
-
-  // Doughnut chart representing ONLY properties status to avoid mixing totally different metrics
-  const doughnutData = {
-    labels: ["Active Properties", "Inactive Properties"],
-    datasets: [
-      {
-        data: [
-          stats?.activeListings ?? 0,
-          Math.max(0, (stats?.totalProperties ?? 0) - (stats?.activeListings ?? 0)),
-        ],
-        backgroundColor: ["#D4755B", "#E6D5C3"],
-        borderColor: ["#C05E44", "#D4B99A"],
-        borderWidth: 1,
-        hoverOffset: 6,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "#1C1B1A",
-        titleColor: "#FAF8F4",
-        bodyColor: "#9CA3AF",
-        padding: 12,
-        cornerRadius: 8,
-        titleFont: { family: "Manrope", size: 12, weight: "600" },
-        bodyFont: { family: "Manrope", size: 11 },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1, precision: 0, color: "#9CA3AF", font: { family: "Manrope", size: 11 } },
-        grid: { color: "#F5F1E8" },
-        border: { display: false },
-      },
-      x: {
-        ticks: { color: "#9CA3AF", font: { family: "Manrope", size: 11 } },
-        grid: { display: false },
-        border: { display: false },
-      },
-    },
-  };
-
-  const lineChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: "#1C1B1A",
-        titleColor: "#FAF8F4",
-        bodyColor: "#9CA3AF",
-        padding: 12,
-        cornerRadius: 8,
-        titleFont: { family: "Manrope", size: 12, weight: "600" },
-        bodyFont: { family: "Manrope", size: 11 },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { stepSize: 1, precision: 0, color: "#9CA3AF", font: { family: "Manrope", size: 11 } },
-        grid: { color: "#F5F1E8" },
-        border: { display: false },
-      },
-      x: {
-        ticks: { color: "#9CA3AF", font: { family: "Manrope", size: 11 } },
-        grid: { display: false },
-        border: { display: false },
-      },
-    },
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: "70%",
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: {
-          padding: 16,
-          usePointStyle: true,
-          pointStyleWidth: 8,
-          color: "#5A5856",
-          font: { family: "Manrope", size: 12 },
-        },
-      },
-      tooltip: {
-        backgroundColor: "#1C1B1A",
-        titleColor: "#FAF8F4",
-        bodyColor: "#9CA3AF",
-        padding: 12,
-        cornerRadius: 8,
-      },
-    },
-  };
-
-  // Loading skeleton
+  // ── Loading ──
   if (loading) {
     return (
-      <div className="min-h-screen pb-12 px-4 bg-[#FAF8F4]">
-        <div className="max-w-7xl mx-auto pt-8">
-          <div className="mb-8">
-            <div className="h-8 w-48 bg-[#E6D5C3] rounded-xl animate-pulse mb-2" />
-            <div className="h-4 w-64 bg-[#E6D5C3] rounded-lg animate-pulse" />
+      <div className="min-h-screen bg-[#F5F5F3] px-6 lg:px-8 pt-8 pb-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <Skeleton className="h-7 w-32 mb-2" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-9 w-24" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 border border-[#E6D5C3] animate-pulse">
-                <div className="w-11 h-11 bg-[#E6D5C3] rounded-xl mb-4" />
-                <div className="h-8 w-16 bg-[#E6D5C3] rounded-lg mb-2" />
-                <div className="h-4 w-24 bg-[#E6D5C3] rounded" />
-              </div>
-            ))}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-72 rounded-xl mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 rounded-xl" />)}
           </div>
         </div>
       </div>
     );
   }
 
-  // Error state
+  // ── Error ──
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF8F4] pt-8">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-500" />
+      <div className="min-h-screen bg-[#F5F5F3] flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-7 h-7 text-red-500" />
           </div>
-          <h3 className="text-lg font-bold text-[#1C1B1A] mb-2">Failed to load dashboard</h3>
-          <p className="text-[#5A5856] mb-6 text-sm">{error}</p>
-          <button onClick={() => fetchStats()}
-            className="px-6 py-3 bg-[#D4755B] text-white rounded-xl font-semibold text-sm hover:bg-[#C05E44] transition-colors">
+          <h3 className="text-base font-semibold text-[#111110] mb-1">Failed to load</h3>
+          <p className="text-sm text-[#9B9B99] mb-5">{error}</p>
+          <button
+            onClick={() => fetchStats()}
+            className="px-5 py-2.5 bg-[#D4755B] text-white rounded-lg text-sm font-medium hover:bg-[#C05E44] active:scale-[0.98] transition-all"
+          >
             Try Again
           </button>
         </div>
@@ -528,225 +333,279 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen pb-12 px-4 bg-[#FAF8F4]">
-      <div className="max-w-7xl mx-auto pt-8">
+    <div className="min-h-screen bg-[#F5F5F3] px-6 lg:px-8 pt-8 pb-16">
+      <div className="max-w-7xl mx-auto">
 
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        {/* ── Header ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start justify-between mb-6"
+        >
           <div>
-            <h1 className="text-3xl font-bold text-[#1C1B1A] mb-1">Dashboard</h1>
-            <p className="text-[#5A5856] text-sm">Welcome back — here's what's happening today</p>
+            <h1 className="text-2xl font-bold text-[#111110] tracking-tight">Overview</h1>
+            <p className="text-sm text-[#9B9B99] mt-0.5">{today}</p>
           </div>
-          <motion.button
+          <button
             onClick={() => fetchStats(true)}
-            disabled={refreshing || isRequestInProgress}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E6D5C3] text-[#1C1B1A] rounded-xl text-sm font-medium hover:border-[#D4755B] hover:text-[#D4755B] transition-all duration-200 shadow-card disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={refreshing || inFlight}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E8E7E5] text-[#6B6B6A] rounded-lg text-sm font-medium hover:border-[#D4755B] hover:text-[#D4755B] active:scale-[0.97] transition-all duration-150 disabled:opacity-50 shadow-sm"
           >
-            <RefreshCw className={cn("w-4 h-4", (refreshing || isRequestInProgress) && "animate-spin")} />
-            {refreshing || isRequestInProgress ? "Refreshing..." : "Refresh"}
-          </motion.button>
+            <RefreshCw className={cn("w-3.5 h-3.5", (refreshing || inFlight) && "animate-spin")} />
+            {refreshing || inFlight ? "Refreshing…" : "Refresh"}
+          </button>
         </motion.div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statCards.map((card, index) => (
-            <StatCard key={card.title} {...card} index={index} />
+        {/* ── Action Banner ── */}
+        <AnimatePresence>
+          {hasActions && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: "auto", marginBottom: 24 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              transition={{ duration: 0.25 }}
+              className="bg-amber-50 border border-amber-200/70 rounded-xl px-5 py-3.5 flex items-center gap-3 overflow-hidden"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+              <div className="flex flex-wrap gap-x-5 gap-y-1 flex-1">
+                {pendingListings > 0 && (
+                  <Link
+                    to="/pending-listings"
+                    className="flex items-center gap-1.5 text-sm text-amber-800 hover:text-amber-900 font-medium transition-colors"
+                  >
+                    <span className="font-bold">{pendingListings}</span> listings need review
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                )}
+                {pendingAppts > 0 && (
+                  <Link
+                    to="/appointments"
+                    className="flex items-center gap-1.5 text-sm text-amber-800 hover:text-amber-900 font-medium transition-colors"
+                  >
+                    <span className="font-bold">{pendingAppts}</span> appointments unconfirmed
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── KPI Cards ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {kpis.map((kpi, i) => (
+            <KPICard key={kpi.label} {...kpi} index={i} />
           ))}
         </div>
 
-        {/* Quick Actions */}
+        {/* ── Hero Chart — Property Views ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.32 }}
-          className="mb-8"
+          transition={{ delay: 0.28 }}
+          className="bg-white rounded-xl border border-[#E8E7E5] p-6 mb-6"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-[#D4755B]" />
-            <h3 className="text-lg font-bold text-[#1C1B1A]">Quick Actions</h3>
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-base font-semibold text-[#111110]">Property Views</h2>
+              <p className="text-xs text-[#9B9B99] mt-0.5">Daily view activity</p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-[#D4755B]">
+              <TrendingUp className="w-3.5 h-3.5" />
+              Last 30 days
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickActions.map((action, index) => (
-              <QuickActionCard key={action.title} {...action} index={index} />
-            ))}
+
+          <div className="h-56">
+            {viewsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={viewsData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#D4755B" stopOpacity={0.14} />
+                      <stop offset="100%" stopColor="#D4755B" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" stroke="#F0EFED" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "#9B9B99", fontSize: 11, fontFamily: "Manrope, sans-serif" }}
+                    axisLine={false} tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fill: "#9B9B99", fontSize: 11, fontFamily: "Manrope, sans-serif" }}
+                    axisLine={false} tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<ChartTooltip unit=" views" />} cursor={{ stroke: "#E8E7E5", strokeWidth: 1 }} />
+                  <Area
+                    type="monotone" dataKey="views"
+                    stroke="#D4755B" strokeWidth={1.5}
+                    fill="url(#viewsGradient)"
+                    dot={false}
+                    activeDot={{ r: 3.5, fill: "#D4755B", strokeWidth: 0 }}
+                    animationDuration={900}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-sm text-[#9B9B99]">No view data yet</p>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Bar Chart — Views */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="lg:col-span-2 bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-base font-bold text-[#1C1B1A]">Property Views</h3>
-                <p className="text-xs text-[#9CA3AF] mt-0.5">Weekly view activity</p>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#D4755B] font-medium">
-                <BarChart3 className="w-4 h-4" />
-                This Week
-              </div>
-            </div>
-            <div className="h-52">
-              <Bar data={viewsChartData} options={chartOptions} />
-            </div>
-          </motion.div>
+        {/* ── Bottom 3-Column Grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Doughnut — Portfolio */}
+          {/* Col 1 — User Growth + Breakdown */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card"
+            transition={{ delay: 0.33 }}
+            className="bg-white rounded-xl border border-[#E8E7E5] p-6"
           >
-            <div className="mb-6">
-              <h3 className="text-base font-bold text-[#1C1B1A]">Portfolio Status</h3>
-              <p className="text-xs text-[#9CA3AF] mt-0.5">Listing breakdown</p>
-            </div>
-            <div className="h-52">
-              <Doughnut data={doughnutData} options={doughnutOptions} />
-            </div>
-          </motion.div>
-        </div>
+            <h2 className="text-base font-semibold text-[#111110] mb-0.5">New Users</h2>
+            <p className="text-xs text-[#9B9B99] mb-5">Last 30 days</p>
 
-        {/* Charts Row 2 - Enhanced Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Line Chart — New Users */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-base font-bold text-[#1C1B1A]">New Users</h3>
-                <p className="text-xs text-[#9CA3AF] mt-0.5">Last 30 days</p>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
-                <Users className="w-4 h-4" />
-                Daily Growth
-              </div>
-            </div>
-            <div className="h-52">
-              {userStats?.newUsersByDay?.length > 0 ? (
-                <Line data={newUsersChartData} options={lineChartOptions} />
+            <div className="h-36">
+              {usersData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={usersData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="usersGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#64748B" stopOpacity={0.1} />
+                        <stop offset="100%" stopColor="#64748B" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#F0EFED" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: "#9B9B99", fontSize: 10, fontFamily: "Manrope, sans-serif" }}
+                      axisLine={false} tickLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fill: "#9B9B99", fontSize: 10, fontFamily: "Manrope, sans-serif" }}
+                      axisLine={false} tickLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip content={<ChartTooltip unit=" users" />} cursor={{ stroke: "#E8E7E5", strokeWidth: 1 }} />
+                    <Area
+                      type="monotone" dataKey="users"
+                      stroke="#64748B" strokeWidth={1.5}
+                      fill="url(#usersGradient)"
+                      dot={false}
+                      activeDot={{ r: 3, fill: "#64748B", strokeWidth: 0 }}
+                      animationDuration={900}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <div className="text-center">
-                    <Users className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">No data available</p>
-                  </div>
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-[#9B9B99]">No data yet</p>
                 </div>
               )}
             </div>
-          </motion.div>
 
-          {/* User Status Chart */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card"
-          >
-            <div className="mb-6">
-              <h3 className="text-base font-bold text-[#1C1B1A]">User Status</h3>
-              <p className="text-xs text-[#9CA3AF] mt-0.5">Account breakdown</p>
-            </div>
-            <div className="h-52">
-              {userStats ? (
-                <Doughnut data={userStatusChartData} options={doughnutOptions} />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <div className="text-center">
-                    <UserCheck className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">Loading data...</p>
-                  </div>
-                </div>
-              )}
+            {/* User status bars */}
+            <div className="mt-5 pt-5 border-t border-[#F0EFED] space-y-3.5">
+              <p className="text-xs font-medium text-[#9B9B99] uppercase tracking-wider mb-3">Account Status</p>
+              <StatBar label="Active" value={userStats?.Active} total={userStats?.Total || 1} color="#10B981" />
+              <StatBar label="Suspended" value={userStats?.Suspended} total={userStats?.Total || 1} color="#F59E0B" />
+              <StatBar label="Banned" value={userStats?.Banned} total={userStats?.Total || 1} color="#EF4444" />
             </div>
           </motion.div>
 
-          {/* Approval Rate Chart */}
+          {/* Col 2 — Listing Review */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55 }}
-            className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card"
+            transition={{ delay: 0.38 }}
+            className="bg-white rounded-xl border border-[#E8E7E5] p-6"
           >
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-start justify-between mb-5">
               <div>
-                <h3 className="text-base font-bold text-[#1C1B1A]">Approval Rate</h3>
-                <p className="text-xs text-[#9CA3AF] mt-0.5">Property submissions</p>
+                <h2 className="text-base font-semibold text-[#111110] mb-0.5">Listing Review</h2>
+                <p className="text-xs text-[#9B9B99]">Property submission outcomes</p>
               </div>
-              {propertyStats?.approvalRate && (
-                <div className="text-xs font-medium text-green-600">
+              {propertyStats?.approvalRate != null && (
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                   {propertyStats.approvalRate}% approved
-                </div>
+                </span>
               )}
             </div>
-            <div className="h-52">
-              {propertyStats ? (
-                <Bar data={approvalRateData} options={chartOptions} />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  <div className="text-center">
-                    <ClipboardList className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">Loading data...</p>
-                  </div>
+
+            <div className="space-y-4">
+              <ReviewBar
+                label="Approved"
+                value={propertyStats?.approvedCount ?? 0}
+                total={reviewTotal}
+                color="#10B981"
+                Icon={CheckCircle2}
+              />
+              <ReviewBar
+                label="Pending"
+                value={propertyStats?.pendingCount ?? 0}
+                total={reviewTotal}
+                color="#F59E0B"
+                Icon={Clock}
+              />
+              <ReviewBar
+                label="Rejected"
+                value={propertyStats?.rejectedCount ?? 0}
+                total={reviewTotal}
+                color="#EF4444"
+                Icon={XCircle}
+              />
+            </div>
+
+            {/* Additional property stats */}
+            <div className="mt-6 pt-5 border-t border-[#F0EFED]">
+              <p className="text-xs font-medium text-[#9B9B99] uppercase tracking-wider mb-3">Portfolio</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#F8F7F5] rounded-lg p-3">
+                  <p className="font-space-mono text-xl font-bold text-[#111110] tabular-nums">
+                    {stats?.totalProperties ?? "—"}
+                  </p>
+                  <p className="text-xs text-[#9B9B99] mt-0.5">Total</p>
                 </div>
-              )}
+                <div className="bg-[#F8F7F5] rounded-lg p-3">
+                  <p className="font-space-mono text-xl font-bold text-emerald-600 tabular-nums">
+                    {stats?.activeListings ?? "—"}
+                  </p>
+                  <p className="text-xs text-[#9B9B99] mt-0.5">Active</p>
+                </div>
+              </div>
             </div>
           </motion.div>
+
+          {/* Col 3 — Activity Timeline */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.43 }}
+            className="bg-white rounded-xl border border-[#E8E7E5] p-6"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-base font-semibold text-[#111110] mb-0.5">Recent Activity</h2>
+                <p className="text-xs text-[#9B9B99]">Admin actions</p>
+              </div>
+              <Link
+                to="/activity-logs"
+                className="text-xs text-[#D4755B] hover:text-[#C05E44] font-medium transition-colors flex items-center gap-1"
+              >
+                View all <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+
+            <ActivityTimeline items={recentActivity.length ? recentActivity : stats?.recentActivity} />
+          </motion.div>
+
         </div>
-
-        {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-[#D4755B]" />
-              <h3 className="text-base font-bold text-[#1C1B1A]">Recent Admin Activity</h3>
-            </div>
-            <Link
-              to="/activity-logs"
-              className="text-xs text-[#D4755B] hover:text-[#C05E44] font-medium transition-colors"
-            >
-              View all
-            </Link>
-          </div>
-
-          {recentActivity?.length > 0 ? (
-            <div>
-              {recentActivity.slice(0, 10).map((item, index) => (
-                <ActivityItem key={item._id || index} item={item} />
-              ))}
-            </div>
-          ) : stats?.recentActivity?.length > 0 ? (
-            // Fallback to basic activity if enhanced activity logs fail
-            <div>
-              {stats.recentActivity.map((item, index) => (
-                <ActivityItem key={index} item={item} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Eye className="w-10 h-10 text-[#E6D5C3] mx-auto mb-3" />
-              <p className="text-sm text-[#9CA3AF]">No recent activity to display</p>
-            </div>
-          )}
-        </motion.div>
       </div>
     </div>
   );

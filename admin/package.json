@@ -29,6 +29,7 @@
     "react-error-boundary": "^5.0.0",
     "react-icons": "^5.4.0",
     "react-router-dom": "^7.1.1",
+    "recharts": "^3.9.1",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0"
   },

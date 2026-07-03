@@ -80,7 +80,7 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
               <p className="font-manrope text-xs text-white/40">Saved in your browser only — never sent to our servers.</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-white/40 hover:text-white transition-[color]">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -136,7 +136,7 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
               href="https://firecrawl.dev"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 font-manrope text-[11px] text-[#D4755B] hover:text-[#e88a6f] transition-colors"
+              className="flex items-center gap-1 font-manrope text-[11px] text-[#D4755B] hover:text-[#e88a6f] transition-[color]"
             >
               Get free key → <ExternalLink className="w-3 h-3" />
             </a>
@@ -152,7 +152,7 @@ const AIApiKeyModal: React.FC<AIApiKeyModalProps> = ({ isOpen, onClose, onKeysCh
               className="flex-1 bg-transparent font-space-mono text-xs text-white outline-none placeholder:text-white/20"
               autoComplete="off"
             />
-            <button type="button" onClick={() => setShowFirecrawl(v => !v)} className="text-white/30 hover:text-white/70 transition-colors">
+            <button type="button" onClick={() => setShowFirecrawl(v => !v)} className="text-white/30 hover:text-white/70 transition-[color]">
               {showFirecrawl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>

@@ -32,7 +32,7 @@ const CuratedListingsSection: React.FC = () => {
 
           <Link to="/properties" className="flex items-center gap-2 font-manrope font-bold text-[#D4755B] hover:gap-4 transition-all">
             View All Properties
-            <span className="font-material-icons text-sm">arrow_forward</span>
+            <span className="font-material-icons text-sm" aria-hidden="true">arrow_forward</span>
           </Link>
         </div>
 
@@ -60,11 +60,11 @@ const CuratedListingsSection: React.FC = () => {
                   <span className="font-space-mono text-white">$12,500,000</span>
                   <div className="flex items-center gap-6 text-white/90">
                     <div className="flex items-center gap-2">
-                      <span className="font-material-icons text-sm">bed</span>
+                      <span className="font-material-icons text-sm" aria-hidden="true">bed</span>
                       <span className="font-space-mono text-sm">6 Beds</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-material-icons text-sm">square_foot</span>
+                      <span className="font-material-icons text-sm" aria-hidden="true">square_foot</span>
                       <span className="font-space-mono text-sm">8,200 sqft</span>
                     </div>
                   </div>
@@ -124,8 +124,8 @@ const CuratedListingsSection: React.FC = () => {
                 <p className="font-manrope text-white/70 mb-6">Malibu, California</p>
                 <div className="border-t border-white/20 pt-6 flex items-center justify-between">
                   <span className="font-space-mono text-white">$15,000,000</span>
-                  <button className="text-white hover:bg-white/10 p-2 rounded-full transition-all">
-                    <span className="font-material-icons text-2xl">arrow_forward</span>
+                  <button className="text-white hover:bg-white/10 p-2 rounded-full transition-all" aria-label="View Coastal Retreat">
+                    <span className="font-material-icons text-2xl" aria-hidden="true">arrow_forward</span>
                   </button>
                 </div>
               </div>

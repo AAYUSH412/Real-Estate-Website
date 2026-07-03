@@ -89,7 +89,7 @@ const PropertyLocation: React.FC<PropertyLocationProps> = ({ address, city, stat
               href={googleMapLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[#D4755B] hover:text-[#B86851] font-manrope text-sm font-medium shrink-0 transition-colors"
+              className="inline-flex items-center gap-1.5 text-[#D4755B] hover:text-[#B86851] font-manrope text-sm font-medium shrink-0 transition-[color]"
             >
               Open in Maps
               <ExternalLink className="w-4 h-4" />

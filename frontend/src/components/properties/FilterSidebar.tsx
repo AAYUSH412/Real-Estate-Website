@@ -283,7 +283,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange }) => {
                     : 'bg-white border-[#E6E0DA] hover:border-[#D4755B]'
                 }`}
               >
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-[background-color,border-color] ${
                   selectedAmenities.includes(amenity)
                     ? 'bg-[#D4755B] border-[#D4755B]'
                     : 'bg-white border-[#D1D5DB]'

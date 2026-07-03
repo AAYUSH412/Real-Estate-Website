@@ -19,7 +19,7 @@ const AIIntelligenceSection: React.FC = () => {
           {/* Feature 1 */}
           <div className="bg-white border border-[#f3f4f6] rounded-2xl p-8 shadow-[0px_20px_25px_-5px_rgba(229,231,235,0.5)]">
             <div className="w-14 h-14 bg-[rgba(212,117,91,0.1)] rounded-xl flex items-center justify-center mb-6">
-              <span className="font-material-icons text-3xl text-[#D4755B]">query_stats</span>
+              <span className="font-material-icons text-3xl text-[#D4755B]" aria-hidden="true">query_stats</span>
             </div>
             <h3 className="font-syne font-bold text-2xl text-[#111827] mb-4">Live Market Scraping</h3>
             <p className="font-manrope text-base text-[#6b7280] leading-relaxed">
@@ -31,7 +31,7 @@ const AIIntelligenceSection: React.FC = () => {
           {/* Feature 2 */}
           <div className="bg-white border border-[#f3f4f6] rounded-2xl p-8 shadow-[0px_20px_25px_-5px_rgba(229,231,235,0.5)]">
             <div className="w-14 h-14 bg-[rgba(212,117,91,0.1)] rounded-xl flex items-center justify-center mb-6">
-              <span className="font-material-icons text-3xl text-[#D4755B]">psychology</span>
+              <span className="font-material-icons text-3xl text-[#D4755B]" aria-hidden="true">psychology</span>
             </div>
             <h3 className="font-syne font-bold text-2xl text-[#111827] mb-4">Expert AI Insights</h3>
             <p className="font-manrope text-base text-[#6b7280] leading-relaxed">
@@ -43,7 +43,7 @@ const AIIntelligenceSection: React.FC = () => {
           {/* Feature 3 */}
           <div className="bg-white border border-[#f3f4f6] rounded-2xl p-8 shadow-[0px_20px_25px_-5px_rgba(229,231,235,0.5)]">
             <div className="w-14 h-14 bg-[rgba(212,117,91,0.1)] rounded-xl flex items-center justify-center mb-6">
-              <span className="font-material-icons text-3xl text-[#D4755B]">location_city</span>
+              <span className="font-material-icons text-3xl text-[#D4755B]" aria-hidden="true">location_city</span>
             </div>
             <h3 className="font-syne font-bold text-2xl text-[#111827] mb-4">Best Area Suggestions</h3>
             <p className="font-manrope text-base text-[#6b7280] leading-relaxed">

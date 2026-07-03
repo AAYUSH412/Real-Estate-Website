@@ -46,7 +46,7 @@ const AIInsightsSection: React.FC = () => {
               className="bg-[#F8F6F6] border border-[#E6E0DA] rounded-xl p-8 hover:shadow-xl transition-all group"
             >
               {/* Icon */}
-              <div className="w-12 h-12 bg-[rgba(236,70,19,0.1)] rounded-full flex items-center justify-center mb-6 group-hover:bg-[rgba(236,70,19,0.15)] transition-colors">
+              <div className="w-12 h-12 bg-[rgba(236,70,19,0.1)] rounded-full flex items-center justify-center mb-6 group-hover:bg-[rgba(236,70,19,0.15)] transition-[background-color]">
                 <insight.icon className="w-6 h-6 text-[#D4755B]" strokeWidth={1.5} />
               </div>
 

@@ -61,7 +61,7 @@ const AITopMatchesSection: React.FC = () => {
             </div>
           </div>
 
-          <button className="font-space-mono text-sm text-[#221410] border-b border-[#221410] hover:text-[#D4755B] hover:border-[#D4755B] transition-colors pb-1">
+          <button className="font-space-mono text-sm text-[#221410] border-b border-[#221410] hover:text-[#D4755B] hover:border-[#D4755B] transition-[color,border-color] pb-1">
             View All → See more
           </button>
         </div>

@@ -32,7 +32,7 @@ const NewsletterBanner: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-5 py-3.5 font-manrope font-extralight text-sm text-white placeholder:text-white/60 focus:outline-none focus:border-white/40 transition-colors"
+                className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-5 py-3.5 font-manrope font-extralight text-sm text-white placeholder:text-white/60 focus:outline-none focus:border-white/40 transition-[border-color]"
                 required
               />
               <button

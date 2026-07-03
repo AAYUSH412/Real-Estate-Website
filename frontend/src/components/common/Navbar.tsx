@@ -54,6 +54,14 @@ const Navbar: React.FC = () => {
     : '?';
 
   return (
+    <>
+    {/* Skip-to-main-content — keyboard accessibility */}
+    <a
+      href="#main-content"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:bg-[#D4755B] focus:text-white focus:font-manrope focus:font-bold focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg"
+    >
+      Skip to main content
+    </a>
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
@@ -100,6 +108,8 @@ const Navbar: React.FC = () => {
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setIsUserMenuOpen((v) => !v)}
+                  aria-expanded={isUserMenuOpen}
+                  aria-label="User menu"
                   className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xl hover:bg-[#FAF8F4] transition-[background-color,border-color] border border-transparent hover:border-[#E6D5C3] active:scale-[0.96]"
                 >
                   <div className="w-8 h-8 rounded-lg bg-[#D4755B] text-white font-manrope font-bold text-xs flex items-center justify-center shrink-0">
@@ -108,7 +118,7 @@ const Navbar: React.FC = () => {
                   <span className="font-manrope font-semibold text-[#221410] max-w-[100px] truncate">
                     {user.name.split(' ')[0]}
                   </span>
-                  <span className="font-material-icons text-[#9CA3AF] text-lg">
+                  <span className="font-material-icons text-[#9CA3AF] text-lg" aria-hidden="true">
                     {isUserMenuOpen ? 'expand_less' : 'expand_more'}
                   </span>
                 </button>
@@ -131,7 +141,7 @@ const Navbar: React.FC = () => {
                           isActive(to) ? 'text-[#D4755B] font-semibold bg-[#FAF8F4]' : 'text-[#374151] hover:bg-[#FAF8F4] hover:text-[#D4755B]'
                         }`}
                       >
-                        <span className="font-material-icons text-base">{icon}</span>
+                        <span className="font-material-icons text-base" aria-hidden="true">{icon}</span>
                         {label}
                       </Link>
                     ))}
@@ -141,7 +151,7 @@ const Navbar: React.FC = () => {
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 font-manrope text-sm text-[#374151] hover:bg-red-50 hover:text-red-500 transition-[background-color,color] mx-1 rounded-xl"
                         style={{ width: 'calc(100% - 8px)' }}
                       >
-                        <span className="font-material-icons text-base">logout</span>
+                        <span className="font-material-icons text-base" aria-hidden="true">logout</span>
                         Logout
                       </button>
                     </div>
@@ -169,10 +179,12 @@ const Navbar: React.FC = () => {
 
         {/* Mobile menu button */}
         <button
-          className="md:hidden p-2 text-[#374151] hover:text-[#D4755B] transition-colors"
+          className="md:hidden p-2 text-[#374151] hover:text-[#D4755B] transition-[color]"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
         >
-          <span className="font-material-icons text-2xl">
+          <span className="font-material-icons text-2xl" aria-hidden="true">
             {isMobileMenuOpen ? 'close' : 'menu'}
           </span>
         </button>
@@ -185,7 +197,7 @@ const Navbar: React.FC = () => {
             <Link
               key={link.path}
               to={link.path}
-              className={`font-manrope text-base py-2.5 transition-colors ${
+              className={`font-manrope text-base py-2.5 transition-[color] ${
                 isActive(link.path) ? 'text-[#D4755B] font-semibold' : 'text-[#374151]'
               }`}
               onClick={closeMobileMenu}
@@ -200,8 +212,8 @@ const Navbar: React.FC = () => {
                 <p className="font-manrope text-xs text-[#9CA3AF] mb-1">
                   Signed in as <span className="font-semibold text-[#374151]">{user.name}</span>
                 </p>
-                <Link to="/dashboard" className="font-manrope text-base py-2.5 text-[#374151] hover:text-[#D4755B] transition-colors" onClick={closeMobileMenu}>Dashboard</Link>
-                <Link to="/my-listings" className="font-manrope text-base py-2.5 text-[#374151] hover:text-[#D4755B] transition-colors" onClick={closeMobileMenu}>My Listings</Link>
+                <Link to="/dashboard" className="font-manrope text-base py-2.5 text-[#374151] hover:text-[#D4755B] transition-[color]" onClick={closeMobileMenu}>Dashboard</Link>
+                <Link to="/my-listings" className="font-manrope text-base py-2.5 text-[#374151] hover:text-[#D4755B] transition-[color]" onClick={closeMobileMenu}>My Listings</Link>
                 <Link
                   to="/add-property"
                   className="mt-2 bg-[#D4755B] text-white font-manrope font-bold text-sm px-6 py-3 rounded-lg hover:bg-[#B86851] transition-all text-center"
@@ -209,7 +221,7 @@ const Navbar: React.FC = () => {
                 >
                   + List Property
                 </Link>
-                <button onClick={handleLogout} className="font-manrope text-base py-2.5 text-left text-[#374151] hover:text-red-500 transition-colors">
+                <button onClick={handleLogout} className="font-manrope text-base py-2.5 text-left text-[#374151] hover:text-red-500 transition-[color]">
                   Logout
                 </button>
               </>
@@ -229,6 +241,7 @@ const Navbar: React.FC = () => {
         </div>
       )}
     </motion.nav>
+    </>
   );
 };
 

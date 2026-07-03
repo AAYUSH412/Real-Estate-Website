@@ -51,15 +51,15 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
           </span>
           <div className="flex items-center gap-4 text-[#4b5563]">
             <div className="flex items-center gap-1">
-              <span className="font-material-icons text-sm">bed</span>
+              <span className="font-material-icons text-sm" aria-hidden="true">bed</span>
               <span className="font-manrope text-sm">{beds}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="font-material-icons text-sm">shower</span>
+              <span className="font-material-icons text-sm" aria-hidden="true">shower</span>
               <span className="font-manrope text-sm">{baths}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="font-material-icons text-sm">square_foot</span>
+              <span className="font-material-icons text-sm" aria-hidden="true">square_foot</span>
               <span className="font-manrope text-sm">{sqft}</span>
             </div>
           </div>

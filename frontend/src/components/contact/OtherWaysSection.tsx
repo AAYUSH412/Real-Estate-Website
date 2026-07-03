@@ -79,7 +79,7 @@ const OtherWaysSection: React.FC = () => {
                 href={method.actionLink}
                 target={method.actionLink.startsWith('http') ? '_blank' : '_self'}
                 rel={method.actionLink.startsWith('http') ? 'noopener noreferrer' : ''}
-                className="inline-flex items-center gap-2 font-manrope font-bold text-sm text-[#D4755B] hover:text-[#C05621] transition-colors group"
+                className="inline-flex items-center gap-2 font-manrope font-bold text-sm text-[#D4755B] hover:text-[#C05621] transition-[color] group"
               >
                 <span>{method.action}</span>
                 <span className="material-icons text-sm group-hover:translate-x-1 transition-transform">

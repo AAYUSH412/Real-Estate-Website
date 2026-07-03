@@ -30,7 +30,7 @@ const TrustSignalsSection: React.FC = () => {
             <div className="flex gap-4">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-white rounded-lg shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] flex items-center justify-center">
-                  <span className="font-material-icons text-2xl text-[#D4755B]">verified_user</span>
+                  <span className="font-material-icons text-2xl text-[#D4755B]" aria-hidden="true">verified_user</span>
                 </div>
               </div>
               <div>
@@ -46,7 +46,7 @@ const TrustSignalsSection: React.FC = () => {
             <div className="flex gap-4">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-white rounded-lg shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] flex items-center justify-center">
-                  <span className="font-material-icons text-2xl text-[#D4755B]">support_agent</span>
+                  <span className="font-material-icons text-2xl text-[#D4755B]" aria-hidden="true">support_agent</span>
                 </div>
               </div>
               <div>
@@ -62,7 +62,7 @@ const TrustSignalsSection: React.FC = () => {
             <div className="flex gap-4">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-white rounded-lg shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] flex items-center justify-center">
-                  <span className="font-material-icons text-2xl text-[#D4755B]">savings</span>
+                  <span className="font-material-icons text-2xl text-[#D4755B]" aria-hidden="true">savings</span>
                 </div>
               </div>
               <div>

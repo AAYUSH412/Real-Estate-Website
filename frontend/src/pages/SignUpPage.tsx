@@ -53,7 +53,7 @@ const SignUpPage: React.FC = () => {
             Already have an account?{' '}
             <Link
               to="/signin"
-              className="font-semibold text-[#D4755B] hover:text-[#C05621] transition-colors"
+              className="font-semibold text-[#D4755B] hover:text-[#C05621] transition-[color]"
             >
               Sign In
             </Link>
@@ -64,7 +64,7 @@ const SignUpPage: React.FC = () => {
         <div className="text-center mt-6">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 font-manrope font-medium text-sm text-[#64748B] hover:text-[#D4755B] transition-colors"
+            className="inline-flex items-center gap-2 font-manrope font-medium text-sm text-[#64748B] hover:text-[#D4755B] transition-[color]"
           >
             <span className="material-icons text-base">arrow_back</span>
             <span>Back to Home</span>

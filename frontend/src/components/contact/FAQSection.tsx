@@ -65,7 +65,7 @@ const FAQSection: React.FC = () => {
               {/* Question */}
               <button
                 onClick={() => toggleFAQ(index)}
-                className="w-full flex items-center gap-4 p-6 text-left hover:bg-[#F2EFE9] transition-colors"
+                className="w-full flex items-center gap-4 p-6 text-left hover:bg-[#F2EFE9] transition-[background-color]"
               >
                 {/* Number Badge */}
                 <div className="w-8 h-8 bg-[#F9F7F2] border border-[#E6E0DA] rounded-full flex items-center justify-center flex-shrink-0">
@@ -103,7 +103,7 @@ const FAQSection: React.FC = () => {
         <div className="text-center mt-12">
           <a 
             href="#" 
-            className="inline-flex items-center gap-2 font-manrope font-bold text-base text-[#D4755B] hover:text-[#C05621] transition-colors group"
+            className="inline-flex items-center gap-2 font-manrope font-bold text-base text-[#D4755B] hover:text-[#C05621] transition-[color] group"
           >
             <span>Get Full Knowledge Base</span>
             <span className="material-icons text-lg group-hover:translate-x-1 transition-transform">

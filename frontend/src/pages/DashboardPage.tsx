@@ -127,7 +127,7 @@ const SettingsTab: React.FC = () => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-[border-color]"
               placeholder="Your name"
             />
           </div>
@@ -155,7 +155,7 @@ const SettingsTab: React.FC = () => {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-[border-color]"
               placeholder="••••••••"
               autoComplete="current-password"
             />
@@ -166,7 +166,7 @@ const SettingsTab: React.FC = () => {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-[border-color]"
               placeholder="Min 8 characters"
               autoComplete="new-password"
             />
@@ -177,7 +177,7 @@ const SettingsTab: React.FC = () => {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-colors"
+              className="w-full border border-[#E6E0DA] rounded-xl px-4 py-2.5 font-manrope text-sm text-[#221410] focus:outline-none focus:border-[#D4755B] transition-[border-color]"
               placeholder="••••••••"
               autoComplete="new-password"
             />
@@ -188,7 +188,7 @@ const SettingsTab: React.FC = () => {
       <button
         type="submit"
         disabled={saving}
-        className="bg-[#D4755B] font-manrope font-bold text-sm text-white px-6 py-2.5 rounded-xl hover:bg-[#B86851] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="bg-[#D4755B] font-manrope font-bold text-sm text-white px-6 py-2.5 rounded-xl hover:bg-[#B86851] transition-[background-color] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {saving ? 'Saving…' : 'Save Changes'}
       </button>
@@ -304,7 +304,7 @@ const DashboardPage: React.FC = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`font-manrope font-semibold text-sm px-5 py-2.5 -mb-px border-b-2 transition-colors capitalize ${
+              className={`font-manrope font-semibold text-sm px-5 py-2.5 -mb-px border-b-2 transition-[color,border-color] capitalize ${
                 activeTab === tab
                   ? 'border-[#D4755B] text-[#D4755B]'
                   : 'border-transparent text-[#4B5563] hover:text-[#221410]'
@@ -325,7 +325,7 @@ const DashboardPage: React.FC = () => {
               key={label}
               className="bg-white border border-[#E6E0DA] rounded-2xl p-5 shadow-sm"
             >
-              <span className="font-material-icons text-[#D4755B] text-2xl">{icon}</span>
+              <span className="font-material-icons text-[#D4755B] text-2xl" aria-hidden="true">{icon}</span>
               <div className="font-syne font-bold text-2xl text-[#221410] mt-2 tabular-nums">
                 {fetchLoading ? '—' : value}
               </div>
@@ -338,19 +338,19 @@ const DashboardPage: React.FC = () => {
         <div className="flex flex-wrap gap-3 mb-10">
           <Link
             to="/my-listings"
-            className="bg-white border border-[#E6E0DA] font-manrope font-semibold text-sm text-[#221410] px-5 py-2.5 rounded-xl hover:border-[#D4755B] hover:text-[#D4755B] transition-colors"
+            className="bg-white border border-[#E6E0DA] font-manrope font-semibold text-sm text-[#221410] px-5 py-2.5 rounded-xl hover:border-[#D4755B] hover:text-[#D4755B] transition-[border-color,color]"
           >
             Manage My Listings
           </Link>
           <Link
             to="/add-property"
-            className="bg-[#D4755B] font-manrope font-bold text-sm text-white px-5 py-2.5 rounded-xl hover:bg-[#B86851] transition-colors"
+            className="bg-[#D4755B] font-manrope font-bold text-sm text-white px-5 py-2.5 rounded-xl hover:bg-[#B86851] transition-[background-color]"
           >
             + List a Property
           </Link>
           <Link
             to="/properties"
-            className="bg-white border border-[#E6E0DA] font-manrope font-semibold text-sm text-[#221410] px-5 py-2.5 rounded-xl hover:border-[#D4755B] hover:text-[#D4755B] transition-colors"
+            className="bg-white border border-[#E6E0DA] font-manrope font-semibold text-sm text-[#221410] px-5 py-2.5 rounded-xl hover:border-[#D4755B] hover:text-[#D4755B] transition-[border-color,color]"
           >
             Browse Properties
           </Link>
@@ -368,13 +368,13 @@ const DashboardPage: React.FC = () => {
             </div>
           ) : sortedAppointments.length === 0 ? (
             <div className="bg-white border border-[#E6E0DA] rounded-2xl p-10 text-center">
-              <span className="font-material-icons text-4xl text-[#D4755B]/40">event_busy</span>
+              <span className="font-material-icons text-4xl text-[#D4755B]/40" aria-hidden="true">event_busy</span>
               <p className="font-manrope text-sm text-[#4B5563] mt-3 mb-5">
                 No appointments yet. Book a viewing from any property page.
               </p>
               <Link
                 to="/properties"
-                className="inline-block bg-[#D4755B] font-manrope font-bold text-sm text-white px-5 py-2.5 rounded-xl hover:bg-[#B86851] transition-colors"
+                className="inline-block bg-[#D4755B] font-manrope font-bold text-sm text-white px-5 py-2.5 rounded-xl hover:bg-[#B86851] transition-[background-color]"
               >
                 Browse Properties
               </Link>
@@ -399,7 +399,7 @@ const DashboardPage: React.FC = () => {
                       />
                     ) : (
                       <div className="w-full sm:w-20 h-32 sm:h-16 bg-[#FAF8F4] border border-[#E6E0DA] rounded-xl flex items-center justify-center shrink-0">
-                        <span className="font-material-icons text-[#D4755B]/40">home</span>
+                        <span className="font-material-icons text-[#D4755B]/40" aria-hidden="true">home</span>
                       </div>
                     )}
 
@@ -436,7 +436,7 @@ const DashboardPage: React.FC = () => {
                           href={apt.meetingLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-manrope font-semibold text-xs text-white bg-[#221410] px-4 py-2 rounded-lg hover:bg-[#D4755B] transition-colors"
+                          className="font-manrope font-semibold text-xs text-white bg-[#221410] px-4 py-2 rounded-lg hover:bg-[#D4755B] transition-[background-color]"
                         >
                           Join Meeting
                         </a>
@@ -444,7 +444,7 @@ const DashboardPage: React.FC = () => {
                       {apt.propertyId && (
                         <Link
                           to={`/property/${apt.propertyId._id}`}
-                          className="font-manrope font-semibold text-xs text-[#221410] border border-[#E6E0DA] px-4 py-2 rounded-lg hover:border-[#D4755B] hover:text-[#D4755B] transition-colors"
+                          className="font-manrope font-semibold text-xs text-[#221410] border border-[#E6E0DA] px-4 py-2 rounded-lg hover:border-[#D4755B] hover:text-[#D4755B] transition-[border-color,color]"
                         >
                           View
                         </Link>
@@ -452,7 +452,7 @@ const DashboardPage: React.FC = () => {
                       {cancellable && (
                         <button
                           onClick={() => setCancelTarget(apt)}
-                          className="font-manrope font-semibold text-xs text-red-600 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                          className="font-manrope font-semibold text-xs text-red-600 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50 transition-[background-color]"
                         >
                           Cancel
                         </button>

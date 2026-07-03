@@ -348,7 +348,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
                         type="button"
                         onClick={() => selectCity(c)}
                         onMouseEnter={() => setHighlightedIndex(idx)}
-                        className={`w-full text-left px-5 py-3.5 flex items-center gap-3 transition-colors ${idx === highlightedIndex
+                        className={`w-full text-left px-5 py-3.5 flex items-center gap-3 transition-[background-color,color] ${idx === highlightedIndex
                           ? 'bg-[#FAF8F4] text-[#221410]'
                           : 'text-[#6B7280] hover:bg-[#FAF8F4] hover:text-[#221410]'
                           }`}
@@ -412,7 +412,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
                         type="button"
                         onClick={() => selectLocality(loc)}
                         onMouseEnter={() => setLocalityHighlightedIndex(idx)}
-                        className={`w-full text-left px-5 py-3.5 flex items-center gap-3 transition-colors ${
+                        className={`w-full text-left px-5 py-3.5 flex items-center gap-3 transition-[background-color,color] ${
                           idx === localityHighlightedIndex
                             ? 'bg-[#FAF8F4] text-[#221410]'
                             : 'text-[#6B7280] hover:bg-[#FAF8F4] hover:text-[#221410]'

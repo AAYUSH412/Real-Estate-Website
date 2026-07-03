@@ -101,10 +101,10 @@ const HeroSection: React.FC = () => {
               <motion.div variants={itemVariants} className="flex flex-wrap gap-4 mb-10">
                 <Link to="/properties" className="bg-[#D4755B] text-white font-manrope font-bold text-lg px-8 py-4 rounded-xl shadow-[0px_10px_15px_-3px_rgba(212,117,91,0.25),0px_4px_6px_-4px_rgba(212,117,91,0.25)] hover:bg-[#B86851] transition-all hover:shadow-xl inline-flex items-center">
                   Explore Properties
-                  <span className="font-material-icons text-sm ml-2">arrow_forward</span>
+                  <span className="font-material-icons text-sm ml-2" aria-hidden="true">arrow_forward</span>
                 </Link>
                 <Link to="/ai-hub" className="border-2 border-[#d1d5db] text-[#374151] font-manrope font-bold text-lg px-8 py-4 rounded-xl hover:border-[#D4755B] hover:text-[#D4755B] transition-all inline-flex items-center">
-                  <span className="font-material-icons text-2xl text-[#D4755B] mr-2">smart_toy</span>
+                  <span className="font-material-icons text-2xl text-[#D4755B] mr-2" aria-hidden="true">smart_toy</span>
                   {import.meta.env.PROD ? 'AI Property Hub' : 'Try AI Search'}
                 </Link>
               </motion.div>
@@ -149,11 +149,11 @@ const HeroSection: React.FC = () => {
                       <span className="font-space-mono text-sm text-[#4b5563]">$4,250,000</span>
                       <div className="flex items-center gap-4 text-[#4b5563]">
                         <div className="flex items-center gap-1">
-                          <span className="font-material-icons text-xs">bed</span>
+                          <span className="font-material-icons text-xs" aria-hidden="true">bed</span>
                           <span className="font-manrope text-sm">4</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="font-material-icons text-xs">shower</span>
+                          <span className="font-material-icons text-xs" aria-hidden="true">shower</span>
                           <span className="font-manrope text-sm">3.5</span>
                         </div>
                       </div>

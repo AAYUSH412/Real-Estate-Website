@@ -262,7 +262,7 @@ const PropertyCard: React.FC<{
             <button
               type="button"
               onClick={e => { e.stopPropagation(); setShowFlags(f => !f); }}
-              className="flex items-center gap-2 w-full text-left font-manrope text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 hover:bg-amber-100 transition-colors active:scale-[0.98]"
+              className="flex items-center gap-2 w-full text-left font-manrope text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 hover:bg-amber-100 transition-[background-color] active:scale-[0.98]"
             >
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               <span>{redFlags.length} concern{redFlags.length > 1 ? 's' : ''}</span>
@@ -422,7 +422,7 @@ const ComparisonModal: React.FC<{
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#FAF8F4] text-[#9CA3AF] hover:text-[#221410] transition-colors active:scale-[0.96]"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#FAF8F4] text-[#9CA3AF] hover:text-[#221410] transition-[background-color,color] active:scale-[0.96]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -723,7 +723,7 @@ const AISearchResults: React.FC<Props> = ({ properties, loading, sseStage, statu
                       <button
                         type="button"
                         onClick={() => toggleCompare(p)}
-                        className="shrink-0 text-[#9CA3AF] hover:text-[#D4755B] transition-colors active:scale-[0.96]"
+                        className="shrink-0 text-[#9CA3AF] hover:text-[#D4755B] transition-[color] active:scale-[0.96]"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>

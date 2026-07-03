@@ -160,13 +160,13 @@ const AddPropertyPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               to="/my-listings"
-              className="bg-[#D4755B] text-white font-manrope font-semibold px-6 py-3 rounded-lg hover:bg-[#B86851] transition-colors"
+              className="bg-[#D4755B] text-white font-manrope font-semibold px-6 py-3 rounded-lg hover:bg-[#B86851] transition-[background-color]"
             >
               View My Listings
             </Link>
             <Link
               to="/properties"
-              className="border border-[#D4755B] text-[#D4755B] font-manrope font-semibold px-6 py-3 rounded-lg hover:bg-[#D4755B] hover:text-white transition-colors"
+              className="border border-[#D4755B] text-[#D4755B] font-manrope font-semibold px-6 py-3 rounded-lg hover:bg-[#D4755B] hover:text-white transition-[background-color,color]"
             >
               Browse Properties
             </Link>
@@ -389,7 +389,7 @@ const AddPropertyPage: React.FC = () => {
                 return (
                   <label
                     key={amenity}
-                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors select-none ${
+                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-[background-color,border-color] select-none ${
                       checked
                         ? 'border-[#D4755B] bg-[#D4755B]/5 text-[#D4755B]'
                         : 'border-[#E6E0DA] text-[#374151] hover:border-[#D4755B]/50'
@@ -457,7 +457,7 @@ const AddPropertyPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 border-2 border-dashed border-[#D4755B]/40 rounded-lg px-6 py-4 text-[#D4755B] font-manrope text-sm hover:border-[#D4755B] hover:bg-[#D4755B]/5 transition-colors"
+                className="flex items-center gap-2 border-2 border-dashed border-[#D4755B]/40 rounded-lg px-6 py-4 text-[#D4755B] font-manrope text-sm hover:border-[#D4755B] hover:bg-[#D4755B]/5 transition-[border-color,background-color]"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -492,7 +492,7 @@ const AddPropertyPage: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-[#D4755B] text-white font-manrope font-semibold text-base py-3.5 rounded-xl hover:bg-[#B86851] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-[#D4755B] text-white font-manrope font-semibold text-base py-3.5 rounded-xl hover:bg-[#B86851] transition-[background-color] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">

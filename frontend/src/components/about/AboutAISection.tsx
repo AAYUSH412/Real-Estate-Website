@@ -59,13 +59,13 @@ const AboutAISection: React.FC = () => {
             {/* Link */}
             <a 
               href="#" 
-              className="inline-flex items-center gap-2 border-b border-[#221410] pb-1 group hover:border-[#D4755B] transition-colors"
+              className="inline-flex items-center gap-2 border-b border-[#221410] pb-1 group hover:border-[#D4755B] transition-[border-color]"
             >
-              <span className="font-space-mono text-sm text-[#221410] group-hover:text-[#D4755B] transition-colors">
+              <span className="font-space-mono text-sm text-[#221410] group-hover:text-[#D4755B] transition-[color]">
                 Learn about our Tech
               </span>
 
-              <ArrowRight className="w-4 h-4 text-[#221410] group-hover:text-[#D4755B] transition-colors" />
+              <ArrowRight className="w-4 h-4 text-[#221410] group-hover:text-[#D4755B] transition-[color]" />
             </a>
           </div>
 

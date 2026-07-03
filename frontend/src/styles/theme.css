@@ -182,6 +182,8 @@
 
   html {
     font-size: var(--font-size);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1 {
@@ -190,6 +192,7 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.2;
     color: var(--charcoal-ink);
+    text-wrap: balance;
   }
 
   h2 {
@@ -198,6 +201,7 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.2;
     color: var(--charcoal-ink);
+    text-wrap: balance;
   }
 
   h3 {
@@ -206,6 +210,7 @@
     font-weight: var(--font-weight-bold);
     line-height: 1.3;
     color: var(--charcoal-ink);
+    text-wrap: balance;
   }
 
   h4 {
@@ -228,6 +233,12 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-bold);
     line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--terracotta-clay);
+    outline-offset: 3px;
+    border-radius: 4px;
   }
 
   input, textarea {

@@ -115,11 +115,11 @@ const AILocationTrends: React.FC<Props> = ({
                   {locations.map((loc, i) => (
                     <tr
                       key={i}
-                      className="hover:bg-[#FAF8F4]/50 transition-colors group cursor-default"
+                      className="hover:bg-[#FAF8F4]/50 transition-[background-color] group cursor-default"
                     >
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3">
-                          <MapPin className="w-4 h-4 text-[#D4755B]/60 group-hover:text-[#D4755B] transition-colors" />
+                          <MapPin className="w-4 h-4 text-[#D4755B]/60 group-hover:text-[#D4755B] transition-[color]" />
                           <span className="font-manrope text-[15px] text-[#221410] font-semibold">
                             {loc.location}
                           </span>
@@ -178,7 +178,7 @@ const AILocationTrends: React.FC<Props> = ({
                       outlookLower.includes('declin');
 
                     return (
-                      <div key={i} className="bg-[#FAF8F4] border border-[#E6E0DA]/60 rounded-xl p-5 hover:border-[#D4755B]/30 transition-colors">
+                      <div key={i} className="bg-[#FAF8F4] border border-[#E6E0DA]/60 rounded-xl p-5 hover:border-[#D4755B]/30 transition-[border-color]">
                         <div className="flex items-start justify-between mb-4">
                           {/* Location name */}
                           <h4 className="font-syne text-[17px] font-bold text-[#221410]">

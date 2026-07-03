@@ -24,7 +24,7 @@ const ContactInfoCards: React.FC = () => {
               href="https://maps.google.com" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-manrope font-medium text-sm text-[#D4755B] hover:text-[#C05621] transition-colors"
+              className="inline-flex items-center gap-1 font-manrope font-medium text-sm text-[#D4755B] hover:text-[#C05621] transition-[color]"
             >
               <span>Get Directions</span>
               <span className="material-icons text-sm">
@@ -50,7 +50,7 @@ const ContactInfoCards: React.FC = () => {
             <div className="space-y-2">
               <a 
                 href="tel:+919876543210" 
-                className="flex items-center gap-2 font-manrope font-extralight text-sm text-[#4B5563] hover:text-[#D4755B] transition-colors"
+                className="flex items-center gap-2 font-manrope font-extralight text-sm text-[#4B5563] hover:text-[#D4755B] transition-[color]"
               >
                 <span className="material-icons text-base">
                   call
@@ -59,7 +59,7 @@ const ContactInfoCards: React.FC = () => {
               </a>
               <a 
                 href="mailto:hello@buildestate.com" 
-                className="flex items-center gap-2 font-manrope font-extralight text-sm text-[#4B5563] hover:text-[#D4755B] transition-colors"
+                className="flex items-center gap-2 font-manrope font-extralight text-sm text-[#4B5563] hover:text-[#D4755B] transition-[color]"
               >
                 <span className="material-icons text-base">
                   email

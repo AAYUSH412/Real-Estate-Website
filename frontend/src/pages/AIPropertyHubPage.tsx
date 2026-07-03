@@ -144,7 +144,7 @@ const AIHubProductionPage: React.FC = () => {
           <div className="text-center max-w-3xl mx-auto">
             {/* Badge */}
             <div className="inline-flex items-center gap-3 bg-[rgba(212,117,91,0.15)] border border-[rgba(212,117,91,0.3)] rounded-full px-5 py-2.5 mb-8">
-              <span className="font-material-icons text-[#D4755B] text-lg">smart_toy</span>
+              <span className="font-material-icons text-[#D4755B] text-lg" aria-hidden="true">smart_toy</span>
               <span className="font-manrope font-bold text-sm text-[#D4755B] uppercase tracking-wider">
                 AI-Powered Feature
               </span>
@@ -175,14 +175,14 @@ const AIHubProductionPage: React.FC = () => {
                 className="border-2 border-[rgba(255,255,255,0.2)] text-white font-manrope font-bold text-lg px-8 py-4 rounded-xl hover:border-[#D4755B] hover:text-[#D4755B] transition-all inline-flex items-center gap-2"
               >
                 Browse Properties
-                <span className="font-material-icons text-sm">arrow_forward</span>
+                <span className="font-material-icons text-sm" aria-hidden="true">arrow_forward</span>
               </Link>
             </div>
 
             {/* Info Banner */}
             <div className="bg-[rgba(212,117,91,0.1)] border border-[rgba(212,117,91,0.25)] rounded-2xl p-6 max-w-xl mx-auto">
               <div className="flex items-start gap-3">
-                <span className="font-material-icons text-[#D4755B] text-xl mt-0.5">info</span>
+                <span className="font-material-icons text-[#D4755B] text-xl mt-0.5" aria-hidden="true">info</span>
                 <p className="font-manrope text-sm text-[#d1c4b7] text-left leading-relaxed">
                   The AI Property Hub requires API credits to operate. To save deployment costs, this feature is
                   disabled on the live site. Clone the repo and run it locally to experience the full AI capabilities.
@@ -210,8 +210,8 @@ const AIHubProductionPage: React.FC = () => {
               key={index}
               className="bg-white border border-[#E6D5C3] rounded-2xl p-6 hover:shadow-lg hover:border-[#D4755B]/30 transition-all group"
             >
-              <div className="w-12 h-12 bg-[rgba(212,117,91,0.1)] rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#D4755B] transition-colors">
-                <span className="font-material-icons text-[#D4755B] group-hover:text-white transition-colors">
+              <div className="w-12 h-12 bg-[rgba(212,117,91,0.1)] rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#D4755B] transition-[background-color]">
+                <span className="font-material-icons text-[#D4755B] group-hover:text-white transition-[color]" aria-hidden="true">
                   {feature.icon}
                 </span>
               </div>

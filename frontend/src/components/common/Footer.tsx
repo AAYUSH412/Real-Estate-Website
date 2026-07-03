@@ -33,7 +33,7 @@ const Footer: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
               >
-                <Facebook className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-colors" />
+                <Facebook className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
               </a>
               <a 
                 href="https://twitter.com" 
@@ -41,7 +41,7 @@ const Footer: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
               >
-                <Twitter className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-colors" />
+                <Twitter className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
               </a>
               <a 
                 href="https://instagram.com" 
@@ -49,7 +49,7 @@ const Footer: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
               >
-                <Instagram className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-colors" />
+                <Instagram className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
               </a>
               <a 
                 href="https://linkedin.com" 
@@ -57,7 +57,7 @@ const Footer: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
               >
-                <Linkedin className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-colors" />
+                <Linkedin className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
               </a>
               <a 
                 href="https://youtube.com" 
@@ -65,7 +65,7 @@ const Footer: React.FC = () => {
                 rel="noopener noreferrer"
                 className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
               >
-                <Youtube className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-colors" />
+                <Youtube className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
               </a>
             </div>
           </div>
@@ -112,7 +112,7 @@ const Footer: React.FC = () => {
             <h4 className="font-syne font-bold text-white text-lg mb-6">Contact Info</h4>
             <ul className="space-y-4">
               <li>
-                <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white transition-colors group">
+                <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white transition-[color] group">
                   <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#D4755B]" />
                   <span className="leading-relaxed">
                     502, Devpath Building,<br />
@@ -122,13 +122,13 @@ const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a href="tel:+919876543210" className="flex items-center gap-3 font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white transition-colors">
+                <a href="tel:+919876543210" className="flex items-center gap-3 font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white transition-[color]">
                   <Phone className="w-5 h-5 flex-shrink-0 text-[#D4755B]" />
                   <span>+91 98765 43210</span>
                 </a>
               </li>
               <li>
-                <a href="mailto:hello@buildestate.com" className="flex items-center gap-3 font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white transition-colors">
+                <a href="mailto:hello@buildestate.com" className="flex items-center gap-3 font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white transition-[color]">
                   <Mail className="w-5 h-5 flex-shrink-0 text-[#D4755B]" />
                   <span>hello@buildestate.com</span>
                 </a>
@@ -148,7 +148,7 @@ const Footer: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email address"
-                className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-4 py-3 font-manrope font-extralight text-sm text-white placeholder:text-[#6b7280] focus:outline-none focus:border-[#D4755B] transition-colors"
+                className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-4 py-3 font-manrope font-extralight text-sm text-white placeholder:text-[#6b7280] focus:outline-none focus:border-[#D4755B] transition-[border-color]"
                 required
               />
               <button 
@@ -171,16 +171,16 @@ const Footer: React.FC = () => {
               © 2026 BuildEstate. All rights reserved. Powered by AI.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-colors">
+              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
                 Privacy Policy
               </a>
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-colors">
+              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
                 Terms of Service
               </a>
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-colors">
+              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
                 Cookie Policy
               </a>
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-colors">
+              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
                 Sitemap
               </a>
             </div>

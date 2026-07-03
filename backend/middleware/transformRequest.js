@@ -9,7 +9,7 @@
  *     propertyType, propertyCategory, possession, limit }
  */
 export const transformAISearchRequest = (req, res, next) => {
-  const { city, locality, price, type, category, bhk, possession } = req.body;
+  const { city, locality, price, type, category, bhk, possession, model } = req.body;
 
   // Convert price from absolute INR to Crores (1 Cr = 1,00,00,000)
   let maxPriceInCr = '5';
@@ -37,6 +37,7 @@ export const transformAISearchRequest = (req, res, next) => {
     propertyCategory: category || 'Residential',
     possession:       possession || 'any',
     limit:            req.body.limit || 12,
+    model:            model || null,
   };
 
   next();

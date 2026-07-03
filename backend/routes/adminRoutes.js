@@ -27,6 +27,7 @@ import {
   getPropertyStats,
   getEnhancedOverview,
 } from '../controller/adminController.js';
+import { listModels, createModel, updateModel, deleteModel } from '../controller/aiModelController.js';
 import { adminProtect } from '../middleware/authMiddleware.js';
 import { registry } from '../utils/circuitBreaker.js';
 
@@ -69,6 +70,12 @@ router.get('/activity-logs/export', exportActivityLogs);
 router.get('/stats/users', getUserStats);
 router.get('/stats/properties', getPropertyStats);
 router.get('/stats/overview', getEnhancedOverview);
+
+// AI Model Management
+router.get('/ai-models', listModels);
+router.post('/ai-models', createModel);
+router.put('/ai-models/:id', updateModel);
+router.delete('/ai-models/:id', deleteModel);
 
 // Circuit breaker monitoring endpoint
 router.get('/circuit-breakers', (req, res) => {

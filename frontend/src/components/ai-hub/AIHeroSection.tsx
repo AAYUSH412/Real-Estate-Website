@@ -43,6 +43,14 @@ const LOAD_STEPS = [
 
 type BudgetUnit = 'Lakh' | 'Cr';
 
+interface AIModelOption {
+  name: string;
+  slug: string;
+  badge: string;
+  description: string;
+  isDefault: boolean;
+}
+
 const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseStage, externalOpenModal, onModalClosed }) => {
   const [city, setCity] = useState('');
   const [locality, setLocality] = useState('');
@@ -53,6 +61,10 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
   const [budgetUnit, setBudgetUnit] = useState<BudgetUnit>('Cr');
   const [propertyType, setPropertyType] = useState('Flat');
   const [category, setCategory] = useState('Residential');
+
+  // AI model selector
+  const [availableModels, setAvailableModels] = useState<AIModelOption[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
   // City autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -71,6 +83,18 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
   // API key modal + status
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [keysReady,    setKeysReady]   = useState(apiKeyStorage.hasKeys());
+
+  // Load available AI models once
+  useEffect(() => {
+    aiAPI.getModels().then((res: { data: { models: AIModelOption[] } }) => {
+      const models: AIModelOption[] = res.data?.models || [];
+      setAvailableModels(models);
+      const def = models.find(m => m.isDefault);
+      if (def) setSelectedModel(def.slug);
+    }).catch(() => {
+      // non-fatal — backend will use default model anyway
+    });
+  }, []);
 
   // P1-1: open modal when parent signals 403 error
   useEffect(() => {
@@ -245,6 +269,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
       maxBudget:    valueInCrores,
       propertyType,
       category,
+      model:        selectedModel || undefined,
     });
   };
 
@@ -307,6 +332,36 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
             </div>
           )}
         </div>
+
+        {/* ── AI Model Selector ───────────────────── */}
+        {availableModels.length > 0 && (
+          <div className="max-w-[900px] mx-auto mb-4 relative z-10">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <span className="font-space-mono text-[10px] text-[#9CA3AF] uppercase tracking-widest font-semibold">AI Model</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {availableModels.map(m => (
+                <button
+                  key={m.slug}
+                  type="button"
+                  onClick={() => setSelectedModel(m.slug)}
+                  className={`flex-1 min-w-[140px] text-left px-4 py-3 rounded-xl border text-sm transition-all ${
+                    selectedModel === m.slug
+                      ? 'bg-[#221410] border-[#D4755B] text-white shadow-md'
+                      : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#D4755B]/50 hover:text-[#1C1B1A]'
+                  }`}
+                >
+                  <div className="font-semibold text-sm mb-0.5">{m.name}</div>
+                  {m.badge && (
+                    <div className={`text-[10px] font-medium ${selectedModel === m.slug ? 'text-[#D4755B]' : 'text-[#9CA3AF]'}`}>
+                      {m.badge}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Search form card ─────────────────────── */}
         <div className="max-w-[900px] mx-auto relative z-10">

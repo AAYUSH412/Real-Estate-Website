@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { createFirecrawlService } from '../services/firecrawlService.js';
 import { createAIService } from '../services/aiService.js';
+import { resolveActiveModels } from './aiModelController.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
 import imagekit from '../config/imagekit.js';
 import Property from '../models/propertyModel.js';
@@ -140,8 +141,10 @@ export async function getLocalitySuggestions(req, res) {
  * Gate: Firecrawl key comes from the user (request header).
  * AI keys (GitHub Models / NVIDIA NIM) are server-side only — loaded from env vars.
  * Users only need to supply their own Firecrawl key.
+ * Reads active model list from DB (5-min in-memory cache via aiModelController).
+ * User can request a specific model via req.body.model (slug); it is placed first.
  */
-function resolveServices(req) {
+async function resolveServices(req) {
     const firecrawlKey    = req.headers['x-firecrawl-key']?.trim() || null;
     const serverGithubKey = process.env.GITHUB_MODELS_API_KEY?.trim() || null;
     const serverNvidiaKey = process.env.NVIDIA_API_KEY?.trim()      || null;
@@ -160,8 +163,30 @@ function resolveServices(req) {
         throw err;
     }
 
+    // Load DB-backed model config (cached 5 min) and honour the user's model choice
+    let modelsConfig = null;
+    if (serverNvidiaKey) {
+        try {
+            const activeModels = await resolveActiveModels();
+            const requestedSlug = req.body.model || null;
+
+            let ordered = [...activeModels];
+            if (requestedSlug) {
+                const idx = ordered.findIndex(m => m.slug === requestedSlug);
+                if (idx > 0) {
+                    const [selected] = ordered.splice(idx, 1);
+                    ordered.unshift(selected);
+                }
+            }
+
+            modelsConfig = ordered.map(({ modelId, slug, config }) => ({ modelId, slug, config }));
+        } catch (err) {
+            logger.warn('Failed to load AI models from DB, falling back to defaults', { error: err.message });
+        }
+    }
+
     return {
-        aiService:        createAIService(serverGithubKey, serverNvidiaKey),
+        aiService:        createAIService(serverGithubKey, serverNvidiaKey, modelsConfig),
         firecrawlService: createFirecrawlService(firecrawlKey),
     };
 }
@@ -243,7 +268,7 @@ export const searchProperties = async (req, res) => {
 
         let services;
         try {
-            services = resolveServices(req);
+            services = await resolveServices(req);
         } catch (keyErr) {
             return res.status(keyErr.statusCode || 403).json({
                 success: false,
@@ -254,8 +279,9 @@ export const searchProperties = async (req, res) => {
 
         const { firecrawlService, aiService } = services;
 
-        // Cache key includes all search dimensions
-        const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:limit${limit}`;
+        // Cache key includes all search dimensions including model choice
+        const modelSlug = req.body.model || 'default';
+        const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:limit${limit}:m${modelSlug}`;
 
         // ── Flush SSE headers now (after early validation, before slow work) ──────
         if (isSSE) {

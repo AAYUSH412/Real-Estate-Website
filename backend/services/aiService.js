@@ -343,10 +343,10 @@ Respond ONLY with this JSON schema:
  *
  * Server env-var keys MUST NOT be used as a fallback.
  */
-export function createAIService(githubKey = null, nvidiaKey = null) {
+export function createAIService(githubKey = null, nvidiaKey = null, modelsConfig = null) {
   const providers = [];
 
-  if (nvidiaKey)    providers.push(new NvidiaNimProvider(nvidiaKey));
+  if (nvidiaKey)    providers.push(new NvidiaNimProvider(nvidiaKey, modelsConfig));
   if (githubKey)    providers.push(new GitHubModelsProvider(githubKey));
 
   if (!providers.length) throw new Error('[AIService] At least one AI provider key is required.');

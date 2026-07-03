@@ -1,6 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { searchProperties, getLocationTrends, getLocalitySuggestions, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
+import { getPublicModels } from '../controller/aiModelController.js';
 import { transformAISearchRequest } from '../middleware/transformRequest.js';
 import { protect, adminProtect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/multer.js';
@@ -38,6 +39,9 @@ router.post('/ai/validate-keys', validateApiKeys);
 
 // Locality autocomplete — harvested from cached scraped data, no AI keys needed
 router.get('/ai/localities', getLocalitySuggestions);
+
+// Public: list active AI models for the frontend model picker
+router.get('/ai/models', getPublicModels);
 
 // Location trends — same rate limit (shares the 10/hr budget)
 router.get('/locations/:city/trends', aiLimiter, getLocationTrends);

@@ -167,6 +167,8 @@ export const appointmentsAPI = {
 // AI-Powered Property Search
 // AI keys are server-side — users only supply their Firecrawl key.
 export const aiAPI = {
+  getModels: () => apiClient.get('/ai/models'),
+
   search: (data: {
     city?: string;
     locality?: string;
@@ -175,6 +177,7 @@ export const aiAPI = {
     price?: { min: number; max: number };
     type?: string;
     category?: string;
+    model?: string;
   }) => {
     const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
     return apiClient.post('/ai/search', data, {
@@ -195,6 +198,7 @@ export const aiAPI = {
       price?: { min: number; max: number };
       type?: string;
       category?: string;
+      model?: string;
     },
     callbacks: {
       onStatus:     (stage: string, message: string, count?: number) => void;

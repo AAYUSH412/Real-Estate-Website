@@ -24,6 +24,7 @@ import PendingListings from "./pages/PendingListings";
 import Users from "./pages/Users";
 import UserDetails from "./pages/UserDetails";
 import ActivityLogs from "./pages/ActivityLogs";
+import AIModels from "./pages/AIModels";
 
 // Page transition variants
 const pageVariants = {
@@ -86,6 +87,7 @@ const AppLayout = () => {
                 <Route path="/users" element={<Users />} />
                 <Route path="/users/:id" element={<UserDetails />} />
                 <Route path="/activity-logs" element={<ActivityLogs />} />
+                <Route path="/ai-models" element={<AIModels />} />
               </Route>
 
               {/* 404 Route */}

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Building2,
   Menu,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import apiClient from '../services/apiClient';
@@ -57,8 +58,9 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
       ],
     },
     {
-      label: 'Activity',
+      label: 'AI & Activity',
       items: [
+        { path: '/ai-models', label: 'AI Models', icon: Cpu },
         { path: '/activity-logs', label: 'Activity Logs', icon: FileText },
       ],
     },

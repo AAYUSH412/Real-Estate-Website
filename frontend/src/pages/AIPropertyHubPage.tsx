@@ -95,6 +95,7 @@ export interface SearchParams {
   maxBudget: number;       // value in Crores
   propertyType: string;
   category: string;
+  model?: string;          // AI model slug selected by user
 }
 
 /* ── Production landing page ────────────────────────────── */
@@ -396,6 +397,7 @@ const AIHubDevPage: React.FC = () => {
         price:     { min: 0, max: maxPriceInRupees },
         type:      params.propertyType,
         category:  params.category,
+        model:     params.model || undefined,
       },
       {
         onStatus: (stage: string, message: string) => {

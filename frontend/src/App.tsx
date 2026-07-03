@@ -48,9 +48,10 @@ function AnimatedRoutes() {
 
   return (
     <>
-      {/* Structured data outside AnimatePresence - static elements don't need animation */}
+      {/* Global structured data */}
       <StructuredData type="website" />
       <StructuredData type="organization" />
+      <StructuredData type="localBusiness" />
 
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>

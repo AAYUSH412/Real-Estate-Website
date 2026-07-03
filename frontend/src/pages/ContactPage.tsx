@@ -2,6 +2,7 @@ import React from 'react';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import { useSEO } from '../hooks/useSEO';
+import StructuredData from '../components/common/StructuredData';
 import ContactHeroSection from '../components/contact/ContactHeroSection';
 import ContactFormCard from '../components/contact/ContactFormCard';
 import ContactInfoCards from '../components/contact/ContactInfoCards';
@@ -10,14 +11,36 @@ import FAQSection from '../components/contact/FAQSection';
 import OtherWaysSection from '../components/contact/OtherWaysSection';
 import NewsletterBanner from '../components/contact/NewsletterBanner';
 
+const FAQ_ITEMS = [
+  {
+    question: 'How does the AI matching process work?',
+    answer: 'Our proprietary algorithm analyzes over 50 data points from your preferences and lifestyle inputs to suggest properties that align with your unique needs, often uncovering options you might have missed.',
+  },
+  {
+    question: 'What areas do you currently cover?',
+    answer: 'We currently cover major metropolitan areas including Ahmedabad, Mumbai, Delhi, Bangalore, and Pune. We\'re expanding to more cities across India and will update our coverage area regularly.',
+  },
+  {
+    question: 'Can I list my property exclusively with BuildEstate?',
+    answer: 'Yes, we offer exclusive listing agreements with premium marketing benefits including professional photography, virtual tours, AI-powered listing optimization, and dedicated property consultant support throughout the selling process.',
+  },
+  {
+    question: 'How do I schedule a virtual tour?',
+    answer: 'You can schedule a virtual tour directly from any property listing page by clicking the \'Schedule Virtual Tour\' button. Choose your preferred date and time, and our team will send you a confirmation with the video conference link.',
+  },
+];
+
 const ContactPage: React.FC = () => {
   useSEO({
     title: 'Contact Us',
     description: 'Get in touch with BuildEstate. We\'re here to help you find your dream property.',
+    url: 'https://buildestate.vercel.app/contact',
   });
 
   return (
     <div className="bg-white min-h-screen">
+      <StructuredData type="faqPage" data={{ faqs: FAQ_ITEMS }} />
+
       {/* Navigation */}
       <Navbar />
 

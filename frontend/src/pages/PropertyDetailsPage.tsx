@@ -151,6 +151,17 @@ const PropertyDetailsPage: React.FC = () => {
           image: property.image?.[0],
         }}
       />
+      <StructuredData
+        type="breadcrumb"
+        data={{
+          breadcrumbs: [
+            { name: 'Home', url: '/' },
+            { name: 'Properties', url: '/properties' },
+            { name: city, url: `/properties?location=${encodeURIComponent(city)}` },
+            { name: property.title, url: `/property/${property._id}` },
+          ],
+        }}
+      />
 
       {/* Navigation */}
       <Navbar />

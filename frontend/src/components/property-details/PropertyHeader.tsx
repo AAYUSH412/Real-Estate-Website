@@ -1,4 +1,5 @@
 import React from 'react';
+import { MapPin } from 'lucide-react';
 
 interface PropertyHeaderProps {
   status?: 'available' | 'sold' | 'pending';
@@ -11,143 +12,62 @@ interface PropertyHeaderProps {
   sqft?: number;
 }
 
+const statusDot: Record<string, string> = {
+  available: 'bg-emerald-500',
+  sold: 'bg-[#6B7280]',
+  pending: 'bg-amber-400',
+};
+const statusLabel: Record<string, string> = {
+  available: 'Available',
+  sold: 'Sold',
+  pending: 'Pending',
+};
+
 const PropertyHeader: React.FC<PropertyHeaderProps> = ({
   status = 'available',
-  refNumber = '#AHM-SKT-402',
-  name = 'Skyline Towers: 4BHK Apartment in Ahmedabad',
-  location = 'Satellite, Gandhingar Highway, Ahmedabad',
-  price = '75,00,000',
-  beds = 4,
-  baths = 4,
-  sqft = 1200
+  refNumber,
+  name = '',
+  location = '',
+  beds = 0,
+  baths = 0,
+  sqft = 0,
 }) => {
-  const statusConfig = {
-    available: {
-      bg: 'bg-[#E0E8E3]',
-      dotColor: 'bg-[#22C55E]',
-      textColor: 'text-[#4A6356]',
-      label: 'Available'
-    },
-    sold: {
-      bg: 'bg-[#FEE2E2]',
-      dotColor: 'bg-[#EF4444]',
-      textColor: 'text-[#991B1B]',
-      label: 'Sold'
-    },
-    pending: {
-      bg: 'bg-[#FEF3C7]',
-      dotColor: 'bg-[#F59E0B]',
-      textColor: 'text-[#92400E]',
-      label: 'Pending'
-    }
-  };
-
-  const currentStatus = statusConfig[status];
-
   return (
-    <div className="bg-white border-b border-[rgba(229,224,216,0.6)]">
-      <div className="max-w-[1280px] mx-auto px-8 py-8">
-        <div className="flex items-start justify-between gap-8">
-          {/* Left - Property Info */}
-          <div className="flex-1">
-            {/* Status Badge & Ref Number */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className={`${currentStatus.bg} rounded-full px-4 py-1 flex items-center gap-2`}>
-                <div className={`${currentStatus.dotColor} w-2 h-2 rounded-full`} />
-                <span className={`font-manrope font-extralight text-xs ${currentStatus.textColor} uppercase tracking-wider`}>
-                  {currentStatus.label}
-                </span>
-              </div>
-              <span className="font-manrope font-extralight text-sm text-[#64748B]">
-                Ref: {refNumber}
-              </span>
-            </div>
-
-            {/* Property Name */}
-            <h1 className="font-manrope font-extralight text-4xl text-[#0F172A] leading-tight tracking-tight mb-3">
-              {name}
-            </h1>
-
-            {/* Location */}
-            <div className="flex items-center gap-2 text-[#64748B]">
-              <span className="material-icons text-lg">
-                location_on
-              </span>
-              <span className="font-manrope font-extralight text-sm">
-                {location}
-              </span>
-            </div>
-          </div>
-
-          {/* Right - Price */}
-          <div className="text-right">
-            <p className="font-manrope font-extralight text-sm text-[#64748B] mb-2 uppercase tracking-wider">
-              Listed Price
-            </p>
-            <div className="flex items-baseline gap-1">
-              <span className="font-space-mono font-bold text-xl text-[#D4755B]">
-                ₹
-              </span>
-              <span className="font-space-mono font-bold text-4xl text-[#D4755B]">
-                {price}
-              </span>
-            </div>
-          </div>
+    <div className="max-w-[1280px] mx-auto px-6 lg:px-8 pt-8 pb-0">
+      {/* Status + ref */}
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-1.5">
+          <div className={`w-2 h-2 rounded-full ${statusDot[status]}`} />
+          <span className="font-manrope text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+            {statusLabel[status]}
+          </span>
         </div>
+        {refNumber && (
+          <>
+            <span className="text-[#D4C4BC]">·</span>
+            <span className="font-space-mono text-xs text-[#9CA3AF]">{refNumber}</span>
+          </>
+        )}
+      </div>
 
-        {/* Key Specs */}
-        <div className="flex items-center gap-12 mt-8 pt-8 border-t border-[rgba(229,224,216,0.6)]">
-          {/* Bedrooms */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 bg-[rgba(212,117,91,0.1)] rounded-lg flex items-center justify-center">
-              <span className="material-icons text-2xl text-[#D4755B]">
-                bed
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="font-space-mono font-bold text-2xl text-[#0F172A] mb-0.5">
-                {beds}
-              </p>
-              <p className="font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider">
-                Bedrooms
-              </p>
-            </div>
-          </div>
+      {/* Name */}
+      <h1 className="font-fraunces text-3xl md:text-4xl font-semibold text-[#221410] leading-tight mb-2 text-wrap-balance">
+        {name}
+      </h1>
 
-          {/* Bathrooms */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 bg-[rgba(212,117,91,0.1)] rounded-lg flex items-center justify-center">
-              <span className="material-icons text-2xl text-[#D4755B]">
-                bathtub
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="font-space-mono font-bold text-2xl text-[#0F172A] mb-0.5">
-                {baths}
-              </p>
-              <p className="font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider">
-                Bathrooms
-              </p>
-            </div>
-          </div>
+      {/* Location */}
+      <div className="flex items-center gap-1.5 mb-5">
+        <MapPin className="w-4 h-4 text-[#D4755B] shrink-0" aria-hidden />
+        <span className="font-manrope text-sm text-[#6B7280]">{location}</span>
+      </div>
 
-          {/* Square Feet */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 bg-[rgba(212,117,91,0.1)] rounded-lg flex items-center justify-center">
-              <span className="material-icons text-2xl text-[#D4755B]">
-                square_foot
-              </span>
-            </div>
-            <div className="text-center">
-              <p className="font-space-mono font-bold text-2xl text-[#0F172A] mb-0.5">
-                {sqft.toLocaleString()}
-              </p>
-              <p className="font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider">
-                Sq Ft
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Specs — dot-separated inline */}
+      <div className="flex items-center gap-2 font-manrope text-sm text-[#374151] border-b border-[#E6E0DA] pb-6">
+        <span><strong className="font-semibold tabular-nums">{beds}</strong> {beds === 1 ? 'Bedroom' : 'Bedrooms'}</span>
+        <span className="text-[#D4C4BC]">·</span>
+        <span><strong className="font-semibold tabular-nums">{baths}</strong> {baths === 1 ? 'Bathroom' : 'Bathrooms'}</span>
+        <span className="text-[#D4C4BC]">·</span>
+        <span><strong className="font-semibold tabular-nums">{sqft.toLocaleString()}</strong> sqft</span>
       </div>
     </div>
   );

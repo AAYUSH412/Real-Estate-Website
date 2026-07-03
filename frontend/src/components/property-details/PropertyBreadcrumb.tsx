@@ -1,59 +1,58 @@
 import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { ChevronRight, Home } from 'lucide-react';
 
 interface PropertyBreadcrumbProps {
   city?: string;
   propertyName?: string;
 }
 
-const PropertyBreadcrumb: React.FC<PropertyBreadcrumbProps> = ({ 
-  city = "Ahmedabad",
-  propertyName = "Skyline Towers" 
+const PropertyBreadcrumb: React.FC<PropertyBreadcrumbProps> = ({
+  city = 'Properties',
+  propertyName = '',
 }) => {
-  const navigate = useNavigate();
-
   return (
-    <div className="bg-white border-b border-[#E6E0DA]">
-      <div className="max-w-[1280px] mx-auto px-8 py-6">
-        <div className="flex items-center justify-between">
-          {/* Back Button */}
-          <button 
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-[#64748B] hover:text-[#D4755B] transition-[color] group"
+    <div className="bg-[#FAF8F4] border-b border-[#E6E0DA]">
+      <div className="max-w-[1280px] mx-auto px-6 lg:px-8 py-3">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 font-manrope text-xs text-[#9CA3AF]">
+          <Link
+            to="/"
+            className="flex items-center gap-1 hover:text-[#D4755B] transition-colors duration-150"
+            aria-label="Home"
           >
-            <span className="material-icons text-base">
-              arrow_back
-            </span>
-            <span className="font-manrope font-extralight text-sm">
-              Back to Properties
-            </span>
-          </button>
+            <Home className="w-3.5 h-3.5" />
+          </Link>
 
-          {/* Breadcrumb Trail */}
-          <nav className="flex items-center gap-2 text-xs tracking-wider uppercase opacity-80">
-            <Link to="/" className="font-manrope font-extralight text-[#64748B] hover:text-[#D4755B] transition-[color]">
-              Home
-            </Link>
-            <span className="font-manrope text-[#CBD5E1]">
-              /
-            </span>
-            <Link to="/properties" className="font-manrope font-extralight text-[#64748B] hover:text-[#D4755B] transition-[color]">
-              Properties
-            </Link>
-            <span className="font-manrope text-[#CBD5E1]">
-              /
-            </span>
-            <span className="font-manrope font-extralight text-[#64748B]">
-              {city}
-            </span>
-            <span className="font-manrope text-[#CBD5E1]">
-              /
-            </span>
-            <span className="font-manrope font-extralight text-[#CF4517]">
-              {propertyName}
-            </span>
-          </nav>
-        </div>
+          <ChevronRight className="w-3 h-3 shrink-0" aria-hidden />
+
+          <Link
+            to="/properties"
+            className="hover:text-[#D4755B] transition-colors duration-150"
+          >
+            Properties
+          </Link>
+
+          {city && (
+            <>
+              <ChevronRight className="w-3 h-3 shrink-0" aria-hidden />
+              <Link
+                to={`/properties?location=${encodeURIComponent(city)}`}
+                className="hover:text-[#D4755B] transition-colors duration-150"
+              >
+                {city}
+              </Link>
+            </>
+          )}
+
+          {propertyName && (
+            <>
+              <ChevronRight className="w-3 h-3 shrink-0" aria-hidden />
+              <span className="text-[#221410] font-medium truncate max-w-[240px]" aria-current="page">
+                {propertyName}
+              </span>
+            </>
+          )}
+        </nav>
       </div>
     </div>
   );

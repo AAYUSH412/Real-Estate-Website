@@ -135,7 +135,7 @@ const PropertyDetailsPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-[#FAF8F4] min-h-screen">
       {/* Property Structured Data for SEO */}
       <StructuredData
         type="property"
@@ -172,8 +172,8 @@ const PropertyDetailsPage: React.FC = () => {
         propertyName={property.title}
       />
 
-      {/* Hero Image */}
-      <PropertyHeroImage image={property.image?.[0]} />
+      {/* Hero Image — adaptive gallery */}
+      <PropertyHeroImage images={property.image} propertyName={property.title} />
 
       {/* Property Header with Price & Specs */}
       <PropertyHeader
@@ -215,6 +215,7 @@ const PropertyDetailsPage: React.FC = () => {
             <div className="lg:col-span-1">
               <ScheduleViewingCard
                 property={{ name: property.title, id: property._id }}
+                price={formatPrice(property.price)}
               />
             </div>
           </div>

@@ -186,3 +186,7 @@ docker-compose.override.yml
 !.env.example
 !.env.sample
 !.env.template
+
+# Large demo videos — upload to GitHub via web editor instead of committing
+Image/new images and video/
+*.mov

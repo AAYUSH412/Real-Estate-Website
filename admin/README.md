@@ -2,7 +2,7 @@
 
 # BuildEstate — Admin Panel 📊
 
-_Comprehensive administrative dashboard for overseeing the BuildEstate real estate ecosystem._
+_The control room of BuildEstate — review listings, manage users & appointments, and monitor the platform._
 
 [![React](https://img.shields.io/badge/React-18.0-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -15,13 +15,23 @@ _Comprehensive administrative dashboard for overseeing the BuildEstate real esta
 
 ---
 
+## 📸 Preview
+
+<div align="center">
+  <img src="../Image/Admin_dashboard.png" alt="Admin dashboard — KPI cards, traffic chart, activity timeline" width="100%" />
+</div>
+
+---
+
 ## ✨ Key Features
 
-- **Dashboard Analytics** — Real-time performance chart tracking utilizing `Chart.js` for properties, systemic users, and overall lifecycle interactions.
-- **Property Management** — Complete administrative catalog adjustments including add, update, and deletion protocols integrated securely.
-- **Appointment Management** — High-level lifecycle overview for pending engagements; deploy approvals, cancellations, or digitally bridge meeting structures.
-- **User Overview** — Transparent readout of authenticated entities traversing the platform.
-- **Multiplex Image Upload** — High-speed transmission of up to 4 high-res representations per standard property passing to ImageKit globally.
+- **Dashboard Analytics** — KPI cards, property-views and user-growth charts (Recharts), review-queue status, and a live admin activity timeline.
+- **Review Queue** — Approve or reject user-submitted property listings, with a full image gallery and lightbox for checking photos.
+- **Property Management** — Add, update, and delete properties with multi-image upload (up to 4 images per property via ImageKit).
+- **User Management** — View all users, inspect a user's details and listings, suspend / ban / reactivate accounts (single or bulk).
+- **Appointment Management** — Approve, cancel, or attach meeting links to property-viewing requests.
+- **AI Model Management** — Enable/disable the AI models used by the AI Property Hub and pick the default one.
+- **Activity Logs** — Every admin action is recorded and searchable for a full audit trail.
 
 ---
 
@@ -31,7 +41,7 @@ _Comprehensive administrative dashboard for overseeing the BuildEstate real esta
 | ------------------------------ | ------------------------- |
 | **Framework Ecosystem**        | React 18 + Vite 6         |
 | **User Interface Composition** | Tailwind CSS v3           |
-| **Statistical Visualization**  | Chart.js                  |
+| **Statistical Visualization**  | Recharts                  |
 | **Vector Elements**            | Lucide React              |
 | **Notification Operations**    | Sonner                    |
 | **Network Requests**           | Axios                     |
@@ -77,14 +87,18 @@ Admin workspace is provisioned at **http://localhost:5174**
 
 ## 🗺️ Interface Architecture
 
-| Panel View          | Routing Interface | Core Purpose                                                   |
-| ------------------- | ----------------- | -------------------------------------------------------------- |
-| Auth Gate           | `/`               | Highly structured administrative login protocol                |
-| Command Center      | `/dashboard`      | Systemic overviews powered dynamically by interaction counters |
-| Enlist Catalog      | `/add`            | Injection module initializing distinct properties/assets       |
-| Management Hub      | `/list`           | Aggregation matrix handling mass adjustments and evaluations   |
-| Modulator           | `/update/:id`     | Precision granular manipulation of singular assets             |
-| Engagement Calendar | `/appointments`   | Lifecycle oversight for external viewing and communication     |
+| Panel View     | Route               | Core Purpose                                           |
+| -------------- | ------------------- | ------------------------------------------------------ |
+| Login          | `/login`            | Admin authentication                                    |
+| Dashboard      | `/dashboard`        | KPIs, traffic & user-growth charts, activity timeline   |
+| Review Queue   | `/pending-listings` | Approve / reject user-submitted property listings       |
+| All Properties | `/list`             | Manage the full property catalog                        |
+| Users          | `/users`            | User management — suspend, ban, reactivate, details     |
+| Appointments   | `/appointments`     | Viewing requests — status updates & meeting links       |
+| AI Models      | `/ai-models`        | Configure the models used by the AI Property Hub        |
+| Activity Logs  | `/activity-logs`    | Audit trail of every admin action                       |
+| Add Property   | `/add`              | Create a new property listing                           |
+| Update         | `/update/:id`       | Edit an existing property                               |
 
 ---
 
@@ -95,16 +109,22 @@ Admin workspace is provisioned at **http://localhost:5174**
 
 ```text
 admin/src/
-├── components/  # Layout elements handling the login modal and central navigation matrices
-├── config/      # Operational constants aligning structural expectations across the backend bridge
-├── contexts/    # Secure state preservation validating Admin identities
+├── components/  # Sidebar, ProtectedRoute, modals (suspend/ban), shared UI
+├── config/      # Constants (backend URL, property types, amenities)
+├── contexts/    # AuthContext — admin JWT state
+├── services/    # apiClient — Axios with token refresh on 401
 ├── pages/
-│   ├── Dashboard.jsx
-│   ├── Add.jsx
-│   ├── List.jsx
-│   ├── Update.jsx
-│   └── Appointments.jsx
-└── App.jsx      # Architectural index orchestrating the DOM routing layer
+│   ├── Dashboard.jsx        # KPIs + Recharts analytics
+│   ├── PendingListings.jsx  # Review queue with image gallery
+│   ├── List.jsx             # All properties
+│   ├── Users.jsx            # User management
+│   ├── UserDetails.jsx      # Single user drill-down
+│   ├── Appointments.jsx     # Viewing requests
+│   ├── AIModels.jsx         # AI model configuration
+│   ├── ActivityLogs.jsx     # Admin audit trail
+│   ├── Add.jsx              # New property form
+│   └── Update.jsx           # Edit property
+└── App.jsx      # Router
 ```
 
 </details>

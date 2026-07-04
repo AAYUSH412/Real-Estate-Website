@@ -10,7 +10,7 @@
 
 <br/>
 
-<p><strong>A full-stack real estate platform that scrapes live property data from 99acres.com using Firecrawl, analyzes it with GPT-4.1, and serves filtered results — all with user-owned API keys.</strong></p>
+<p><strong>A full-stack real estate platform where you can browse & list properties, book viewings, and run AI-powered searches that scrape live listings from 99acres, MagicBricks & NoBroker in real time. You bring a free Firecrawl key — the AI runs on the server.</strong></p>
 
 <br/>
 
@@ -41,10 +41,25 @@
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
+## 🏠 What is BuildEstate?
+
+**BuildEstate is a complete real-estate website for India** — think of a mini 99acres/MagicBricks with an AI twist. In plain words, here is what you can do on it:
+
+- **Browse properties** listed on the platform, filter them, view photo galleries, and **book a property viewing** (works even without an account)
+- **List your own property** for sale or rent from your user dashboard — an admin reviews it before it goes live
+- **Use the AI Property Hub** — enter a city, budget, and home type, and the AI searches *live* listings on 99acres, MagicBricks & NoBroker, then ranks the best matches with value verdicts and red-flag warnings
+- **See market trends** — price per sq.ft, rental yields, and appreciation outlook for localities in any major Indian city
+
+For the site owner there is a full **admin panel**: a review queue for user-submitted listings, appointment management, user management, an analytics dashboard, and AI model configuration.
+
+This repo contains all three apps: the **user website** (`frontend/`), the **admin panel** (`admin/`), and the **REST API** (`backend/`).
+
+<br/>
+
 ## 📸 Platform Preview
 
 <div align="center">
-  <img src="./Image/Home.png" alt="BuildEstate Homepage" width="100%" />
+  <img src="./Image/Home_page.png" alt="BuildEstate Homepage" width="100%" />
 </div>
 
 <br/>
@@ -83,8 +98,8 @@ Most real-estate aggregators show you generic listings. BuildEstate is different
 | Problem | BuildEstate Solution |
 |---|---|
 | Generic search results with mixed content | **Multi-source search** — 99acres, MagicBricks, Housing.com results deduplicated & ranked |
-| No AI intelligence in traditional portals | **GPT-4.1 analysis** — best-value picks, investment insights, red flag detection |
-| API costs borne by the developer | **User-owned API keys** — users bring their own free GitHub Models + Firecrawl keys |
+| No AI intelligence in traditional portals | **Multi-model AI analysis** — best-value picks, investment insights, red-flag detection, with a user-selectable model (GLM, Nemotron & more) |
+| API costs borne by the developer | **Bring-your-own Firecrawl key** — scraping runs on the user's free key; AI analysis runs server-side |
 | Search-page bot protection ruins results | **Individual listing scraping** — firecrawl.search() → per-property URLs → clean data |
 | Search breaks on proxy/rate errors | **Auto-retry with exponential backoff** — proxy → rate-limit → server errors all handled |
 
@@ -99,18 +114,32 @@ Most real-estate aggregators show you generic listings. BuildEstate is different
 > **The headline feature.** Search any Indian city + property type + budget → get live scraped properties with AI analysis.
 
 <div align="center">
-  <img src="./Image/aihub-1.png" alt="AI Hub - Natural Language Search" width="48%"/>
-  &nbsp;&nbsp;
-  <img src="./Image/aihub-2.png" alt="AI Hub - Market Analysis" width="48%"/>
+  <img src="./Image/Ai_hub_property_result.png" alt="AI Hub — live scraped property results with AI insights and match scores" width="100%"/>
 </div>
 
 <br/>
 
 <div align="center">
-  <img src="./Image/aihub-3.png" alt="AI Hub - Location Trends" width="48%"/>
+  <img src="./Image/Ai_hub_trends.png" alt="AI Hub — AI market analysis" width="48%"/>
   &nbsp;&nbsp;
-  <img src="./Image/aihub-4.png" alt="AI Hub - Investment Tips" width="48%"/>
+  <img src="./Image/Ai_hub_location_trends.png" alt="AI Hub — locality price trends and rental yields" width="48%"/>
 </div>
+
+<br/>
+
+### 🎬 Watch It In Action
+
+<!-- DEMO VIDEO — paste the GitHub-hosted video URL below this comment.
+     GitHub only plays videos that are UPLOADED THROUGH ITS WEB EDITOR (.mp4 or .mov, max 10 MB).
+     Steps:
+     1. Compress "Image/new images and video/Ai_hub_screen_recording.mov" (16 MB) to under 10 MB:
+        QuickTime → File → Export As → 720p, or HandBrake, or:
+        ffmpeg -i Ai_hub_screen_recording.mov -vcodec h264 -crf 28 -preset slow ai_hub_demo.mp4
+     2. Open this README on github.com, click the pencil (Edit), and drag the file onto this spot.
+     3. GitHub uploads it and inserts a https://github.com/user-attachments/assets/… link —
+        that link renders as an inline video player. Commit the change. -->
+
+> 📹 _Demo video coming soon — a full AI search from form to ranked results in ~30 seconds._
 
 <br/>
 
@@ -207,26 +236,25 @@ The redesigned form captures buyer intent more precisely:
 
 > **Locality** is the biggest improvement — Indians buy in **neighborhoods**, not cities. "Powai" → 10x better results than just "Mumbai".
 
-### 🔑 User-Owned API Keys
+### 🔑 Bring Your Own Firecrawl Key
 
-Users provide their **own free keys** in the browser. Keys are stored in localStorage only — never on the server.
+Users provide their **own free Firecrawl key** in the browser — it lives in localStorage only, never on the server. AI analysis runs **server-side** through a multi-model fallback chain (**NVIDIA NIM → GitHub Models**), and users pick the model (GLM-5.2, Nemotron Nano/Ultra, Mistral…) right in the search form.
 
 ```
 User's browser (localStorage)
-  buildestate_github_key   = "ghp_xxx"
   buildestate_firecrawl_key = "fc-xxx"
          │
-         │  X-Github-Key / X-Firecrawl-Key headers
+         │  X-Firecrawl-Key header on every AI request
          ▼
-  Backend creates per-request service instances
-  (Server env keys are NEVER used as fallback)
+  Backend creates a per-request Firecrawl instance
+  (scraping ALWAYS uses the user's key — server AI keys
+   are used only for the analysis step)
 ```
 
-**Get your free keys in ~2 minutes:**
+**Get your free key in ~2 minutes:**
 
 | Service | Link | Free Tier |
 |---|---|---|
-| GitHub Models (GPT-4.1) | [github.com/marketplace/models](https://github.com/marketplace/models) | Free with any GitHub account |
 | Firecrawl (web scraping) | [firecrawl.dev](https://firecrawl.dev) | 500 free credits/month |
 
 <br/>
@@ -261,7 +289,7 @@ User's browser (localStorage)
 > Rich filters, detailed galleries (up to 4 images per property via ImageKit CDN), and instant appointment scheduling.
 
 <div align="center">
-  <img src="./Image/property.png" alt="Property Browsing Page" width="100%" />
+  <img src="./Image/Property_page.png" alt="Property Browsing Page" width="100%" />
 </div>
 
 <br/>
@@ -281,18 +309,37 @@ User's browser (localStorage)
 
 <br/>
 
+### 👤 User Dashboard
+
+> Every registered user gets a personal dashboard — list a property for sale/rent, track its review status, and manage viewing appointments.
+
+<div align="center">
+  <img src="./Image/User_dashboard.png" alt="User Dashboard — my listings and appointments" width="100%" />
+</div>
+
+<br/>
+
 ### 📊 Admin Dashboard
 
-> Full control — manage listings, track appointments, monitor analytics, and upload images with drag-and-drop.
+> Full control — review user-submitted listings, manage properties & users, track appointments, and monitor analytics.
+
+<div align="center">
+  <img src="./Image/Admin_dashboard.png" alt="Admin Dashboard — analytics with Recharts" width="100%" />
+</div>
+
+<br/>
 
 <div align="center">
 
 | Capability | Description |
 | :--------: | :--- |
+| 📥 | **Review Queue** — approve or reject user-submitted listings with a full image gallery |
 | ➕ | Add / Edit / Delete property listings with multi-image upload |
 | 📅 | Appointment management with status updates & meeting link generation |
-| 📈 | Real-time analytics dashboard with Chart.js visualizations |
-| 👥 | User management and platform activity monitoring |
+| 📈 | Real-time analytics dashboard with **Recharts** visualizations |
+| 👥 | User management — suspend, ban, reactivate with audit trail |
+| 🤖 | **AI model management** — enable/disable models and set the default from the panel |
+| 📜 | Activity logs — every admin action recorded and searchable |
 
 </div>
 
@@ -355,7 +402,7 @@ flowchart LR
         DB[("MongoDB Atlas<br/>Database")]
         IK["ImageKit CDN<br/>Images"]
         FC["Firecrawl API<br/>Web Scraping<br/>Multi-source"]
-        AI["GitHub Models<br/>GPT-4.1<br/>AI Ranking"]
+        AI["AI Models<br/>NVIDIA NIM + GPT-4.1<br/>Ranking & Insights"]
         EMAIL["Brevo SMTP<br/>Email Service"]
     end
     
@@ -783,10 +830,12 @@ Real-Estate-Website/
 **Admin src/**
 
 ```text
-├── components/     → Login, Navbar, ProtectedRoute
+├── components/     → Login, Sidebar, ProtectedRoute, modals
 ├── config/         → Property types, amenities constants
 ├── contexts/       → AuthContext (admin JWT state)
-└── pages/          → Dashboard, Add, List, Update, Appointments
+└── pages/          → Dashboard, PendingListings (review queue), List,
+                      Users, UserDetails, Appointments, AIModels,
+                      ActivityLogs, Add, Update
 ```
 
 </details>

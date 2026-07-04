@@ -20,8 +20,8 @@ _The core REST API server driving the BuildEstate real estate platform._
 - **Property Management (CRUD)** — Robust operations to add, query, update, and remove properties with multiplexed image management (up to 4 images).
 - **Scalable Image Upload** — Multer temp-file integration piping seamlessly into ImageKit CDN pipelines.
 - **Appointment Architecture** — Guest and authenticated bookings coupled with autonomous email dispatch routing.
-- **AI Property Processing** — Interfacing with GPT-4.1 (GitHub Models) and Firecrawl web scraping for deep market analysis.
-- **Location Analytics** — Specialized localized data scraping tracking market trends for top Indian hubs.
+- **AI Property Processing** — Live listing scraping via Firecrawl (user-supplied key) analyzed by a multi-model AI chain: NVIDIA NIM (GLM, Nemotron & more, admin-configurable) with GitHub Models (GPT-4.1) as fallback. Search results stream to the client over SSE.
+- **Location Analytics** — Locality-level price trends, rental yields, and appreciation outlook for top Indian cities, with MongoDB response caching.
 - **Administrative Utilities** — Dashboard analytics handling aggregate counts across properties, users, and transactions.
 - **Infrastructure Security** — `express-rate-limit` DDoS prevention, deep Helmet.js header shielding, and integrated CORS validation.
 - **Email Notifications** — Custom branded transactional payloads delivered utilizing Brevo SMTP.
@@ -39,7 +39,8 @@ _The core REST API server driving the BuildEstate real estate platform._
 | **Authentication**       | JWT + Bcrypt             | Cryptographically verified tokens and keys          |
 | **Storage Architecture** | Multer + ImageKit        | Multipart transmission yielding CDN delivery        |
 | **Communications**       | Nodemailer + Brevo       | Specialized template execution and delivery routing |
-| **AI Inference**         | GPT-4.1 + Firecrawl      | NLP search indexing and organic data acquisition    |
+| **AI Inference**         | NVIDIA NIM + GPT-4.1     | Multi-model property ranking with automatic fallback |
+| **Web Scraping**         | Firecrawl                | Live listing extraction (user-supplied API key)      |
 | **Cybersecurity**        | Helmet, CORS, Rate-limit | Middleware-injected traffic policing                |
 
 ---
@@ -92,8 +93,10 @@ IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
 IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
 IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
 
-# AI Service Flags (optional — needed only for local AI Property Hub testing)
-FIRECRAWL_API_KEY=your_firecrawl_api_key
+# AI Services (optional — needed only for the AI Property Hub)
+# Scraping key is supplied BY THE USER via the X-Firecrawl-Key header;
+# these server-side keys power the AI analysis step only.
+NVIDIA_API_KEY=your_nvidia_nim_api_key
 GITHUB_MODELS_API_KEY=your_github_pat_token
 ```
 
@@ -177,9 +180,9 @@ Server initializes and binds to `http://localhost:4000`
 | Request | Route Namespace               | Restrictions | Purpose                                              |
 | ------- | ----------------------------- | ------------ | ---------------------------------------------------- |
 | `POST`  | `/api/forms/submit`           | Public       | Parse generic contact payloads into storage          |
-| `POST`  | `/api/ai/search`              | Public       | Feed user queries to GPT-4.1 NLP engine              |
-| `POST`  | `/api/properties/search`      | Public       | Basic non-AI parameterized search protocol           |
-| `GET`   | `/api/locations/:city/trends` | Public       | Execute localized scraping behavior for macro trends |
+| `POST`  | `/api/ai/search`              | X-Firecrawl-Key header | Live AI property search (SSE stream; model selectable) |
+| `GET`   | `/api/ai/models`              | Public       | List active AI models for the search form           |
+| `GET`   | `/api/locations/:city/trends` | X-Firecrawl-Key header | Locality price trends + AI analysis (cached)  |
 
 </details>
 

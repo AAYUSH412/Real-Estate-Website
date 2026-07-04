@@ -129,15 +129,7 @@ Most real-estate aggregators show you generic listings. BuildEstate is different
 
 ### 🎬 Watch It In Action
 
-<!-- DEMO VIDEO — paste the GitHub-hosted video URL below this comment.
-     GitHub only plays videos that are UPLOADED THROUGH ITS WEB EDITOR (.mp4 or .mov, max 10 MB).
-     Steps:
-     1. Compress "Image/new images and video/Ai_hub_screen_recording.mov" (16 MB) to under 10 MB:
-        QuickTime → File → Export As → 720p, or HandBrake, or:
-        ffmpeg -i Ai_hub_screen_recording.mov -vcodec h264 -crf 28 -preset slow ai_hub_demo.mp4
-     2. Open this README on github.com, click the pencil (Edit), and drag the file onto this spot.
-     3. GitHub uploads it and inserts a https://github.com/user-attachments/assets/… link —
-        that link renders as an inline video player. Commit the change. -->
+https://github.com/user-attachments/assets/43cefb8a-0e75-4680-85e9-2eb099db0fc8
 
 > 📹 _Demo video coming soon — a full AI search from form to ranked results in ~30 seconds._
 

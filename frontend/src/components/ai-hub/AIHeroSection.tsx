@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, MapPin, IndianRupee, Home, Building2, Search, Loader2, KeyRound, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { MapPin, IndianRupee, Home, Building2, Search, Loader2, KeyRound, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { SearchParams } from '../../pages/AIPropertyHubPage';
 import AIApiKeyModal from './AIApiKeyModal';
 import { apiKeyStorage, aiAPI } from '../../services/api';
@@ -274,64 +274,79 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
   };
 
   return (
-    <section className="relative bg-[#FAF8F4] overflow-hidden">
-      {/* Background gradients */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div className="absolute top-0 inset-x-0 h-[800px] bg-gradient-to-b from-[#D4755B]/10 to-transparent" />
-        <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-[#D4755B]/10 rounded-full blur-[100px]" />
-        <div className="absolute right-0 top-0 w-1/2 h-full bg-[radial-gradient(circle_at_top_right,rgba(212,117,91,0.08),transparent_60%)]" />
-      </div>
+    <section className="relative">
+      {/* ── Hero band ────────────────────────────── */}
+      <div className="relative bg-[#FAF8F4] overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="absolute top-0 inset-x-0 h-[500px] bg-gradient-to-b from-[#D4755B]/8 to-transparent" />
+          <div className="absolute -top-24 right-0 w-[480px] h-[480px] bg-[#D4755B]/8 rounded-full blur-[100px]" />
+        </div>
 
-      <div className="relative pt-32 pb-24 max-w-[1200px] mx-auto px-6">
-        {/* ── Heading ──────────────────────────────── */}
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-[#D4755B]/20 rounded-full px-4 py-2 mb-6 shadow-sm">
-            <Sparkles className="w-4 h-4 text-[#D4755B]" />
-            <span className="font-space-mono text-xs text-[#D4755B] uppercase tracking-wider font-semibold">
-              AI-Powered Search
-            </span>
+        <div className="relative max-w-[1200px] mx-auto px-6 pt-32 pb-14">
+          <div className="text-center max-w-[760px] mx-auto">
+            <h1 className="font-fraunces text-4xl md:text-5xl lg:text-6xl leading-tight text-[#221410] mb-6 [text-wrap:balance]">
+              Find Properties with<br />
+              <span className="text-[#D4755B]">AI Intelligence</span>
+            </h1>
+
+            <p className="font-manrope text-lg text-[#57534E] max-w-[620px] mx-auto leading-relaxed">
+              Tell us where you want to live — we search live listings on 99acres,
+              MagicBricks &amp; Housing.com, then rank the best matches for your budget.
+            </p>
           </div>
 
-          <h1 className="font-fraunces text-5xl md:text-6xl lg:text-7xl leading-tight text-[#221410] mb-6">
-            Find Properties with<br />
-            <span className="text-[#D4755B]">AI Intelligence</span>
-          </h1>
+          {/* ── How it works — real 3-step sequence ── */}
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-[880px] mx-auto">
+            {[
+              { n: '1', title: 'Tell us what you need', desc: 'City, budget and home type — takes 30 seconds.' },
+              { n: '2', title: 'We scan live listings', desc: 'Real properties from 99acres, MagicBricks & Housing.com.' },
+              { n: '3', title: 'AI ranks your matches', desc: 'Scored, flagged and explained — best value first.' },
+            ].map((s) => (
+              <div key={s.n} className="flex items-start gap-3 bg-white border border-[#E6E0DA] rounded-xl px-4 py-3.5">
+                <span className="font-fraunces text-xl text-[#D4755B] leading-none mt-0.5">{s.n}</span>
+                <div className="text-left">
+                  <p className="font-manrope text-sm font-semibold text-[#221410]">{s.title}</p>
+                  <p className="font-manrope text-xs text-[#6B7280] mt-0.5 leading-relaxed">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
 
-          <p className="font-manrope text-lg text-[#6B7280] max-w-[600px] mx-auto leading-relaxed">
-            Our AI analyzes live market data and real listings to deliver highly personalized property recommendations in seconds.
-          </p>
+          {/* ── API key status strip ── */}
+          <div className="max-w-[880px] mx-auto mt-8">
+            {keysReady ? (
+              <div className="flex flex-wrap items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <p className="font-manrope text-sm font-medium text-emerald-800 flex-1 min-w-[220px]">
+                  Firecrawl key active — searches use your scraping quota, AI analysis runs on our servers.
+                </p>
+                <button
+                  onClick={() => setShowKeyModal(true)}
+                  className="flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 text-emerald-700 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <KeyRound className="w-3.5 h-3.5" /> Manage Key
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                <p className="font-manrope text-sm font-medium text-amber-800 flex-1 min-w-[220px]">
+                  Add your <strong className="text-amber-900 font-bold">free</strong> Firecrawl key to search live listings — takes 2 minutes, no card needed.
+                </p>
+                <button
+                  onClick={() => setShowKeyModal(true)}
+                  className="flex items-center gap-1.5 bg-amber-100 hover:bg-amber-200 border border-amber-200 text-amber-800 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <KeyRound className="w-3.5 h-3.5" /> Add Free Key
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
 
-        {/* ── API Key Banner ───────────────────────── */}
-        <div className="max-w-[800px] mx-auto mb-6 relative z-10">
-          {keysReady ? (
-            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 shadow-sm rounded-xl px-5 py-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <p className="font-manrope text-sm font-medium text-emerald-800 flex-1">
-                Firecrawl key active — AI analysis powered by our servers, searches use your scraping quota.
-              </p>
-              <button
-                onClick={() => setShowKeyModal(true)}
-                className="flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 border border-emerald-200 text-emerald-700 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-all whitespace-nowrap"
-              >
-                <KeyRound className="w-3.5 h-3.5" /> Manage Key
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 shadow-sm rounded-xl px-5 py-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-              <p className="font-manrope text-sm font-medium text-amber-800 flex-1">
-                Add your <strong className="text-amber-900 font-bold">free</strong> Firecrawl key to enable live property search — AI is powered by our servers.
-              </p>
-              <button
-                onClick={() => setShowKeyModal(true)}
-                className="flex items-center gap-1.5 bg-amber-100 hover:bg-amber-200 border border-amber-200 text-amber-800 font-manrope font-bold text-xs px-4 py-2 rounded-lg transition-all whitespace-nowrap"
-              >
-                <KeyRound className="w-3.5 h-3.5" /> Add Key
-              </button>
-            </div>
-          )}
-        </div>
+      {/* ── Light form area ──────────────────────── */}
+      <div className="bg-[#FAF8F4] px-6 pt-10 pb-24">
 
         {/* ── AI Model Selector ───────────────────── */}
         {availableModels.length > 0 && (
@@ -367,11 +382,11 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
         <div className="max-w-[900px] mx-auto relative z-10">
           <form
             onSubmit={handleSubmit}
-            className="bg-white/80 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl p-6 md:p-8"
+            className="bg-white border border-[#E6E0DA] shadow-sm rounded-2xl p-6 md:p-8"
           >
             {/* City */}
             <div className="mb-6">
-              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
+              <label className="block font-manrope text-sm font-semibold text-[#221410] mb-2 ml-1">
                 Where do you want to live?
               </label>
               <div className="relative">
@@ -423,7 +438,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
                     key={c}
                     type="button"
                     onClick={() => selectCity(c)}
-                    className={`font-manrope text-xs px-4 py-1.5 rounded-full border transition-all ${city === c
+                    className={`font-manrope text-sm px-4 py-2 rounded-full border transition-all ${city === c
                       ? 'bg-[#D4755B] border-[#D4755B] text-white font-medium shadow-sm'
                       : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#D4755B]/50 hover:text-[#D4755B]'
                       }`}
@@ -436,8 +451,8 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
             {/* ── Locality / Area ─────────────────────────────── */}
             <div className="mb-6">
-              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
-                Specific Area <span className="font-normal normal-case text-[#9CA3AF]">(optional — highest impact on results)</span>
+              <label className="block font-manrope text-sm font-semibold text-[#221410] mb-2 ml-1">
+                Specific Area <span className="font-normal text-[#6B7280]">(optional — narrows results the most)</span>
               </label>
               <div className="relative">
                 <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
@@ -487,7 +502,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
               {/* Budget */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest ml-1">
+                  <label className="font-manrope text-sm font-semibold text-[#221410] ml-1">
                     Max Budget
                   </label>
                   {/* Unit toggle */}
@@ -534,7 +549,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
               {/* Property type */}
               <div>
-                <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
+                <label className="block font-manrope text-sm font-semibold text-[#221410] mb-2 ml-1">
                   Property Type
                 </label>
                 <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
@@ -553,7 +568,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
               {/* Category */}
               <div>
-                <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-2 ml-1">
+                <label className="block font-manrope text-sm font-semibold text-[#221410] mb-2 ml-1">
                   Category
                 </label>
                 <div className="relative bg-white border border-[#E6E0DA] rounded-xl p-4 flex items-center gap-3 focus-within:ring-2 focus-within:ring-[#D4755B]/30 focus-within:border-[#D4755B] transition-all shadow-sm">
@@ -571,53 +586,54 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
               </div>
             </div>
 
-            {/* ── BHK Configuration ───────────────────────────── */}
-            <div className="mb-6">
-              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-3 ml-1">
-                BHK Configuration
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {(['Any', '1BHK', '2BHK', '3BHK', '4BHK+'] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setBhk(option)}
-                    className={`font-manrope text-sm font-medium px-5 py-2.5 rounded-xl border transition-all ${
-                      bhk === option
-                        ? 'bg-[#D4755B] border-[#D4755B] text-white shadow-sm'
-                        : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#D4755B]/50 hover:text-[#D4755B]'
-                    }`}
-                  >
-                    {option === 'Any' ? 'Any BHK' : option}
-                  </button>
-                ))}
+            {/* ── BHK + Possession — refinement row ──────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+              <div>
+                <label className="block font-manrope text-sm font-semibold text-[#221410] mb-3 ml-1">
+                  BHK Configuration
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(['Any', '1BHK', '2BHK', '3BHK', '4BHK+'] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setBhk(option)}
+                      className={`font-manrope text-sm font-medium px-4 py-2 rounded-xl border transition-all ${
+                        bhk === option
+                          ? 'bg-[#D4755B] border-[#D4755B] text-white shadow-sm'
+                          : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#D4755B]/50 hover:text-[#D4755B]'
+                      }`}
+                    >
+                      {option === 'Any' ? 'Any BHK' : option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* ── Possession ──────────────────────────────────── */}
-            <div className="mb-8">
-              <label className="block font-space-mono text-[11px] text-[#6B7280] font-semibold uppercase tracking-widest mb-3 ml-1">
-                Possession
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { value: 'any',               label: 'Any' },
-                  { value: 'ready',             label: 'Ready to Move' },
-                  { value: 'underconstruction', label: 'Under Construction' },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setPossession(opt.value)}
-                    className={`font-manrope text-sm font-medium px-5 py-2.5 rounded-xl border transition-all ${
-                      possession === opt.value
-                        ? 'bg-[#221410] border-[#221410] text-white shadow-sm'
-                        : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#221410]/30 hover:text-[#221410]'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div>
+                <label className="block font-manrope text-sm font-semibold text-[#221410] mb-3 ml-1">
+                  Possession
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: 'any',               label: 'Any' },
+                    { value: 'ready',             label: 'Ready to Move' },
+                    { value: 'underconstruction', label: 'Under Construction' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setPossession(opt.value)}
+                      className={`font-manrope text-sm font-medium px-4 py-2 rounded-xl border transition-all ${
+                        possession === opt.value
+                          ? 'bg-[#221410] border-[#221410] text-white shadow-sm'
+                          : 'bg-white border-[#E6E0DA] text-[#6B7280] hover:border-[#221410]/30 hover:text-[#221410]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

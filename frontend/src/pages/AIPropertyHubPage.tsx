@@ -568,7 +568,9 @@ const AIHubDevPage: React.FC = () => {
         </React.Suspense>
       )}
 
-      {AICTASection && (
+      {/* CTA only before the first search or when a search came back empty —
+          once real results are on screen it reads as a dead end below them */}
+      {AICTASection && !searchLoading && properties.length === 0 && (
         <React.Suspense fallback={null}>
           <AICTASection />
         </React.Suspense>

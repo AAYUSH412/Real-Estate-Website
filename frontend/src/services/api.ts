@@ -289,9 +289,10 @@ export const aiAPI = {
   localities: (city: string, q?: string) =>
     apiClient.get('/ai/localities', { params: { city, ...(q && { q }) } }),
 
-  locationTrends: (city: string) => {
+  locationTrends: (city: string, model?: string) => {
     const firecrawlKey = localStorage.getItem('buildestate_firecrawl_key');
     return apiClient.get(`/locations/${encodeURIComponent(city)}/trends`, {
+      params: { ...(model && { model }) },
       headers: {
         ...(firecrawlKey && { 'X-Firecrawl-Key': firecrawlKey }),
       },

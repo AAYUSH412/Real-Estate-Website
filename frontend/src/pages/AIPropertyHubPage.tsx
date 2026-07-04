@@ -456,7 +456,7 @@ const AIHubDevPage: React.FC = () => {
     setHasLoadedTrends(true);
 
     try {
-      const response = await aiApiRef.locationTrends(city);
+      const response = await aiApiRef.locationTrends(city, searchParams.model);
       const data = response.data;
       setLocations(data.locations || []);
       setLocationAnalysis(data.analysis || null);

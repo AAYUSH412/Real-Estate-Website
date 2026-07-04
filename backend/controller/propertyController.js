@@ -168,7 +168,7 @@ async function resolveServices(req) {
     if (serverNvidiaKey) {
         try {
             const activeModels = await resolveActiveModels();
-            const requestedSlug = req.body.model || null;
+            const requestedSlug = req.body?.model || req.query?.model || null;
 
             let ordered = [...activeModels];
             if (requestedSlug) {
@@ -486,7 +486,7 @@ export const getLocationTrends = async (req, res) => {
         // Gate: require user API keys
         let services;
         try {
-            services = resolveServices(req);
+            services = await resolveServices(req);
         } catch (keyErr) {
             return res.status(keyErr.statusCode || 403).json({
                 success: false,

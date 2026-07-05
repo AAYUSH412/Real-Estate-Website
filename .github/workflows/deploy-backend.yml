@@ -26,11 +26,15 @@ jobs:
         with:
           context: backend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/buildestate-api:latest
+          # SHA tag guarantees the App Service sees a config change and
+          # actually pulls + restarts; :latest alone is a no-op redeploy.
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/buildestate-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/buildestate-api:${{ github.sha }}
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v2
         with:
           app-name: buildestate-api
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/buildestate-api:latest
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/buildestate-api:${{ github.sha }}

@@ -77,6 +77,16 @@ function safeParse(raw) {
   // Strip markdown code fences if present
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
 
+  // Strip leading prose before the first JSON object/array.
+  // Thinking models (Nemotron, GLM with enable_thinking) sometimes leak CoT
+  // text like "We need to analyse..." directly into msg.content before the JSON.
+  if (!text.startsWith('{') && !text.startsWith('[')) {
+    const jsonStart = text.search(/[{[]/);
+    if (jsonStart > 0) {
+      text = text.slice(jsonStart);
+    }
+  }
+
   // First attempt: direct parse
   try {
     return JSON.parse(text);

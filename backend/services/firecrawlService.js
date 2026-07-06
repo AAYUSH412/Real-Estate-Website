@@ -120,26 +120,63 @@ function buildAcres99Url({ city, bhk, minPrice, maxPrice, propertyType }) {
 
 // ── NoBroker URL builder ──────────────────────────────────────────────────────
 // Owner-direct listings (zero brokerage) — unique inventory not on MagicBricks.
-// Slug format: /flats-for-sale-in-{city} with optional ?price=minINR,maxINR
-const NB_TYPE_SLUG = {
-    'Flat':       'flats',
-    'House':      'independent-house',
-    'Villa':      'villa',
-    'Plot':       'plot',
-    'Penthouse':  'penthouse',
-    'Studio':     'studio-apartment',
-    'Commercial': 'office-space',
+// NoBroker switched to /property/sale/{city}/{City}/?searchParam=<base64>&propType=AP&price=minINR,maxINR
+// searchParam is base64([{lat, lon, placeName, showMap}]).
+// The old /flats-for-sale-in-{city}?price= format silently ignores the price filter.
+const NB_CITY_COORDS = {
+    'mumbai':       { lat: 19.1232626, lon: 72.8771707, name: 'Mumbai' },
+    'delhi':        { lat: 28.6139391, lon: 77.2090212, name: 'Delhi' },
+    'new delhi':    { lat: 28.6139391, lon: 77.2090212, name: 'Delhi' },
+    'bangalore':    { lat: 12.9715987, lon: 77.5945627, name: 'Bangalore' },
+    'bengaluru':    { lat: 12.9715987, lon: 77.5945627, name: 'Bangalore' },
+    'hyderabad':    { lat: 17.3850044, lon: 78.4866709, name: 'Hyderabad' },
+    'chennai':      { lat: 13.0826802, lon: 80.2707184, name: 'Chennai' },
+    'pune':         { lat: 18.5204303, lon: 73.8567437, name: 'Pune' },
+    'ahmedabad':    { lat: 23.0225,    lon: 72.5714,    name: 'Ahmedabad' },
+    'kolkata':      { lat: 22.5726459, lon: 88.3638953, name: 'Kolkata' },
+    'jaipur':       { lat: 26.9124336, lon: 75.7872709, name: 'Jaipur' },
+    'noida':        { lat: 28.5355161, lon: 77.3910265, name: 'Noida' },
+    'gurgaon':      { lat: 28.4594965, lon: 77.0266383, name: 'Gurgaon' },
+    'gurugram':     { lat: 28.4594965, lon: 77.0266383, name: 'Gurgaon' },
+    'navi mumbai':  { lat: 19.0368,    lon: 73.0158,    name: 'Navi Mumbai' },
+    'thane':        { lat: 19.2183307, lon: 72.9780897, name: 'Thane' },
+};
+
+const NB_PROP_TYPE = {
+    'Flat':       'AP',
+    'House':      'IH',
+    'Villa':      'VL',
+    'Plot':       'PL',
+    'Penthouse':  'AP',
+    'Studio':     'AP',
+    'Commercial': 'CO',
 };
 
 function buildNoBrokerUrl({ city, propertyType, minPrice, maxPrice }) {
-    const citySlug = city.toLowerCase().replace(/\s+/g, '-');
-    const typeSlug = NB_TYPE_SLUG[propertyType] || 'flats';
-    // NoBroker price param is in raw INR: 1 Cr = 10,000,000
+    const cityKey = city.toLowerCase().trim();
+    const coords  = NB_CITY_COORDS[cityKey];
+
+    // Fall back to legacy URL if city not in lookup — at least the page loads
+    if (!coords) {
+        const citySlug = cityKey.replace(/\s+/g, '-');
+        const toINR = cr => Math.round(parseFloat(cr) * 10_000_000);
+        const maxINR = parseFloat(maxPrice) > 0 ? toINR(maxPrice) : 0;
+        return `https://www.nobroker.in/flats-for-sale-in-${citySlug}${maxINR > 0 ? `?price=0,${maxINR}` : ''}`;
+    }
+
+    const searchParam = Buffer.from(
+        JSON.stringify([{ lat: coords.lat, lon: coords.lon, placeName: coords.name, showMap: false }])
+    ).toString('base64');
+
+    const citySlug    = coords.name.toLowerCase().replace(/\s+/g, '-');
+    const propType    = NB_PROP_TYPE[propertyType] || 'AP';
+    // Price in raw INR: 1 Cr = 10,000,000
     const toINR = cr => Math.round(parseFloat(cr) * 10_000_000);
     const minINR = parseFloat(minPrice) > 0 ? toINR(minPrice) : 0;
     const maxINR = parseFloat(maxPrice) > 0 ? toINR(maxPrice) : 0;
-    const priceParam = maxINR > 0 ? `?price=${minINR},${maxINR}` : '';
-    return `https://www.nobroker.in/${typeSlug}-for-sale-in-${citySlug}${priceParam}`;
+    const priceParam = maxINR > 0 ? `&price=${minINR},${maxINR}` : '';
+
+    return `https://www.nobroker.in/property/sale/${citySlug}/${coords.name}/?searchParam=${searchParam}&propType=${propType}${priceParam}`;
 }
 
 // ── Square Yards URL builder ──────────────────────────────────────────────────

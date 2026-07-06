@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { createFirecrawlService } from '../services/firecrawlService.js';
 import { createAIService } from '../services/aiService.js';
-import { resolveActiveModels } from './aiModelController.js';
+import { resolveModelsByProvider } from './aiModelController.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
 import imagekit from '../config/imagekit.js';
 import Property from '../models/propertyModel.js';
@@ -163,30 +163,33 @@ async function resolveServices(req) {
         throw err;
     }
 
-    // Load DB-backed model config (cached 5 min) and honour the user's model choice
-    let modelsConfig = null;
-    if (serverNvidiaKey) {
-        try {
-            const activeModels = await resolveActiveModels();
-            const requestedSlug = req.body?.model || req.query?.model || null;
+    // Load DB-backed model configs (cached 5 min), split by provider,
+    // and honour the user's model choice by moving their slug to front.
+    let githubModelsConfig = null;
+    let nvidiaModelsConfig = null;
+    try {
+        const { github, nvidia } = await resolveModelsByProvider();
+        const requestedSlug = req.body?.model || req.query?.model || null;
 
-            let ordered = [...activeModels];
-            if (requestedSlug) {
-                const idx = ordered.findIndex(m => m.slug === requestedSlug);
-                if (idx > 0) {
-                    const [selected] = ordered.splice(idx, 1);
-                    ordered.unshift(selected);
-                }
+        const prioritise = (list) => {
+            if (!requestedSlug) return list;
+            const ordered = [...list];
+            const idx = ordered.findIndex(m => m.slug === requestedSlug);
+            if (idx > 0) {
+                const [selected] = ordered.splice(idx, 1);
+                ordered.unshift(selected);
             }
+            return ordered;
+        };
 
-            modelsConfig = ordered.map(({ modelId, slug, config }) => ({ modelId, slug, config }));
-        } catch (err) {
-            logger.warn('Failed to load AI models from DB, falling back to defaults', { error: err.message });
-        }
+        if (github.length)  githubModelsConfig = prioritise(github).map(({ modelId, slug, config }) => ({ modelId, slug, config }));
+        if (nvidia.length)  nvidiaModelsConfig = prioritise(nvidia).map(({ modelId, slug, config }) => ({ modelId, slug, config }));
+    } catch (err) {
+        logger.warn('Failed to load AI models from DB, falling back to defaults', { error: err.message });
     }
 
     return {
-        aiService:        createAIService(serverGithubKey, serverNvidiaKey, modelsConfig),
+        aiService:        createAIService(serverGithubKey, serverNvidiaKey, githubModelsConfig, nvidiaModelsConfig),
         firecrawlService: createFirecrawlService(firecrawlKey),
     };
 }

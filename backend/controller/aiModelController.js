@@ -11,15 +11,75 @@ function invalidateCache() {
 }
 
 const SEED_MODELS = [
+  // ── GitHub Models (primary provider chain) ───────────────────────────────
+  {
+    name: 'GPT-4.1',
+    slug: 'gpt-4-1',
+    modelId: 'openai/gpt-4.1',
+    provider: 'github',
+    badge: 'Fast · Reliable',
+    description: 'OpenAI GPT-4.1 via GitHub Models. Best JSON accuracy, lowest latency.',
+    isActive: true,
+    isDefault: true,
+    order: 0,
+    config: {
+      maxTokens: 32768,
+      timeoutMs: 30000,
+      temperature: 0.3,
+      topP: 1.0,
+      enableThinking: false,
+      reasoningBudget: null,
+    },
+  },
+  {
+    name: 'Llama 4 Scout',
+    slug: 'llama-4-scout',
+    modelId: 'meta/Llama-4-Scout-17B-16E-Instruct',
+    provider: 'github',
+    badge: 'Open Source · Fast',
+    description: '17B MoE model from Meta. Sub-second responses, no rate limits on free tier.',
+    isActive: true,
+    isDefault: false,
+    order: 1,
+    config: {
+      maxTokens: 4096,
+      timeoutMs: 45000,
+      temperature: 0.3,
+      topP: 0.1,
+      enableThinking: false,
+      reasoningBudget: null,
+    },
+  },
+  {
+    name: 'Mistral Medium 3',
+    slug: 'mistral-medium-3',
+    modelId: 'mistral-ai/mistral-medium-2505',
+    provider: 'github',
+    badge: 'Open Source · Reliable',
+    description: 'Mistral Medium 3 (May 2025). Reliable fallback with consistent formatting.',
+    isActive: true,
+    isDefault: false,
+    order: 2,
+    config: {
+      maxTokens: 4096,
+      timeoutMs: 45000,
+      temperature: 0.3,
+      topP: 0.01,
+      enableThinking: false,
+      reasoningBudget: null,
+    },
+  },
+  // ── NVIDIA NIM (fallback provider chain) ─────────────────────────────────
   {
     name: 'Nemotron Nano',
     slug: 'nemotron-nano',
     modelId: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+    provider: 'nvidia',
     badge: 'Fast · Reasoning',
     description: '30B reasoning model. Balanced speed and quality for most searches.',
     isActive: true,
-    isDefault: true,
-    order: 0,
+    isDefault: false,
+    order: 3,
     config: {
       maxTokens: 65536,
       timeoutMs: 120000,
@@ -30,32 +90,15 @@ const SEED_MODELS = [
     },
   },
   {
-    name: 'Nemotron Ultra',
-    slug: 'nemotron-ultra',
-    modelId: 'nvidia/nemotron-3-ultra-550b-a55b',
-    badge: 'Ultra · Deep Analysis',
-    description: '550B flagship model. Best analysis quality, slower response.',
-    isActive: true,
-    isDefault: false,
-    order: 1,
-    config: {
-      maxTokens: 65536,
-      timeoutMs: 180000,
-      temperature: 0.6,
-      topP: 0.95,
-      enableThinking: true,
-      reasoningBudget: 16384,
-    },
-  },
-  {
     name: 'Mistral Medium',
     slug: 'mistral-medium',
     modelId: 'mistralai/mistral-medium-3.5-128b',
+    provider: 'nvidia',
     badge: 'Fast · Reliable',
     description: '128B model, no reasoning. Quickest responses, consistently formatted output.',
     isActive: true,
     isDefault: false,
-    order: 2,
+    order: 5,
     config: {
       maxTokens: 6000,
       timeoutMs: 90000,
@@ -70,15 +113,15 @@ const SEED_MODELS = [
 async function seedDefaultModels() {
   try {
     await AIModel.insertMany(SEED_MODELS, { ordered: false });
-    logger.info('AIModel: seeded 3 default models');
+    logger.info('AIModel: seeded 6 default models (3 GitHub + 3 NVIDIA)');
   } catch (err) {
     logger.warn('AIModel seed skipped (already exists or error)', { error: err.message });
   }
 }
 
 /**
- * Returns active models from cache or DB. Auto-seeds if DB is empty.
- * Used by propertyController to build NvidiaNimProvider config.
+ * Returns all active models from cache or DB. Auto-seeds if DB is empty.
+ * Use resolveModelsByProvider() to split into per-provider lists.
  */
 export async function resolveActiveModels() {
   if (_cache && Date.now() < _cacheExpiry) return _cache;
@@ -93,6 +136,18 @@ export async function resolveActiveModels() {
   _cache = models;
   _cacheExpiry = Date.now() + 5 * 60 * 1000;
   return models;
+}
+
+/**
+ * Returns active models split by provider.
+ * propertyController calls this to build per-provider model configs.
+ */
+export async function resolveModelsByProvider() {
+  const all = await resolveActiveModels();
+  return {
+    github: all.filter(m => (m.provider || 'nvidia') === 'github'),
+    nvidia: all.filter(m => (m.provider || 'nvidia') === 'nvidia'),
+  };
 }
 
 // ── Public endpoint ───────────────────────────────────────────────────────────

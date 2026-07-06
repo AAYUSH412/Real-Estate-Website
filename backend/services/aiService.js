@@ -338,16 +338,20 @@ Respond ONLY with this JSON schema:
 /**
  * Factory — build an AIService with the appropriate LLM provider chain.
  *
- * - nvidiaKey present → [NvidiaNim, GitHubModels] (NIM as primary, GitHub as fallback)
- * - nvidiaKey absent  → [GitHubModels] (current behaviour, unchanged)
- *
- * Server env-var keys MUST NOT be used as a fallback.
+ * Chain order: GitHubModels (primary) → NvidiaNim (fallback)
+ * Each provider receives its own DB-backed model list.
+ * Server env-var keys MUST NOT be used as a fallback for user endpoints.
  */
-export function createAIService(githubKey = null, nvidiaKey = null, modelsConfig = null) {
+export function createAIService(
+  githubKey = null,
+  nvidiaKey = null,
+  githubModelsConfig = null,
+  nvidiaModelsConfig = null,
+) {
   const providers = [];
 
-  if (nvidiaKey)    providers.push(new NvidiaNimProvider(nvidiaKey, modelsConfig));
-  if (githubKey)    providers.push(new GitHubModelsProvider(githubKey));
+  if (githubKey) providers.push(new GitHubModelsProvider(githubKey, githubModelsConfig));
+  if (nvidiaKey) providers.push(new NvidiaNimProvider(nvidiaKey, nvidiaModelsConfig));
 
   if (!providers.length) throw new Error('[AIService] At least one AI provider key is required.');
 

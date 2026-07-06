@@ -39,6 +39,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^6.9.16",
     "nodemon": "^3.1.9",
+    "openai": "^6.45.0",
     "transporter": "^0.0.1",
     "uuid": "^13.0.0",
     "validator": "^13.12.0",

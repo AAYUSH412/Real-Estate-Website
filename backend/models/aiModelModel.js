@@ -10,6 +10,7 @@ const aiModelSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     isDefault: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
+    provider: { type: String, enum: ['nvidia', 'github'], default: 'nvidia' },
     config: {
       maxTokens: { type: Number, default: 6000 },
       timeoutMs: { type: Number, default: 90000 },

@@ -1,88 +1,140 @@
-import ModelClient, { isUnexpected } from '@azure-rest/ai-inference';
-import { AzureKeyCredential } from '@azure/core-auth';
+import OpenAI from 'openai';
 import { registry } from '../../utils/circuitBreaker.js';
 import logger from '../../utils/logger.js';
 import { LLMProvider } from './LLMProvider.js';
 
-const PRIMARY_MODEL  = 'gpt-4.1-mini';
-const FALLBACK_MODEL = 'gpt-4.1-nano';
-const TIMEOUT_MS     = 30_000;
+const ENDPOINT = 'https://models.github.ai/inference';
+
+// Hardcoded defaults — used when no DB-backed model config is provided.
+// Params tuned for structured JSON output (low temp for determinism).
+// top_p values match each model's GitHub Marketplace playground defaults.
+const DEFAULT_MODELS = [
+  {
+    modelId: 'openai/gpt-4.1',
+    slug: 'gpt-4-1',
+    config: {
+      maxTokens: 32768,
+      timeoutMs: 30_000,
+      temperature: 0.3,
+      topP: 1.0,
+    },
+  },
+  {
+    modelId: 'meta/Llama-4-Scout-17B-16E-Instruct',
+    slug: 'llama-4-scout',
+    config: {
+      maxTokens: 4096,
+      timeoutMs: 45_000,
+      temperature: 0.3,
+      topP: 0.1,
+    },
+  },
+  {
+    modelId: 'mistral-ai/mistral-medium-2505',
+    slug: 'mistral-medium-3',
+    config: {
+      maxTokens: 4096,
+      timeoutMs: 45_000,
+      temperature: 0.3,
+      topP: 0.01,
+    },
+  },
+];
 
 export class GitHubModelsProvider extends LLMProvider {
-  constructor(apiKey) {
+  /**
+   * @param {string} apiKey
+   * @param {Array<{modelId:string, slug:string, config:object}>|null} modelsConfig
+   *   Ordered list of models to try (primary first). If null, uses hardcoded defaults.
+   */
+  constructor(apiKey, modelsConfig = null) {
     super('GitHubModels');
     if (!apiKey) throw new Error('[GitHubModelsProvider] API key required');
-    this.client = ModelClient(
-      'https://models.inference.ai.azure.com',
-      new AzureKeyCredential(apiKey)
+    this.client = new OpenAI({ baseURL: ENDPOINT, apiKey });
+    this.models  = modelsConfig || DEFAULT_MODELS;
+
+    this.circuits = this.models.map(m =>
+      registry.getBreaker(`ghm-${m.slug}`, {
+        failureThreshold: 3,
+        timeout: m.config.timeoutMs,
+        name: m.slug,
+      })
     );
-    this.primaryCircuit  = registry.getBreaker('ghm-primary',  { failureThreshold: 3, timeout: 60_000,  name: `ghm-${PRIMARY_MODEL}`  });
-    this.fallbackCircuit = registry.getBreaker('ghm-fallback', { failureThreshold: 5, timeout: 120_000, name: `ghm-${FALLBACK_MODEL}` });
   }
 
   isHealthy() {
-    return this.primaryCircuit.isHealthy() || this.fallbackCircuit.isHealthy();
+    return this.circuits.some(c => c.isHealthy());
   }
 
   async validateKey() {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15_000);
-    try {
-      const res = await this.client.path('/chat/completions').post({
-        body: {
-          messages: [{ role: 'system', content: 'Reply OK.' }, { role: 'user', content: 'OK?' }],
-          model: FALLBACK_MODEL,
-          temperature: 0,
-          max_tokens: 8,
-        },
-      });
-      if (isUnexpected(res)) throw new Error(res.body.error?.message || 'Unknown error');
-      return { valid: true };
-    } finally {
-      clearTimeout(timer);
-    }
+    const res = await this.client.chat.completions.create({
+      model: DEFAULT_MODELS[0].modelId,
+      messages: [{ role: 'user', content: 'Reply OK.' }],
+      temperature: 0,
+      max_tokens: 8,
+    });
+    if (!res.choices?.[0]?.message?.content) throw new Error('Empty validation response');
+    return { valid: true };
   }
 
   async generateText(prompt, systemPrompt, opts = {}) {
-    // Try primary
-    try {
-      return await this.primaryCircuit.execute(() =>
-        this._call(PRIMARY_MODEL, prompt, systemPrompt, opts)
-      );
-    } catch (err) {
-      logger.warn('GitHubModels primary failed, trying fallback', { error: err.message });
+    for (let i = 0; i < this.models.length; i++) {
+      const model   = this.models[i];
+      const circuit = this.circuits[i];
+
+      if (!circuit.isHealthy()) {
+        logger.warn('GitHubModels circuit open, skipping', { slug: model.slug });
+        continue;
+      }
+
+      try {
+        return await circuit.execute(() =>
+          this._call(model.modelId, model.config, prompt, systemPrompt, opts)
+        );
+      } catch (err) {
+        logger.warn('GitHubModels model failed, trying next', { slug: model.slug, error: err.message });
+      }
     }
-    // Fallback
-    return await this.fallbackCircuit.execute(() =>
-      this._call(FALLBACK_MODEL, prompt, systemPrompt, opts)
-    );
+    throw new Error('All GitHubModels models exhausted');
   }
 
-  async _call(model, prompt, systemPrompt, opts) {
+  async _call(modelId, config, prompt, systemPrompt, opts) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
+    const timeoutMs  = opts.timeoutMs ?? config.timeoutMs;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      logger.info('GitHubModels calling model', { model });
-      const t0  = Date.now();
-      const res = await this.client.path('/chat/completions').post({
-        body: {
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user',   content: prompt       },
-          ],
-          model,
-          temperature: opts.temperature ?? 0.3,
-          max_tokens:  opts.maxTokens   ?? 4000,
-          top_p: 1,
-          // JSON mode if the caller requests it
-          ...(opts.jsonMode && { response_format: { type: 'json_object' } }),
-        },
+      logger.info('GitHubModels calling model', { modelId });
+      const t0 = Date.now();
+
+      const body = {
+        model:       modelId,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: prompt       },
+        ],
+        temperature: opts.temperature ?? config.temperature,
+        max_tokens:  opts.maxTokens   ?? config.maxTokens,
+        top_p:       config.topP,
+        // JSON mode only for OpenAI models — Llama/Mistral don't support response_format
+        ...(opts.jsonMode && modelId.startsWith('openai/') && {
+          response_format: { type: 'json_object' },
+        }),
+      };
+
+      const res = await this.client.chat.completions.create(body, {
+        signal: controller.signal,
       });
-      logger.info('GitHubModels responded', { model, ms: Date.now() - t0 });
-      if (isUnexpected(res)) throw new Error(res.body.error?.message || 'Unknown error');
-      return res.body.choices[0].message.content;
+
+      logger.info('GitHubModels responded', { modelId, ms: Date.now() - t0 });
+
+      const content = res.choices[0]?.message?.content;
+      if (!content) throw new Error(`GitHubModels [${modelId}] returned empty content`);
+      return content;
     } catch (err) {
-      if (err.name === 'AbortError') throw new Error(`GitHubModels timeout after ${(opts.timeoutMs ?? TIMEOUT_MS) / 1000}s`);
+      if (err.name === 'AbortError' || err.code === 'ABORT_ERR') {
+        throw new Error(`GitHubModels timeout after ${timeoutMs / 1000}s`);
+      }
       throw err;
     } finally {
       clearTimeout(timer);

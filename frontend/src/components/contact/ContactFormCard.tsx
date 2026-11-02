@@ -25,6 +25,7 @@ const ContactFormCard: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setStatus('idle');
 
@@ -67,12 +68,10 @@ const ContactFormCard: React.FC = () => {
         {/* First Name & Last Name Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
-              First Name
-            </label>
+            <label htmlFor="ContactFormCard-firstName" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">First Name</label>
             <input
               type="text"
-              name="firstName"
+              id="ContactFormCard-firstName" name="firstName"
               value={formData.firstName}
               onChange={handleInputChange}
               placeholder="John"
@@ -82,12 +81,10 @@ const ContactFormCard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
-              Last Name
-            </label>
+            <label htmlFor="ContactFormCard-lastName" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">Last Name</label>
             <input
               type="text"
-              name="lastName"
+              id="ContactFormCard-lastName" name="lastName"
               value={formData.lastName}
               onChange={handleInputChange}
               placeholder="Doe"
@@ -104,7 +101,7 @@ const ContactFormCard: React.FC = () => {
           </label>
           <input
             type="email"
-            name="email"
+            id="ContactFormCard-email" name="email"
             value={formData.email}
             onChange={handleInputChange}
             placeholder="john.doe@example.com"
@@ -115,12 +112,10 @@ const ContactFormCard: React.FC = () => {
 
         {/* Phone Number */}
         <div>
-          <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
-            Phone Number
-          </label>
+          <label htmlFor="ContactFormCard-phoneNumber" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">Phone Number</label>
           <input
             type="tel"
-            name="phoneNumber"
+            id="ContactFormCard-phoneNumber" name="phoneNumber"
             value={formData.phoneNumber}
             onChange={handleInputChange}
             placeholder="+91 98765 43210"
@@ -131,11 +126,9 @@ const ContactFormCard: React.FC = () => {
 
         {/* Message */}
         <div>
-          <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
-            Message
-          </label>
+          <label htmlFor="ContactFormCard-message" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">Message</label>
           <textarea
-            name="message"
+            id="ContactFormCard-message" name="message"
             value={formData.message}
             onChange={handleInputChange}
             placeholder="Tell us about your inquiry..."

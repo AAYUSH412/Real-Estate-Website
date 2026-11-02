@@ -24,6 +24,7 @@ const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property, pri
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -37,7 +38,7 @@ const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property, pri
         message: `Viewing request for ${property.name}`,
       });
       setSuccess(true);
-      toast.success('Visit Scheduled!', { description: "We'll confirm within 24 hours." });
+      toast.success('Visit Scheduled!', { description: 'Your request is pending administrator confirmation.' });
       setForm({ fullName: '', email: '', phone: '', date: '', timeSlot: '' });
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to schedule. Please try again.';
@@ -91,38 +92,38 @@ const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property, pri
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
-                  <label className={LABEL}>Full Name</label>
+                  <label htmlFor="ScheduleViewingCard-fullName" className={LABEL}>Full Name</label>
                   <input
-                    type="text" name="fullName" value={form.fullName} onChange={handleChange}
+                    type="text" id="ScheduleViewingCard-fullName" name="fullName" value={form.fullName} onChange={handleChange}
                     placeholder="Your full name" className={INPUT} required
                   />
                 </div>
                 <div>
-                  <label className={LABEL}>Email</label>
+                  <label htmlFor="ScheduleViewingCard-email" className={LABEL}>Email</label>
                   <input
-                    type="email" name="email" value={form.email} onChange={handleChange}
+                    type="email" id="ScheduleViewingCard-email" name="email" value={form.email} onChange={handleChange}
                     placeholder="your@email.com" className={INPUT} required
                   />
                 </div>
                 <div>
-                  <label className={LABEL}>Phone</label>
+                  <label htmlFor="ScheduleViewingCard-phone" className={LABEL}>Phone</label>
                   <input
-                    type="tel" name="phone" value={form.phone} onChange={handleChange}
+                    type="tel" id="ScheduleViewingCard-phone" name="phone" value={form.phone} onChange={handleChange}
                     placeholder="+91 98765 43210" className={INPUT} required
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={LABEL}>Date</label>
+                    <label htmlFor="ScheduleViewingCard-date" className={LABEL}>Date</label>
                     <input
-                      type="date" name="date" value={form.date} onChange={handleChange}
+                      type="date" id="ScheduleViewingCard-date" name="date" value={form.date} onChange={handleChange}
                       className={INPUT + ' [color-scheme:dark]'} required
                     />
                   </div>
                   <div>
-                    <label className={LABEL}>Time</label>
+                    <label htmlFor="ScheduleViewingCard-timeSlot" className={LABEL}>Time</label>
                     <select
-                      name="timeSlot" value={form.timeSlot} onChange={handleChange}
+                      id="ScheduleViewingCard-timeSlot" name="timeSlot" value={form.timeSlot} onChange={handleChange}
                       className={INPUT + ' appearance-none cursor-pointer'} required
                     >
                       <option value="" className="bg-[#221410]">Pick time</option>

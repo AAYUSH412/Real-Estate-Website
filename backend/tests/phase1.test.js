@@ -650,3 +650,183 @@ test('demo repair requires explicit opt-in and retains orphan history without ch
   assert.throws(() => canonicalTime('24:00')); assert.throws(() => canonicalTime('11:70 AM'));
   assert.equal((await repairDemoData({ demoDataConfirmed: true, apply: true })).applied, 0);
 });
+
+test('newsletter requires recipient confirmation, rejects token substitution and revokes confirmations on suppression', async () => {
+  const { default: News } = await import('../models/newsModel.js');
+  const { newsletterToken } = await import('../utils/newsletterTokens.js');
+  await News.deleteMany({});
+  const signup = await request(testServer).post('/api/news/newsdata').send({ email: 'Consent@Example.com' });
+  assert.equal(signup.status, 200);
+  const row = await News.findOne({ email: 'consent@example.com' });
+  assert.equal(row.status, 'pending');
+  const confirmation = newsletterToken(row, 'confirm');
+  const optout = newsletterToken(row, 'unsubscribe');
+  assert.equal((await request(testServer).post('/api/news/unsubscribe').send({ email: row.email })).status, 400);
+  assert.equal((await request(testServer).post('/api/news/confirm').send({ token: optout })).status, 400);
+  assert.equal((await request(testServer).post('/api/news/confirm').send({ token: confirmation })).status, 200);
+  assert.equal((await News.findById(row.id)).status, 'confirmed');
+  assert.equal((await request(testServer).post('/api/news/unsubscribe').send({ token: optout })).status, 200);
+  assert.equal((await request(testServer).post('/api/news/unsubscribe').send({ token: optout })).status, 200);
+  assert.equal((await request(testServer).post('/api/news/confirm').send({ token: confirmation })).status, 404);
+  const suppressed = await News.findById(row.id);
+  assert.equal(suppressed.status, 'unsubscribed'); assert.equal(suppressed.consentVersion, 1);
+  assert.equal((await request(testServer).post('/api/news/confirm').send({ token: newsletterToken(suppressed, 'confirm') })).status, 200);
+});
+
+test('newsletter dispatch failure is retryable and never grants marketing consent', async () => {
+  const { default: News } = await import('../models/newsModel.js');
+  const original = email.sendEmail;
+  email.sendEmail = async () => { throw new Error('SMTP unavailable'); };
+  try {
+    const failed = await request(testServer).post('/api/news/newsdata').send({ email: 'retry@example.com' });
+    assert.equal(failed.status, 503);
+    assert.equal((await News.findOne({ email: 'retry@example.com' })).status, 'pending');
+  } finally { email.sendEmail = original; }
+  assert.equal((await request(testServer).post('/api/news/newsdata').send({ email: 'retry@example.com' })).status, 200);
+});
+
+test('contact inbox enforces admin access, pagination, versioned edits and audit rollback', async () => {
+  const { default: Form } = await import('../models/formModel.js');
+  await Form.deleteMany({});
+  assert.equal((await request(testServer).post('/api/form/submit').send({ name: 'Contact', email: 'contact@example.com', message: 'Please call me' })).status, 200);
+  assert.equal((await request(testServer).get('/api/admin/leads').set('Authorization', auth(owner))).status, 403);
+  let page = await request(testServer).get('/api/admin/leads?limit=1').set('Authorization', adminAuth());
+  assert.equal(page.status, 200); assert.equal(page.body.pagination.total, 1);
+  const row = page.body.leads[0];
+  const update = { status: 'in_progress', adminNote: 'Called customer', expectedVersion: row.version };
+  const saved = await request(testServer).put(`/api/admin/leads/${row._id}`).set('Authorization', adminAuth()).send(update);
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal((await request(testServer).put(`/api/admin/leads/${row._id}`).set('Authorization', adminAuth()).send(update)).status, 409);
+  assert.equal(await AuditLog.countDocuments({ action: 'update_lead' }), 1);
+  const create = AuditLog.create;
+  AuditLog.create = async () => { throw new Error('audit unavailable'); };
+  try {
+    assert.equal((await request(testServer).put(`/api/admin/leads/${row._id}`).set('Authorization', adminAuth()).send({ ...update, status: 'resolved', expectedVersion: 1 })).status, 500);
+    assert.equal((await Form.findById(row._id)).status, 'in_progress');
+  } finally { AuditLog.create = create; }
+});
+
+test('subscriber admin management never reveals tokens or grants consent and audits suppression', async () => {
+  const { default: News } = await import('../models/newsModel.js');
+  await News.deleteMany({});
+  await News.collection.insertOne({ email: 'legacy@example.com' });
+  const page = await request(testServer).get('/api/admin/subscribers?status=pending').set('Authorization', adminAuth());
+  assert.equal(page.status, 200); assert.equal(page.body.pagination.total, 1); assert.equal(page.body.subscribers[0].status, 'pending');
+  const row = page.body.subscribers[0];
+  assert.equal((await request(testServer).put(`/api/admin/subscribers/${row._id}/suppress`).set('Authorization', adminAuth()).send({ status: 'confirmed' })).status, 400);
+  assert.equal((await request(testServer).put(`/api/admin/subscribers/${row._id}/suppress`).set('Authorization', adminAuth()).send({})).status, 200);
+  assert.equal(await AuditLog.countDocuments({ action: 'suppress_subscriber' }), 1);
+});
+
+test('full API journey: registration, verification, publication, owner revision, guest and account bookings', async () => {
+  let verifyUrl;
+  const original = email.sendEmailVerification;
+  email.sendEmailVerification = async (address, name, url) => { verifyUrl = url; };
+  const registeredEmail = 'journey@phase3.test';
+  try {
+    const registered = await request(testServer).post('/api/users/register').send({ name: 'Journey Owner', email: registeredEmail, password });
+    assert.equal(registered.status, 200, JSON.stringify(registered.body)); assert.equal(registered.body.requiresVerification, true);
+  } finally { email.sendEmailVerification = original; }
+  assert.ok(verifyUrl);
+  const verified = await request(testServer).get(`/api/users/verify/${verifyUrl.split('/').pop()}`);
+  assert.equal(verified.status, 200, JSON.stringify(verified.body)); assert.ok(verified.body.token);
+  const loggedIn = await request(testServer).post('/api/users/login').send({ email: registeredEmail, password });
+  assert.equal(loggedIn.status, 200);
+  const header = `Bearer ${loggedIn.body.token}`;
+  let submission = request(testServer).post('/api/user/properties').set('Authorization', header);
+  for (const [key, value] of Object.entries(fields)) submission = submission.field(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+  const submitted = await submission.attach('images', png, 'home.png');
+  assert.equal(submitted.status, 201, JSON.stringify(submitted.body));
+  const listing = submitted.body.property;
+  const approved = await request(testServer).put(`/api/admin/properties/${listing._id}/approve`).set('Authorization', adminAuth()).send({ expectedVersion: listing.version });
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal((await request(testServer).get(`/api/products/single/${listing._id}`)).status, 200);
+  const revised = await request(testServer).put(`/api/user/properties/${listing._id}`).set('Authorization', header).field('title', 'Updated journey home').field('expectedVersion', String(approved.body.property.version));
+  assert.equal(revised.status, 200, JSON.stringify(revised.body)); assert.equal(revised.body.property.status, 'pending');
+  assert.equal((await request(testServer).get(`/api/products/single/${listing._id}`)).status, 404);
+  assert.equal((await request(testServer).put(`/api/admin/properties/${listing._id}/approve`).set('Authorization', adminAuth()).send({ expectedVersion: revised.body.property.version })).status, 200);
+  const notifications = [];
+  const notify = email.sendAppointmentStatusUpdate;
+  email.sendAppointmentStatusUpdate = async (address, appointment, status) => { notifications.push(status); };
+  try {
+    for (const [guest, time] of [[false, '10:00'], [true, '11:00']]) {
+      let booking = request(testServer).post(`/api/appointments/schedule${guest ? '' : '/auth'}`);
+      if (!guest) booking = booking.set('Authorization', auth(other));
+      const booked = await booking.send({ propertyId: listing._id, date: futureDay, time, ...(guest ? { name: 'Guest', email: 'guest@example.com', phone: '+919999999999' } : {}) });
+      assert.equal(booked.status, 201, JSON.stringify(booked.body));
+      const confirmed = await request(testServer).put('/api/admin/appointments/status').set('Authorization', adminAuth()).send({ appointmentId: booked.body.appointment._id, status: 'confirmed', expectedVersion: booked.body.appointment.version });
+      assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+      const cancelled = guest
+        ? await request(testServer).put('/api/admin/appointments/status').set('Authorization', adminAuth()).send({ appointmentId: booked.body.appointment._id, status: 'cancelled', expectedVersion: confirmed.body.appointment.version })
+        : await request(testServer).put(`/api/appointments/cancel/${booked.body.appointment._id}`).set('Authorization', auth(other)).send({ expectedVersion: confirmed.body.appointment.version });
+      assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+    }
+    assert.deepEqual(notifications, ['confirmed', 'cancelled', 'confirmed', 'cancelled']);
+  } finally { email.sendAppointmentStatusUpdate = notify; }
+});
+
+test('phase 3 migration preserves suppression, treats legacy addresses as pending and blocks normalized duplicates', async () => {
+  const { default: News } = await import('../models/newsModel.js');
+  const { migratePhase3 } = await import('../scripts/phase3-migration.js');
+  await News.deleteMany({});
+  await News.collection.insertMany([{ email: ' Legacy@Phase3.test ' }, { email: 'legacy@phase3.test', status: 'unsubscribed', consentVersion: 2 }]);
+  const blocked = await migratePhase3();
+  assert.equal(blocked.blockers.length, 1); assert.equal(blocked.applied, 0);
+  assert.equal((await News.collection.findOne({ email: ' Legacy@Phase3.test ' })).status, undefined);
+  await News.collection.deleteOne({ email: ' Legacy@Phase3.test ' });
+  await News.collection.insertOne({ email: 'other@phase3.test' });
+  const report = await migratePhase3({ apply: true });
+  assert.deepEqual(report.blockers, []);
+  assert.equal((await News.findOne({ email: 'legacy@phase3.test' })).status, 'unsubscribed');
+  assert.equal((await News.findOne({ email: 'other@phase3.test' })).status, 'pending');
+  assert.equal((await migratePhase3({ apply: true })).applied, 0);
+});
+
+test('admin session identity is server-validated and never exposes password/session internals', async () => {
+  assert.equal((await request(testServer).get('/api/admin/session')).status, 401);
+  assert.equal((await request(testServer).get('/api/admin/session').set('Authorization', auth(owner))).status, 403);
+  const response = await request(testServer).get('/api/admin/session').set('Authorization', adminAuth());
+  assert.equal(response.status, 200);
+  assert.deepEqual(Object.keys(response.body.user).sort(), ['email', 'id', 'role']);
+});
+
+test('registration dispatch failure preserves an unverified account and explicit resend can recover it', async () => {
+  const send = email.sendEmailVerification;
+  email.sendEmailVerification = async () => { throw new Error('SMTP down'); };
+  try {
+    const registered = await request(testServer).post('/api/users/register').send({ name: 'Recovery', email: 'recovery@phase3.test', password });
+    assert.equal(registered.status, 200);
+    assert.equal(registered.body.requiresVerification, true); assert.equal(registered.body.verificationEmailSent, false);
+    assert.equal((await User.findOne({ email: 'recovery@phase3.test' })).isEmailVerified, false);
+    assert.equal((await request(testServer).post('/api/users/resend-verification').send({ email: 'recovery@phase3.test' })).status, 503);
+  } finally { email.sendEmailVerification = send; }
+  assert.equal((await request(testServer).post('/api/users/resend-verification').send({ email: 'recovery@phase3.test' })).status, 200);
+});
+
+test('unverified login without an existing token reports dispatch failure without issuing a session', async () => {
+  await User.updateOne({ _id: owner._id }, { $set: { isEmailVerified: false }, $unset: { emailVerificationToken: 1 } });
+  const send = email.sendEmailVerification;
+  email.sendEmailVerification = async () => { throw new Error('SMTP down'); };
+  try {
+    const response = await request(testServer).post('/api/users/login').send({ email: owner.email, password });
+    assert.equal(response.status, 403); assert.equal(response.body.requiresVerification, true); assert.equal(response.body.emailSent, false); assert.equal(response.body.token, undefined);
+  } finally { email.sendEmailVerification = send; }
+});
+
+test('activity log totals are accurate for empty, first, middle and last pages', async () => {
+  const empty = await request(testServer).get('/api/admin/activity-logs?targetType=lead').set('Authorization', adminAuth());
+  assert.equal(empty.body.pagination.totalLogs, 0); assert.equal(empty.body.logs.length, 0);
+  await AuditLog.insertMany(Array.from({ length: 45 }, (_, index) => ({ adminEmail: 'admin@phase3.test', action: 'update_lead', targetType: 'lead', targetName: `Inquiry ${index}` })));
+  for (const [page, expected] of [[1, 20], [2, 20], [3, 5]]) {
+    const response = await request(testServer).get(`/api/admin/activity-logs?targetType=lead&page=${page}&limit=20`).set('Authorization', adminAuth());
+    assert.equal(response.status, 200); assert.equal(response.body.pagination.totalLogs, 45); assert.equal(response.body.pagination.totalPages, 3); assert.equal(response.body.logs.length, expected);
+  }
+});
+
+
+test('admin catalog accepts the empty search and all-type filters sent by the admin page', async () => {
+  await property();
+  const response = await request(testServer).get('/api/admin/properties?page=1&search=&type=all&sort=newest&status=all').set('Authorization', adminAuth());
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.property.length, 1);
+});

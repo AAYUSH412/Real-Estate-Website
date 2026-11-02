@@ -11,7 +11,7 @@ export const publicListingQuery = () => ({ $and: [
 export function catalogQuery(params, base = {}) {
   const conditions = [base];
   for (const [param, fields] of [['search', ['title', 'location', 'type']], ['location', ['location']]]) {
-    if (params[param] !== undefined && text(params[param], param).trim()) conditions.push({ $or: fields.map(field => ({ [field]: { $regex: escapeRegex(params[param].trim()), $options: 'i' } })) });
+    if (params[param] !== undefined && text(params[param], param, { min: 0 }).trim()) conditions.push({ $or: fields.map(field => ({ [field]: { $regex: escapeRegex(params[param].trim()), $options: 'i' } })) });
   }
   if (params.type !== undefined && params.type !== 'all') {
     text(params.type, 'type', { max: 200 });

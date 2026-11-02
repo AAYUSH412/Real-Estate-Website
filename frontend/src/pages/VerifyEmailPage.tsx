@@ -1,3 +1,4 @@
+import ResendVerificationForm from '../components/auth/ResendVerificationForm';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader, ArrowLeft } from 'lucide-react';
@@ -15,6 +16,8 @@ const VerifyEmailPage: React.FC = () => {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    let redirect: ReturnType<typeof setTimeout>;
     const verifyEmail = async () => {
       if (!token) {
         setStatus('error');
@@ -24,21 +27,23 @@ const VerifyEmailPage: React.FC = () => {
 
       try {
         const { data } = await userAPI.verifyEmail(token);
+        if (cancelled) return;
         if (data.success) {
           setStatus('success');
           setMessage(data.message || 'Your email has been verified successfully!');
           // If backend returned a token, log the user in automatically
           if (data.token && data.user) {
             establishSession(data.token, data.user);
-            setTimeout(() => navigate('/'), 3000);
+            redirect = setTimeout(() => navigate('/'), 3000);
           } else {
-            setTimeout(() => navigate('/signin'), 4000);
+            redirect = setTimeout(() => navigate('/signin'), 4000);
           }
         } else {
           setStatus('error');
           setMessage(data.message || 'Verification failed. Please try again.');
         }
       } catch (error: any) {
+        if (cancelled) return;
         console.error('Email verification error:', error);
         setStatus('error');
         setMessage(
@@ -49,6 +54,7 @@ const VerifyEmailPage: React.FC = () => {
     };
 
     verifyEmail();
+    return () => { cancelled = true; clearTimeout(redirect); };
   }, [token, navigate, establishSession]);
 
   return (
@@ -115,8 +121,9 @@ const VerifyEmailPage: React.FC = () => {
                   Try Signing In
                 </Link>
                 <p className="font-manrope text-xs text-[#6B7280]">
-                  If your link expired, signing in will send a new verification email.
+                  Request a new verification link below.
                 </p>
+                <ResendVerificationForm />
               </div>
             </div>
           )}

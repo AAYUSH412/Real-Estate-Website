@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "react-error-boundary";
@@ -15,16 +15,18 @@ import ErrorFallback from "./components/ErrorFallback";
 
 // Pages
 import Login from "./components/login";
-import Dashboard from "./pages/Dashboard";
-import PropertyListings from "./pages/List";
-import Add from "./pages/Add";
-import Update from "./pages/Update";
-import Appointments from "./pages/Appointments";
-import PendingListings from "./pages/PendingListings";
-import Users from "./pages/Users";
-import UserDetails from "./pages/UserDetails";
-import ActivityLogs from "./pages/ActivityLogs";
-import AIModels from "./pages/AIModels";
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const PropertyListings = lazy(() => import("./pages/List"));
+const Add = lazy(() => import("./pages/Add"));
+const Update = lazy(() => import("./pages/Update"));
+const Appointments = lazy(() => import("./pages/Appointments"));
+const PendingListings = lazy(() => import("./pages/PendingListings"));
+const Users = lazy(() => import("./pages/Users"));
+const UserDetails = lazy(() => import("./pages/UserDetails"));
+const ActivityLogs = lazy(() => import("./pages/ActivityLogs"));
+const AIModels = lazy(() => import("./pages/AIModels"));
+
+const Engagement = lazy(() => import('./pages/Engagement'));
 
 // Page transition variants
 const pageVariants = {
@@ -71,6 +73,7 @@ const AppLayout = () => {
             exit="exit"
             className="flex-1"
           >
+            <Suspense fallback={<p role="status" className="p-8">Loading page…</p>}>
             <Routes location={location}>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
@@ -84,6 +87,8 @@ const AppLayout = () => {
                 <Route path="/update/:id" element={<Update />} />
                 <Route path="/appointments" element={<Appointments />} />
                 <Route path="/pending-listings" element={<PendingListings />} />
+                <Route path="/leads" element={<Engagement key="leads" kind="leads" />} />
+                <Route path="/subscribers" element={<Engagement key="subscribers" kind="subscribers" />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/users/:id" element={<UserDetails />} />
                 <Route path="/activity-logs" element={<ActivityLogs />} />
@@ -93,6 +98,7 @@ const AppLayout = () => {
               {/* 404 Route */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </div>

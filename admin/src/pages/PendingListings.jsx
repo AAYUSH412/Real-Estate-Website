@@ -1,3 +1,4 @@
+import BulkPropertyControls from '../components/BulkPropertyControls';
 import { listingReviewAPI } from '../services/domainAPI';
 import PaginationControls from '../components/PaginationControls';
 import { useState, useEffect, useCallback } from "react";
@@ -8,7 +9,7 @@ import {
   ChevronLeft, ChevronRight, Images,
 } from "lucide-react";
 import { toast } from "sonner";
-import apiClient from "../services/apiClient";
+import { queryGet, queryCache } from "../services/apiClient";
 import { cn, formatPrice, formatDate } from "../lib/utils";
 
 // ─── Image Gallery + Lightbox ─────────────────────────────────────────────────
@@ -391,6 +392,7 @@ const ListingCard = ({ listing, onApprove, onReject, actionLoading }) => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const PendingListings = () => {
+  const [loadError, setLoadError] = useState('');
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -400,16 +402,16 @@ const PendingListings = () => {
   const [pagination, setPagination] = useState(null);
 
   const fetchPending = useCallback(async (signal) => {
-    setLoading(true);
+    setLoading(true); setLoadError('');
     try {
-      const res = await apiClient.get("/api/admin/properties/pending", { params: { page, search: searchQuery }, signal });
+      const res = await queryGet("/api/admin/properties/pending", { page, search: searchQuery }, signal);
       const data = res.data.listings ?? res.data.properties ?? res.data ?? [];
       if (signal?.aborted) return;
       if (page > 1 && !data.length) { setPage(page - 1); return; }
       setListings(Array.isArray(data) ? data : []);
       setPagination(res.data.pagination);
     } catch (err) {
-      if (!signal?.aborted) toast.error(err.response?.data?.message || "Failed to fetch pending listings.");
+      if (!signal?.aborted) setLoadError(err.response?.data?.message || "Unable to load the review queue. Please retry.");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -452,6 +454,8 @@ const PendingListings = () => {
 
   const filtered = listings;
 
+  if (loadError) return <main role="alert" className="p-8"><p>{loadError}</p><button className="underline" onClick={() => fetchPending()}>Retry</button></main>;
+
   if (loading && !pagination) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-8">
@@ -475,6 +479,7 @@ const PendingListings = () => {
   return (
     <div className="min-h-screen bg-[#F5F5F3] px-6 py-8">
       <div className="max-w-3xl mx-auto">
+        <BulkPropertyControls key={listings.map(row => `${row._id}-${row.version}`).join()} records={listings} onUpdated={() => fetchPending()} reviewOnly />
 
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
@@ -490,7 +495,7 @@ const PendingListings = () => {
             <p className="text-sm text-[#9B9B99]">Approve or reject user-submitted property listings.</p>
           </div>
           <button
-            onClick={fetchPending}
+            onClick={() => { queryCache.clear(); fetchPending(); }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#6B6B6A] bg-white border border-[#E8E7E5] rounded-lg hover:border-[#D4755B] hover:text-[#D4755B] active:scale-[0.97] transition-all shadow-sm"
           >
             <RefreshCw className="w-3.5 h-3.5" />

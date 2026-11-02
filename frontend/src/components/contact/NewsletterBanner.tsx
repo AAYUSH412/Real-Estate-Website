@@ -15,7 +15,7 @@ const NewsletterBanner: React.FC = () => {
       await newsAPI.subscribe(email);
       setState('success');
       setEmail('');
-      toast.success('Subscribed! Check your inbox for a confirmation email.');
+      toast.success('Check your inbox to confirm your subscription.');
     } catch (err: any) {
       setState('idle');
       const msg = err?.response?.data?.message || 'Failed to subscribe. Please try again.';
@@ -41,7 +41,7 @@ const NewsletterBanner: React.FC = () => {
           <div className="flex-1 max-w-[500px] w-full">
             {state === 'success' ? (
               <div className="bg-white/10 border border-white/20 rounded-xl px-5 py-4 text-white text-center">
-                <p className="font-manrope font-semibold text-sm">You're subscribed!</p>
+                <p className="font-manrope font-semibold text-sm">Confirmation email sent</p>
                 <p className="font-manrope font-extralight text-xs opacity-80 mt-1">Check your inbox to confirm your subscription.</p>
               </div>
             ) : (
@@ -50,6 +50,7 @@ const NewsletterBanner: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  aria-label="Newsletter email address"
                   placeholder="Enter your email"
                   autoComplete="email"
                   className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-5 py-3.5 font-manrope font-extralight text-sm text-white placeholder:text-white/60 focus:outline-none focus:border-white/40 transition-[border-color]"

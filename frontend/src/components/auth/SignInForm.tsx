@@ -31,14 +31,14 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSubmit }) => {
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Email Input */}
       <div>
-        <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+        <label htmlFor="SignInForm-email" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
           Email Address
         </label>
         <div className="relative">
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
           <input
             type="email"
-            name="email"
+            id="SignInForm-email" name="email"
             value={formData.email}
             onChange={handleInputChange}
             placeholder="john.doe@example.com"
@@ -50,14 +50,14 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSubmit }) => {
 
       {/* Password Input */}
       <div>
-        <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+        <label htmlFor="SignInForm-password" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
           Password
         </label>
         <div className="relative">
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
           <input
             type={showPassword ? 'text' : 'password'}
-            name="password"
+            id="SignInForm-password" name="password"
             value={formData.password}
             onChange={handleInputChange}
             placeholder="Enter your password"
@@ -66,6 +66,7 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSubmit }) => {
           />
           <button
             type="button"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#D4755B] transition-[color]"
           >

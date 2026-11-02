@@ -18,6 +18,8 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
+  const [error, setError] = React.useState('');
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -31,26 +33,28 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
     
     // Validate password match
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setError('Passwords do not match.');
       return;
     }
     
+    setError('');
     onSubmit(formData);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {error && <p role="alert" className="text-red-700">{error}</p>}
       {/* First Name & Last Name */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+          <label htmlFor="SignUpForm-firstName" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
             First Name
           </label>
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
             <input
               type="text"
-              name="firstName"
+              id="SignUpForm-firstName" name="firstName"
               value={formData.firstName}
               onChange={handleInputChange}
               placeholder="John"
@@ -61,14 +65,14 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
         </div>
 
         <div>
-          <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+          <label htmlFor="SignUpForm-lastName" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
             Last Name
           </label>
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
             <input
               type="text"
-              name="lastName"
+              id="SignUpForm-lastName" name="lastName"
               value={formData.lastName}
               onChange={handleInputChange}
               placeholder="Doe"
@@ -81,14 +85,14 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
 
       {/* Email Input */}
       <div>
-        <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+        <label htmlFor="SignUpForm-email" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
           Email Address
         </label>
         <div className="relative">
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
           <input
             type="email"
-            name="email"
+            id="SignUpForm-email" name="email"
             value={formData.email}
             onChange={handleInputChange}
             placeholder="john.doe@example.com"
@@ -100,14 +104,14 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
 
       {/* Password Input */}
       <div>
-        <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+        <label htmlFor="SignUpForm-password" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
           Password
         </label>
         <div className="relative">
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
           <input
             type={showPassword ? 'text' : 'password'}
-            name="password"
+            id="SignUpForm-password" name="password"
             value={formData.password}
             onChange={handleInputChange}
             placeholder="Create a strong password"
@@ -117,6 +121,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
           />
           <button
             type="button"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#D4755B] transition-[color]"
           >
@@ -127,14 +132,14 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
 
       {/* Confirm Password Input */}
       <div>
-        <label className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
+        <label htmlFor="SignUpForm-confirmPassword" className="block font-manrope font-extralight text-xs text-[#64748B] uppercase tracking-wider mb-2">
           Confirm Password
         </label>
         <div className="relative">
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
           <input
             type={showConfirmPassword ? 'text' : 'password'}
-            name="confirmPassword"
+            id="SignUpForm-confirmPassword" name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleInputChange}
             placeholder="Re-enter your password"
@@ -143,6 +148,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSubmit }) => {
           />
           <button
             type="button"
+            aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#D4755B] transition-[color]"
           >

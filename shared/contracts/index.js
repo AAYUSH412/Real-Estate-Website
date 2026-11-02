@@ -148,3 +148,5 @@ export function appointmentDTO(source) {
 export function reviewCommand(record, reason) {
   return { expectedVersion: number(record?.version, 'expectedVersion', { integer: true }), ...(reason !== undefined && { reason: text(reason, 'reason', { max: 2000 }) }) };
 }
+
+export { createQueryCache } from './queryCache.js';

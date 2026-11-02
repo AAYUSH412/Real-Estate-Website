@@ -1,8 +1,8 @@
 // Vercel serverless function — generates a dynamic sitemap that includes live property pages.
 // Served at /sitemap.xml via the rewrite in vercel.json.
 
-const SITE_URL = 'https://buildestate.vercel.app';
-const BACKEND_URL = process.env.VITE_API_BASE_URL || 'https://buildestate-backend.onrender.com';
+const SITE_URL = (process.env.SITE_URL || 'https://buildestate.vercel.app').replace(/\/$/, '');
+const BACKEND_URL = process.env.VITE_API_BASE_URL || 'https://buildestate-api-prod.azurewebsites.net';
 
 const STATIC_PAGES = [
   { url: '/',           changefreq: 'weekly',  priority: '1.0' },
@@ -12,11 +12,12 @@ const STATIC_PAGES = [
   { url: '/contact',    changefreq: 'monthly', priority: '0.7' },
 ];
 
+export const escapeXml = value => String(value).replace(/[<>&"']/g, char => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[char]);
 function toXmlUrl({ loc, lastmod, changefreq, priority }) {
   return [
     '  <url>',
-    `    <loc>${loc}</loc>`,
-    lastmod   ? `    <lastmod>${lastmod}</lastmod>` : '',
+    `    <loc>${escapeXml(loc)}</loc>`,
+    lastmod   ? `    <lastmod>${escapeXml(lastmod)}</lastmod>` : '',
     changefreq ? `    <changefreq>${changefreq}</changefreq>` : '',
     priority   ? `    <priority>${priority}</priority>` : '',
     '  </url>',
@@ -29,24 +30,24 @@ export default async function handler(req, res) {
   // Fetch live property listings from the backend
   let propertyUrls = [];
   try {
-    const response = await fetch(`${BACKEND_URL}/api/products/list`, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (response.ok) {
+    const deadline = AbortSignal.timeout(15000);
+    for (let page = 1; ; page++) {
+      const response = await fetch(`${BACKEND_URL}/api/products/list?page=${page}&limit=100`, { signal: deadline });
+      if (!response.ok) throw new Error('Catalog unavailable');
       const data = await response.json();
-      const properties = data.properties || data.Products || [];
-      propertyUrls = properties
-        .filter((p) => p._id && p.status !== 'rejected')
-        .map((p) => ({
-          loc: `${SITE_URL}/property/${p._id}`,
-          lastmod: p.updatedAt ? p.updatedAt.split('T')[0] : today,
-          changefreq: 'weekly',
-          priority: '0.8',
-        }));
+      if (!Array.isArray(data.property) || !data.pagination || typeof data.pagination.hasNextPage !== 'boolean') throw new Error('Invalid catalog response');
+      propertyUrls.push(...data.property.filter(p => /^[a-f0-9]{24}$/i.test(p._id)).map(p => ({
+        loc: `${SITE_URL}/property/${p._id}`,
+        lastmod: p.updatedAt ? new Date(p.updatedAt).toISOString().split('T')[0] : today,
+        changefreq: 'weekly', priority: '0.8',
+      })));
+      if (!data.pagination.hasNextPage) break;
+      if (propertyUrls.length >= 49000) throw new Error('Sitemap index required');
     }
   } catch {
-    // Backend unreachable — serve static-only sitemap (better than 500)
+    // Do not cache an incomplete sitemap as a successful catalog snapshot.
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).send('Sitemap temporarily unavailable');
   }
 
   const staticEntries = STATIC_PAGES.map((p) =>

@@ -33,12 +33,6 @@ const VERDICT_META = {
   overpriced: { label: 'Overpriced', icon: '🔴', cls: 'bg-red-50     text-red-600     border-red-200'     },
 } as const;
 
-/* ── Known builders for verified badge ──────────────────── */
-const KNOWN_BUILDERS = [
-  'godrej', 'lodha', 'prestige', 'tata', 'sobha', 'dlf', 'oberoi',
-  'hiranandani', 'mahindra', 'brigade', 'phoenix', 'shapoorji', 'embassy',
-];
-
 /* ── Comparison table rows ───────────────────────────────── */
 const COMPARE_ROWS = [
   { key: 'price',             label: 'Price'       },
@@ -91,9 +85,6 @@ const PropertyCard: React.FC<{
     cls: 'bg-[#FAF8F4] text-[#9CA3AF] border-[#E6E0DA]',
   };
   const verdictMeta   = insight?.value_verdict ? VERDICT_META[insight.value_verdict] : null;
-  const isVerified    = property.builder_name
-    ? KNOWN_BUILDERS.some(b => property.builder_name!.toLowerCase().includes(b))
-    : false;
   const redFlags      = insight?.red_flags ?? [];
   const hasMatchScore = insight?.match_score != null;
   const isBest        = rank === 1 && !!insight?.value_verdict;
@@ -136,18 +127,13 @@ const PropertyCard: React.FC<{
           {property.building_name || 'Premium Property'}
         </h3>
 
-        {/* Builder + verified inline */}
+        {/* Builder reported by source */}
         {property.builder_name && (
           <div className="flex items-center gap-1.5 mb-1.5">
             <Building2 className="w-3 h-3 text-[#9CA3AF] shrink-0" />
             <span className="font-manrope text-[12px] text-[#6B7280]">
               by <span className="font-medium text-[#4B5563]">{property.builder_name}</span>
             </span>
-            {isVerified && (
-              <span className="font-manrope text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md ml-0.5">
-                ★ Verified
-              </span>
-            )}
           </div>
         )}
 
@@ -537,7 +523,7 @@ const AILoadingState: React.FC<{ city: string; sseStage?: 'searching' | 'analyzi
               className="flex items-start gap-2.5"
             >
               <span className="font-space-mono text-[10px] text-emerald-500 mt-0.5 shrink-0">✓</span>
-              <span className="font-space-mono text-[11px] text-[#9CA3AF]">Scraped listings from 3 portals</span>
+              <span className="font-space-mono text-[11px] text-[#9CA3AF]">Property search completed</span>
             </motion.div>
           )}
           {/* Active line */}

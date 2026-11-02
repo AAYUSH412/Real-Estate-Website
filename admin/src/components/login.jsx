@@ -1,3 +1,4 @@
+import { useAuth } from '../hooks/useAuth';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -13,6 +14,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,8 +27,7 @@ const Login = () => {
       });
 
       if (response.data.success) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("isAdmin", "true");
+        login(response.data.token, response.data.user || { email, role: 'admin' });
         toast.success("Welcome back, Admin!");
         navigate("/dashboard");
       } else {
@@ -41,9 +42,9 @@ const Login = () => {
   };
 
   const stats = [
-    { icon: Building2, label: "Properties", value: "500+" },
-    { icon: Users, label: "Happy Clients", value: "2,000+" },
-    { icon: TrendingUp, label: "Deals Closed", value: "1,200+" },
+    { icon: Building2, label: "Properties", value: "Manage" },
+    { icon: Users, label: "Accounts", value: "Review" },
+    { icon: TrendingUp, label: "Activity", value: "Track" },
   ];
 
   return (

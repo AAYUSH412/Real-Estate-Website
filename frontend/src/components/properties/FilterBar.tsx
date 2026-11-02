@@ -1,7 +1,7 @@
 import { PROPERTY_TYPES } from '@buildestate/contracts';
 import React, { useState, useRef, useEffect } from 'react';
-import { SlidersHorizontal, ChevronDown, X, Search } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, X, Search } from 'lucide-react';
+import * as Popover from '@radix-ui/react-popover';
 
 interface FilterBarProps {
   onFilterChange?: (filters: FilterState) => void;
@@ -41,45 +41,14 @@ const Dropdown: React.FC<{
   children: React.ReactNode;
 }> = ({ label, active, children }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 h-10 px-4 rounded-xl border font-manrope text-sm font-medium transition-colors duration-200 active:scale-[0.96] ${
-          active
-            ? 'bg-[#221410] border-[#221410] text-white'
-            : 'bg-white border-[#E6E0DA] text-[#374151] hover:border-[#D4755B]'
-        }`}
-      >
-        {label}
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }}
-            className="absolute top-full left-0 mt-2 z-30 bg-white border border-[#E6E0DA] rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.10)] min-w-[220px]"
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  return <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Trigger asChild><button type="button" className={`flex items-center gap-2 h-10 px-4 rounded-xl border text-sm ${active ? 'bg-[#221410] text-white' : 'bg-white text-[#374151]'}`}>
+      {label}<ChevronDown aria-hidden className="w-4 h-4" />
+    </button></Popover.Trigger>
+    <Popover.Portal><Popover.Content aria-label={label} align="start" sideOffset={8} className="z-50 bg-white border rounded-xl min-w-[220px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-auto">
+      {children}
+    </Popover.Content></Popover.Portal>
+  </Popover.Root>;
 };
 
 const FilterBar: React.FC<FilterBarProps> = ({
@@ -96,8 +65,6 @@ const FilterBar: React.FC<FilterBarProps> = ({
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [bedrooms, setBedrooms] = useState(0);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
 
   const isFirstRender = useRef(true);
   useEffect(() => {
@@ -111,15 +78,6 @@ const FilterBar: React.FC<FilterBarProps> = ({
     if (selectedAmenities.length) f.amenities = selectedAmenities;
     onFilterChange?.(f);
   }, [location, availability, priceRange, selectedTypes, bedrooms, selectedAmenities]);
-
-  // Close "More filters" on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setShowMoreFilters(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const handleReset = () => {
     setLocation(''); setAvailability(''); setPriceRange([0, 200]);
@@ -222,7 +180,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                 {PROPERTY_TYPES.map(t => (
                   <button
                     key={t}
-                    onClick={() => toggleType(t)}
+                    aria-pressed={selectedTypes.includes(t)}
+                  onClick={() => toggleType(t)}
                     className={`h-9 rounded-xl font-manrope text-sm font-medium transition-all duration-200 active:scale-[0.96] ${
                       selectedTypes.includes(t)
                         ? 'bg-[#221410] text-white'
@@ -262,33 +221,14 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </Dropdown>
 
           {/* More filters */}
-          <div ref={moreRef} className="relative">
-            <button
-              onClick={() => setShowMoreFilters(o => !o)}
-              className={`flex items-center gap-1.5 h-10 px-4 rounded-xl border font-manrope text-sm font-medium transition-colors duration-200 active:scale-[0.96] ${
-                selectedAmenities.length > 0
-                  ? 'bg-[#221410] border-[#221410] text-white'
-                  : 'bg-white border-[#E6E0DA] text-[#374151] hover:border-[#D4755B]'
-              }`}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              More{selectedAmenities.length > 0 ? ` (${selectedAmenities.length})` : ''}
-            </button>
-
-            <AnimatePresence>
-              {showMoreFilters && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                  transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }}
-                  className="absolute top-full right-0 mt-2 z-30 bg-white border border-[#E6E0DA] rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.10)] w-[300px] p-4"
-                >
+          <Dropdown label={`More filters${selectedAmenities.length ? ` (${selectedAmenities.length})` : ''}`} active={selectedAmenities.length > 0}>
+            <div className="w-[300px] max-w-full p-4">
                   <p className="font-manrope font-semibold text-xs text-[#221410] uppercase tracking-wider mb-3">Amenities</p>
                   <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto">
                     {AMENITIES.map(a => (
                       <button
                         key={a}
+                        aria-pressed={selectedAmenities.includes(a)}
                         onClick={() => toggleAmenity(a)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl font-manrope text-xs text-left transition-all duration-200 ${
                           selectedAmenities.includes(a)
@@ -300,10 +240,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                       </button>
                     ))}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+            </div>
+          </Dropdown>
 
           {/* Reset — only when filters active */}
           {activeCount > 0 && (
@@ -324,7 +262,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </span>
 
           {/* Sort */}
-          <select
+          <select aria-label="Sort properties"
             value={sortBy}
             onChange={e => onSortChange?.(e.target.value)}
             className="h-10 bg-white border border-[#E6E0DA] rounded-xl px-3 pr-7 font-manrope text-sm text-[#221410] cursor-pointer focus:outline-none focus:border-[#D4755B] appearance-none transition-[border-color]"

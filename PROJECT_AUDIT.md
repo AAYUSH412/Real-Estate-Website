@@ -484,6 +484,8 @@ Done when malformed IDs/input return 400s, concurrent booking/review actions hav
 
 ### Phase 3 — Complete admin and user journeys
 
+Implementation and release checklist: [Phase 3 register](docs/phase3/PHASE_3.md). Implemented locally; staging browser acceptance and deployment pending.
+
 Connect bulk controls, finish lead/subscriber management, fix amenities/log totals/sitemap/auth state, add newsletter opt-out/verification recovery, and remove misleading placeholders. Introduce a consistent query/cache layer, route splitting, accessible form/dropdown primitives, and meaningful failure states.
 
 Done when staging end-to-end tests cover registration → verification → login → listing submission → admin review → publication → owner update/review, and guest/authenticated booking → admin confirmation → notification → cancellation.

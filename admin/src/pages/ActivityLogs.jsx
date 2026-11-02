@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FunnelIcon,
@@ -44,18 +44,24 @@ const ActivityLogs = () => {
     { value: 'unban_user', label: 'Unban User' },
     { value: 'delete_user', label: 'Delete User' },
     { value: 'bulk_suspend_users', label: 'Bulk Suspend Users' },
-    { value: 'bulk_ban_users', label: 'Bulk Ban Users' }
+    { value: 'bulk_ban_users', label: 'Bulk Ban Users' },
+    { value: 'update_lead', label: 'Update Inquiry' },
+    { value: 'suppress_subscriber', label: 'Suppress Subscriber' }
   ];
 
   const targetTypeOptions = [
     { value: '', label: 'All Types' },
     { value: 'property', label: 'Property' },
     { value: 'user', label: 'User' },
-    { value: 'appointment', label: 'Appointment' }
+    { value: 'appointment', label: 'Appointment' },
+    { value: 'lead', label: 'Contact Inquiry' },
+    { value: 'subscriber', label: 'Subscriber' }
   ];
 
   // Fetch activity logs
-  const fetchLogs = async () => {
+  const latestRequest = useRef(0);
+  const fetchLogs = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     try {
       setLoading(true);
       setError(null);
@@ -66,16 +72,18 @@ const ActivityLogs = () => {
       });
 
       const response = await apiClient.get(`/api/admin/activity-logs?${queryParams}`);
+      if (requestId !== latestRequest.current) return;
       const data = response.data;
       setLogs(data.logs || []);
       setPagination(data.pagination || {});
     } catch (err) {
+      if (requestId !== latestRequest.current) return;
       console.error('Error fetching activity logs:', err);
       setError(`Failed to load activity logs. ${err.message}`);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
-  };
+  }, [filters]);
 
   // Export CSV
   const handleExport = async () => {
@@ -186,7 +194,7 @@ const ActivityLogs = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [filters]);
+  }, [fetchLogs]);
 
   // Report error to parent/toast system
   useEffect(() => {
@@ -478,8 +486,8 @@ const ActivityLogs = () => {
             <div className="bg-[#FAF8F4] px-6 py-3 border-t border-[#E6D5C3] flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
-                {Math.min(pagination.currentPage * pagination.limit, pagination.total)} of{' '}
-                {pagination.total} results
+                {Math.min(pagination.currentPage * pagination.limit, pagination.totalLogs)} of{' '}
+                {pagination.totalLogs} results
               </div>
 
               <div className="flex items-center space-x-2">

@@ -1,3 +1,4 @@
+import AccessibleDialog from './AccessibleDialog';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, AlertTriangle } from 'lucide-react';
@@ -39,6 +40,7 @@ const BanUserModal = ({
   };
 
   const handleClose = () => {
+    if (isLoading) return;
     setReason('');
     setConfirmText('');
     setErrors({});
@@ -49,7 +51,7 @@ const BanUserModal = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <AccessibleDialog label="Account moderation" onClose={handleClose} busy={isLoading}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -82,22 +84,22 @@ const BanUserModal = ({
               <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-red-800 mb-1">
-                  ⚠️ This action is permanent and cannot be undone
+                  ⚠️ Access is blocked until an administrator reactivates the account
                 </p>
                 <ul className="text-xs text-red-700 space-y-1">
                   <li>• User will lose access to their account immediately</li>
-                  <li>• All their listings will be removed from the platform</li>
-                  <li>• They cannot create new accounts</li>
+                  <li>• Their listings will be hidden from the public catalog</li>
+                  <li>• Active sessions and open appointments will be revoked</li>
                 </ul>
               </div>
             </div>
 
             {/* Reason Input */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-[#1C1B1A] mb-2">
+              <label htmlFor="ban-reason" className="block text-sm font-semibold text-[#1C1B1A] mb-2">
                 Reason for Ban <span className="text-red-500">*</span>
               </label>
-              <textarea
+              <textarea id="ban-reason" maxLength={2000}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
@@ -115,11 +117,11 @@ const BanUserModal = ({
 
             {/* Confirmation Input */}
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-[#1C1B1A] mb-2">
+              <label htmlFor="ban-confirm" className="block text-sm font-semibold text-[#1C1B1A] mb-2">
                 Type &quot;PERMANENTLY BAN&quot; to confirm <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
+                id="ban-confirm" type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
                 className={`w-full px-4 py-3 border rounded-xl bg-white text-[#1C1B1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 transition-all ${
@@ -161,7 +163,7 @@ const BanUserModal = ({
             </div>
           </form>
         </motion.div>
-      </div>
+      </AccessibleDialog>
     </AnimatePresence>
   );
 };

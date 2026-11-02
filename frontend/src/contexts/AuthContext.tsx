@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { userAPI } from '../services/api';
 
 interface User {
@@ -12,8 +12,10 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  sessionError: string;
+  retrySession: () => Promise<void>;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  register: (fullName: string, email: string, phone: string, password: string) => Promise<{ requiresVerification?: boolean }>;
+  register: (fullName: string, email: string, phone: string, password: string) => Promise<{ requiresVerification?: boolean; verificationEmailSent?: boolean }>;
   logout: () => void;
   updateUser: (partial: Partial<User>) => void;
   establishSession: (token: string, user: User) => void;
@@ -26,23 +28,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(localStorage.getItem('buildestate_token'));
   const [isLoading, setIsLoading] = useState(true);
 
-  // On mount, check if token exists and is valid
-  useEffect(() => {
-    const storedToken = localStorage.getItem('buildestate_token');
-    const storedUser = localStorage.getItem('buildestate_user');
-    if (storedToken && storedUser) {
-      try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem('buildestate_token');
-        localStorage.removeItem('buildestate_user');
+  const [sessionError, setSessionError] = useState('');
+  const generation = useRef(0);
+  const retrySession = useCallback(async () => {
+    const request = ++generation.current;
+    setIsLoading(true); setSessionError('');
+    try {
+      if (!localStorage.getItem('buildestate_token')) { setToken(null); setUser(null); return; }
+      const { data } = await userAPI.getProfile();
+      if (request === generation.current && localStorage.getItem('buildestate_token')) {
+        setUser(data); setToken(localStorage.getItem('buildestate_token'));
+        localStorage.setItem('buildestate_user', JSON.stringify(data));
       }
-    }
-    setIsLoading(false);
+    } catch (error: any) {
+      if (request === generation.current) {
+        setToken(null); setUser(null);
+        if ([401, 403].includes(error.response?.status)) { localStorage.removeItem('buildestate_token'); localStorage.removeItem('buildestate_user'); }
+        else setSessionError('Unable to verify your session. Check your connection and retry.');
+      }
+    } finally { if (request === generation.current) setIsLoading(false); }
   }, []);
+  useEffect(() => {
+    retrySession();
+    return () => { generation.current++; };
+  }, [retrySession]);
 
   const establishSession = useCallback((nextToken: string, nextUser: User) => {
+    generation.current++; setIsLoading(false); setSessionError('');
     localStorage.setItem('buildestate_token', nextToken);
     localStorage.setItem('buildestate_user', JSON.stringify(nextUser));
     setToken(nextToken);
@@ -50,39 +62,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    const syncToken = () => setToken(localStorage.getItem('buildestate_token'));
-    window.addEventListener('buildestate:session', syncToken);
-    return () => window.removeEventListener('buildestate:session', syncToken);
-  }, []);
+    const syncSession = () => {
+      const nextToken = localStorage.getItem('buildestate_token');
+      setToken(nextToken);
+      try { setUser(nextToken ? JSON.parse(localStorage.getItem('buildestate_user') || 'null') : null); }
+      catch { setUser(null); setToken(null); }
+    };
+    window.addEventListener('buildestate:session', syncSession);
+    const syncStorage = (event: StorageEvent) => { if (!event.key || ['buildestate_token', 'buildestate_user'].includes(event.key)) retrySession(); };
+    window.addEventListener('storage', syncStorage);
+    return () => {
+      window.removeEventListener('buildestate:session', syncSession);
+      window.removeEventListener('storage', syncStorage);
+    };
+  }, [retrySession]);
 
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
     const { data } = await userAPI.login({ email, password, rememberMe });
     if (data.success && data.token) {
-      localStorage.setItem('buildestate_token', data.token);
-      localStorage.setItem('buildestate_user', JSON.stringify(data.user));
-      setToken(data.token);
-      setUser(data.user);
+      establishSession(data.token, data.user);
     } else {
       throw new Error(data.message || 'Login failed');
     }
-  }, []);
+  }, [establishSession]);
 
   const register = useCallback(async (fullName: string, email: string, phone: string, password: string) => {
     const { data } = await userAPI.register({ fullName, email, phone, password });
     if (data.success && data.requiresVerification) {
-      return { requiresVerification: true };
+      return { requiresVerification: true, verificationEmailSent: data.verificationEmailSent };
     }
     if (data.success && data.token) {
-      localStorage.setItem('buildestate_token', data.token);
-      localStorage.setItem('buildestate_user', JSON.stringify(data.user));
-      setToken(data.token);
-      setUser(data.user);
+      establishSession(data.token, data.user);
       return {};
     }
     throw new Error(data.message || 'Registration failed');
-  }, []);
+  }, [establishSession]);
 
   const logout = useCallback(() => {
+    generation.current++; setIsLoading(false); setSessionError('');
     // Fire-and-forget — revokes the httpOnly refresh cookie server-side
     userAPI.logout().catch(() => {});
     localStorage.removeItem('buildestate_token');
@@ -107,6 +124,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isAuthenticated: !!token && !!user,
         isLoading,
+        sessionError,
+        retrySession,
         login,
         register,
         logout,

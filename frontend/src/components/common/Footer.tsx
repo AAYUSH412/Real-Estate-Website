@@ -1,15 +1,22 @@
+import { newsAPI } from '../../services/api';
+import { toast } from 'sonner';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Linkedin, Youtube, MapPin, Phone, Mail } from 'lucide-react';
+import { MapPin, Phone, Mail } from 'lucide-react';
 
 const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Newsletter signup:', email);
-    // TODO: Submit to backend
-    setEmail('');
+    if (sending) return;
+    setSending(true);
+    try {
+      const { data } = await newsAPI.subscribe(email);
+      toast.success(data.message); setEmail('');
+    } catch (error: any) { toast.error(error.response?.data?.message || 'Unable to send confirmation. Please try again.'); }
+    finally { setSending(false); }
   };
 
   return (
@@ -25,49 +32,7 @@ const Footer: React.FC = () => {
             <p className="font-manrope font-extralight text-[#9ca3af] text-sm leading-relaxed mb-6">
               AI-powered luxury real estate platform connecting you with your dream home through intelligent matching and personalized recommendations.
             </p>
-            {/* Social Links */}
-            <div className="flex gap-3">
-              <a 
-                href="https://facebook.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
-              >
-                <Facebook className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
-              </a>
-              <a 
-                href="https://twitter.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
-              >
-                <Twitter className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
-              </a>
-              <a 
-                href="https://instagram.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
-              >
-                <Instagram className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
-              </a>
-              <a 
-                href="https://linkedin.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
-              >
-                <Linkedin className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
-              </a>
-              <a 
-                href="https://youtube.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-10 h-10 bg-[rgba(255,255,255,0.05)] hover:bg-[#D4755B] border border-[rgba(255,255,255,0.1)] rounded-lg flex items-center justify-center transition-all group"
-              >
-                <Youtube className="w-5 h-5 text-[#9ca3af] group-hover:text-white transition-[color]" />
-              </a>
-            </div>
+
           </div>
 
           {/* Quick Links Column */}
@@ -93,16 +58,6 @@ const Footer: React.FC = () => {
                 <Link to="/contact" className="font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white hover:pl-2 transition-all inline-block">
                   Contact
                 </Link>
-              </li>
-              <li>
-                <a href="#" className="font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white hover:pl-2 transition-all inline-block">
-                  Careers
-                </a>
-              </li>
-              <li>
-                <a href="#" className="font-manrope font-extralight text-[#9ca3af] text-sm hover:text-white hover:pl-2 transition-all inline-block">
-                  Blog
-                </a>
               </li>
             </ul>
           </div>
@@ -147,15 +102,16 @@ const Footer: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                aria-label="Newsletter email address"
                 placeholder="Your email address"
                 className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg px-4 py-3 font-manrope font-extralight text-sm text-white placeholder:text-[#6b7280] focus:outline-none focus:border-[#D4755B] transition-[border-color]"
                 required
               />
               <button 
-                type="submit"
+                type="submit" disabled={sending}
                 className="w-full bg-[#D4755B] hover:bg-[#C05621] text-white font-manrope font-bold text-sm px-4 py-3 rounded-lg transition-all shadow-lg hover:shadow-xl"
               >
-                Subscribe
+                {sending ? 'Sending…' : 'Subscribe'}
               </button>
             </form>
             <p className="font-manrope font-extralight text-[#6b7280] text-xs mt-3">
@@ -171,16 +127,9 @@ const Footer: React.FC = () => {
               © 2026 BuildEstate. All rights reserved. Powered by AI.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
-                Privacy Policy
-              </a>
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
-                Terms of Service
-              </a>
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
-                Cookie Policy
-              </a>
-              <a href="#" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
+              <Link to="/privacy" className="text-sm text-[#9ca3af]">Data use</Link>
+              <Link to="/terms" className="text-sm text-[#9ca3af]">Project terms</Link>
+              <a href="/sitemap.xml" className="font-manrope font-extralight text-[#6b7280] text-sm hover:text-white transition-[color]">
                 Sitemap
               </a>
             </div>

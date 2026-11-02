@@ -1,3 +1,4 @@
+import { createQueryCache } from '@buildestate/contracts';
 import type { AppointmentPage, PropertyDTO } from '@buildestate/contracts';
 import axios from 'axios';
 
@@ -7,6 +8,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
   : 'http://localhost:4000/api';
 
 // Create axios instance
+export const queryCache = createQueryCache();
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // sends httpOnly user_refresh cookie on every request
@@ -15,6 +18,7 @@ const apiClient = axios.create({
 // ── Request interceptor: attach auth token ──────────────────
 apiClient.interceptors.request.use(
   (config) => {
+    if (config.method && config.method !== 'get') queryCache.clear();
     const token = localStorage.getItem('buildestate_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
@@ -35,9 +39,10 @@ const attemptRefresh = () => {
 };
 
 const clearSession = () => {
+  queryCache.clear();
   localStorage.removeItem('buildestate_token');
   localStorage.removeItem('buildestate_user');
-  if (window.location.pathname !== '/signin') window.location.href = '/signin';
+  window.dispatchEvent(new Event('buildestate:session'));
 };
 
 apiClient.interceptors.response.use(
@@ -65,7 +70,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       clearSession();
     }
 
@@ -77,10 +82,14 @@ apiClient.interceptors.response.use(
 // API Endpoints — aligned with backend routes
 // ═══════════════════════════════════════════════════════════
 
+window.addEventListener('storage', () => queryCache.clear());
+
 // Newsletter
 export const newsAPI = {
   subscribe: (email: string) =>
     apiClient.post('/news/newsdata', { email }),
+  confirm: (token: string) => apiClient.post('/news/confirm', { token }),
+  unsubscribe: (token: string) => apiClient.post('/news/unsubscribe', { token }),
 };
 
 // User Authentication
@@ -104,7 +113,9 @@ export const userAPI = {
     apiClient.post(`/users/reset/${token}`, { password }),
 
   verifyEmail: (token: string) =>
-    apiClient.get(`/users/verify/${token}`),
+    queryCache.get(`verify:${token}`, () => apiClient.get(`/users/verify/${token}`)),
+
+  resendVerification: (email: string) => apiClient.post('/users/resend-verification', { email }),
 
   getProfile: () =>
     apiClient.get('/users/me'),
@@ -119,10 +130,10 @@ export const userAPI = {
 // Properties (CRUD — admin-managed listings)
 export const propertiesAPI = {
   getAll: (params: Record<string, string | number | undefined> = {}, signal?: AbortSignal) =>
-    apiClient.get('/products/list', { params, signal }),
+    queryCache.get(JSON.stringify(['/products/list', params]), () => apiClient.get('/products/list', { params }), signal),
 
   getById: (id: string) =>
-    apiClient.get(`/products/single/${id}`),
+    queryCache.get(`/products/single/${id}`, () => apiClient.get(`/products/single/${id}`)),
 };
 
 // User-submitted property listings (require auth)

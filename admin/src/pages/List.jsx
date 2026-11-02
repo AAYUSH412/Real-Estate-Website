@@ -1,3 +1,4 @@
+import BulkPropertyControls from '../components/BulkPropertyControls';
 import PaginationControls from '../components/PaginationControls';
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -8,7 +9,7 @@ import {
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import apiClient from "../services/apiClient";
+import apiClient, { queryGet, queryCache } from "../services/apiClient";
 import { cn, formatPrice } from "../lib/utils";
 
 const PROPERTY_TYPES = ["all", "House", "Apartment", "Office", "Villa"];
@@ -169,6 +170,7 @@ const PropertyListRow = ({ property, onRemove }) => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PropertyListings = () => {
+  const [loadError, setLoadError] = useState('');
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -182,8 +184,8 @@ const PropertyListings = () => {
 
   const fetchProperties = useCallback(async (signal) => {
     try {
-      setLoading(true);
-      const response = await apiClient.get('/api/admin/properties', { params: { page, search: searchTerm, type: filterType, sort: sortBy, status }, signal });
+      setLoading(true); setLoadError('');
+      const response = await queryGet('/api/admin/properties', { page, search: searchTerm, type: filterType, sort: sortBy, status }, signal);
       if (response.data.success) {
         const parsed = response.data.property.map((p) => ({
           ...p,
@@ -198,17 +200,18 @@ const PropertyListings = () => {
       }
     } catch (error) {
       console.error("Error fetching properties:", error);
-      if (!signal?.aborted) toast.error("Failed to fetch properties");
+      if (!signal?.aborted) setLoadError("Unable to load properties. Please retry.");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
   }, [page, searchTerm, filterType, sortBy, status]);
 
   const handleRefresh = async () => {
+    queryCache.clear();
     setRefreshing(true);
     await fetchProperties();
     setRefreshing(false);
-    toast.success("Properties refreshed!");
+
   };
 
   const handleRemoveProperty = async (propertyId, propertyTitle) => {
@@ -235,6 +238,8 @@ const PropertyListings = () => {
 
   const filteredProperties = properties;
 
+  if (loadError) return <main role="alert" className="p-8"><p>{loadError}</p><button className="underline" onClick={() => fetchProperties()}>Retry</button></main>;
+
   if (loading && !pagination) {
     return (
       <div className="min-h-screen pt-8 flex items-center justify-center bg-[#FAF8F4]">
@@ -249,6 +254,7 @@ const PropertyListings = () => {
   return (
     <div className="min-h-screen pt-8 pb-12 px-4 bg-[#FAF8F4]">
       <div className="max-w-7xl mx-auto">
+        <BulkPropertyControls key={properties.map(row => `${row._id}-${row.version}`).join()} records={properties} onUpdated={() => fetchProperties()} />
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}

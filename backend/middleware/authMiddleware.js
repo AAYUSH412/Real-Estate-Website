@@ -76,10 +76,16 @@ export const adminProtect = async (req, res, next) => {
     req.admin = { _id: admin._id, email: admin.email };
     next();
   } catch (error) {
-    console.error("Admin auth error:", error);
-    return res.status(401).json({
+    const expired = error.name === 'TokenExpiredError';
+    const expected = ['TokenExpiredError', 'JsonWebTokenError', 'NotBeforeError'].includes(error.name) || [401, 403].includes(error.statusCode);
+    if (!expected) {
+      console.error('Admin session validation unavailable:', error.name);
+      return res.status(503).json({ success: false, message: 'Unable to verify session. Please retry.' });
+    }
+    return res.status(error.statusCode || 401).json({
       success: false,
-      message: "Admin access denied - invalid token",
+      code: expired ? 'TOKEN_EXPIRED' : 'INVALID_SESSION',
+      message: expired ? 'Access token expired. Refresh your session.' : 'Admin access denied - invalid session',
     });
   }
 };

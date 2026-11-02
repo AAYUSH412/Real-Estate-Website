@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
+import apiClient, { queryCache } from '../services/apiClient';
+import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { APP_CONSTANTS } from '../config/constants';
 
@@ -9,35 +10,32 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+  const [authError, setAuthError] = useState('');
+  const generation = useRef(0);
+
   const logout = useCallback(() => {
+    generation.current++; setIsLoading(false); setAuthError('');
+    queryCache.clear();
     localStorage.removeItem(APP_CONSTANTS.TOKEN_KEY);
     localStorage.removeItem(APP_CONSTANTS.IS_ADMIN_KEY);
     setIsAuthenticated(false);
     setUser(null);
   }, []);
 
-  const checkAuthStatus = useCallback(() => {
+  const checkAuthStatus = useCallback(async () => {
+    const request = ++generation.current;
+    setIsLoading(true); setAuthError('');
+    if (!localStorage.getItem(APP_CONSTANTS.TOKEN_KEY)) { logout(); setIsLoading(false); return; }
     try {
-      const token = localStorage.getItem(APP_CONSTANTS.TOKEN_KEY);
-      const isAdmin = localStorage.getItem(APP_CONSTANTS.IS_ADMIN_KEY);
-      
-      if (token && isAdmin === 'true') {
-        // Presence check only — an expired access token is refreshed
-        // silently by the apiClient interceptor via the httpOnly cookie
-        const tokenData = JSON.parse(atob(token.split('.')[1]));
-        setIsAuthenticated(true);
-        setUser({
-          email: tokenData.email || 'Admin',
-          role: 'admin',
-          id: tokenData.id
-        });
-      }
+      const { data } = await apiClient.get('/api/admin/session');
+      if (request !== generation.current) return;
+      setIsAuthenticated(true); setUser(data.user);
     } catch (error) {
-      console.error('Error checking auth status:', error);
-      logout();
-    } finally {
-      setIsLoading(false);
-    }
+      if (request !== generation.current) return;
+      setIsAuthenticated(false); setUser(null);
+      if ([401, 403].includes(error.response?.status)) logout();
+      else setAuthError('Unable to verify your session. Check your connection and retry.');
+    } finally { if (request === generation.current) setIsLoading(false); }
   }, [logout]);
 
   // Check authentication status on mount
@@ -45,7 +43,14 @@ export const AuthProvider = ({ children }) => {
     checkAuthStatus();
   }, [checkAuthStatus]);
 
+  useEffect(() => {
+    const sync = event => { if (!event.key || [APP_CONSTANTS.TOKEN_KEY, APP_CONSTANTS.IS_ADMIN_KEY].includes(event.key)) checkAuthStatus(); };
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, [checkAuthStatus]);
+
   const login = (token, userData) => {
+    generation.current++; setIsLoading(false); setAuthError('');
     localStorage.setItem(APP_CONSTANTS.TOKEN_KEY, token);
     localStorage.setItem(APP_CONSTANTS.IS_ADMIN_KEY, 'true');
     setIsAuthenticated(true);
@@ -55,6 +60,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     isAuthenticated,
     isLoading,
+    authError,
     user,
     login,
     logout,

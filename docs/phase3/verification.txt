@@ -1,0 +1,37 @@
+Phase 3 local verification — 2026-11-02
+
+npm test --prefix backend
+PASS: 55 tests, 0 failures, 0 skipped; isolated MongoDB replica set.
+Final run completed in 8.28 seconds.
+
+npm test --prefix frontend
+PASS: 9 tests, 0 failures, 0 skipped.
+
+npm test --prefix admin
+PASS: 7 tests, 0 failures, 0 skipped.
+
+Total: 71 passing tests.
+
+npm run build --prefix frontend
+PASS: TypeScript no-emit check and Vite production build.
+
+npm run build --prefix admin
+PASS: Vite production build.
+Initial application chunk: 460.54 kB (150.84 kB gzip).
+Dashboard/chart chunk: 381.40 kB (111.57 kB gzip), loaded separately.
+
+npm run lint --prefix admin
+PASS: 0 errors, 0 warnings.
+
+git diff --check
+PASS: no whitespace errors.
+
+The backend test server and replica set require local socket permissions;
+the test command was run outside the restricted sandbox for that reason.
+The tests do not load production MongoDB configuration or send live emails.
+
+Not executed in this phase:
+- Live MongoDB migration/preflight or production data changes.
+- Git push or Azure/Vercel deployment.
+- Deployed staging browser E2E, keyboard/mobile review or live SMTP delivery.
+See PHASE_3.md for the release and acceptance checklist.

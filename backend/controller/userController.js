@@ -122,18 +122,20 @@ const login = async (req, res) => {
         Registeruser.verificationTokenExpiry = Date.now() + 24 * 60 * 60 * 1000;
         await Registeruser.save();
 
+        let verificationEmailSent = true;
         try {
           const verificationUrl = `${process.env.WEBSITE_URL}/verify-email/${verificationToken}`;
           await emailService.sendEmailVerification(email, Registeruser.name, verificationUrl);
         } catch (emailError) {
+          verificationEmailSent = false;
           console.error('Failed to send verification email:', emailError);
         }
 
         return res.status(403).json({
-          message: "We've sent a verification email to your inbox. Please verify your email to continue.",
+          message: verificationEmailSent ? "We sent a verification email. Please verify your email to continue." : "Please verify your email. Delivery failed; use Resend verification email to retry.",
           success: false,
           requiresVerification: true,
-          emailSent: true
+          emailSent: verificationEmailSent
         });
       }
     }
@@ -193,20 +195,23 @@ const register = async (req, res) => {
     });
     await newUser.save();
 
+    let verificationEmailSent = true;
     // Send verification email (not welcome email)
     try {
       const verificationUrl = `${process.env.WEBSITE_URL}/verify-email/${verificationToken}`;
       await emailService.sendEmailVerification(email, name, verificationUrl);
     } catch (emailError) {
+      verificationEmailSent = false;
       console.error('Failed to send verification email:', emailError);
       // Don't fail the registration if email fails, but log it
     }
 
     // DO NOT return token yet - user must verify email first
     return res.json({
-      message: "Registration successful! Please check your email to verify your account.",
+      message: verificationEmailSent ? "Registration successful! Please check your email to verify your account." : "Account created. Verification email delivery failed; request a new link.",
       success: true,
-      requiresVerification: true
+      requiresVerification: true,
+      verificationEmailSent
     });
   } catch (error) {
     // Handle race-condition duplicate inserts (two simultaneous requests)
@@ -515,6 +520,7 @@ const resendVerification = async (req, res) => {
       await emailService.sendEmailVerification(email, user.name, verificationUrl);
     } catch (emailError) {
       console.error('Failed to resend verification email:', emailError);
+      return res.status(503).json({ success: false, message: 'Verification email could not be sent. Please retry later.' });
     }
 
     return res.status(200).json({ message: 'If this account exists and is unverified, a new link has been sent.', success: true });

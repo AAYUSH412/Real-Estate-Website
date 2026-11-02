@@ -1,8 +1,9 @@
+import RuntimeBoundary from './components/common/RuntimeBoundary';
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'sonner';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import PageTransition from './components/common/PageTransition';
 import ScrollToTop from './components/common/ScrollToTop';
 import StructuredData from './components/common/StructuredData';
@@ -22,6 +23,10 @@ const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 const AddPropertyPage = lazy(() => import('./pages/AddPropertyPage'));
 const MyListingsPage = lazy(() => import('./pages/MyListingsPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+
+const NewsletterActionPage = lazy(() => import('./pages/NewsletterActionPage'));
+
+const ProjectPolicyPage = lazy(() => import('./pages/ProjectPolicyPage'));
 
 function NotFoundPage() {
   return (
@@ -61,6 +66,10 @@ function AnimatedRoutes() {
           <Route path="/ai-hub" element={<PageTransition><AIPropertyHubPage /></PageTransition>} />
           <Route path="/about" element={<PageTransition><AboutUsPage /></PageTransition>} />
           <Route path="/contact" element={<PageTransition><ContactPage /></PageTransition>} />
+          <Route path="/newsletter/confirm" element={<NewsletterActionPage action="confirm" />} />
+          <Route path="/privacy" element={<ProjectPolicyPage privacy />} />
+          <Route path="/terms" element={<ProjectPolicyPage />} />
+          <Route path="/unsubscribe" element={<NewsletterActionPage action="unsubscribe" />} />
           <Route path="/signin" element={<PageTransition><SignInPage /></PageTransition>} />
           <Route path="/signup" element={<PageTransition><SignUpPage /></PageTransition>} />
           <Route path="/forgot-password" element={<PageTransition><ForgotPasswordPage /></PageTransition>} />
@@ -77,16 +86,22 @@ function AnimatedRoutes() {
   );
 }
 
+function SessionNotice() {
+  const { sessionError, retrySession } = useAuth();
+  return sessionError ? <div role="alert" className="p-4 bg-amber-50 text-center">{sessionError} <button className="underline" onClick={retrySession}>Retry session</button></div> : null;
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <RuntimeBoundary><BrowserRouter>
       <ScrollToTop />
       <AuthProvider>
+        <SessionNotice />
         <Suspense fallback={<PageLoader />}>
           <AnimatedRoutes />
         </Suspense>
         <Toaster position="top-center" richColors />
       </AuthProvider>
-    </BrowserRouter>
+    </BrowserRouter></RuntimeBoundary>
   );
 }

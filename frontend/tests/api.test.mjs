@@ -5,16 +5,17 @@ import ts from 'typescript';
 
 // Execute the real TS API client with an injected build-time URL and no network.
 const source = (await readFile(new URL('../src/services/api.ts', import.meta.url), 'utf8'))
+  .replace("from '@buildestate/contracts'", `from '${new URL('../../shared/contracts/index.js', import.meta.url).href}'`)
   .replace("from 'axios'", `from '${new URL('../node_modules/axios/index.js', import.meta.url).href}'`)
   .replaceAll('import.meta.env.VITE_API_BASE_URL', "'https://phase1.test'");
 const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
 const storage = new Map();
 globalThis.localStorage = { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
-globalThis.window = { location: { pathname: '/', href: '' }, dispatchEvent() {} };
-const { default: client, appointmentsAPI, propertiesAPI, userListingsAPI } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+globalThis.window = { location: { pathname: '/', href: '' }, dispatchEvent() {}, addEventListener() {} };
+const { default: client, appointmentsAPI, propertiesAPI, userListingsAPI, queryCache, userAPI } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 let requests;
 beforeEach(() => {
-  storage.clear(); requests = [];
+  storage.clear(); requests = []; queryCache.clear();
   client.defaults.adapter = async config => {
     requests.push(config);
     return { data: { success: true }, status: 200, statusText: 'OK', headers: {}, config };
@@ -57,4 +58,21 @@ test('appointment pagination and optimistic cancellation version reach the backe
   await appointmentsAPI.cancel('booking-id', 'Changed plans', 7);
   assert.deepEqual(requests[0].params, { page: 3, limit: 20, status: 'confirmed' });
   assert.deepEqual(JSON.parse(requests[1].data), { reason: 'Changed plans', expectedVersion: 7 });
+});
+
+
+test('invalid login credentials return an error without navigating away or clearing an existing session', async () => {
+  storage.set('buildestate_token', 'existing');
+  window.location.href = '';
+  client.defaults.adapter = async config => { throw { config, response: { status: 401, data: { message: 'Invalid credentials' } } }; };
+  await assert.rejects(client.post('/users/login', { email: 'a@b.test', password: 'bad' }));
+  assert.equal(storage.get('buildestate_token'), 'existing');
+  assert.equal(window.location.href, '');
+});
+
+
+test('repeated verification mounts share one request instead of consuming the link twice', async () => {
+  await Promise.all([userAPI.verifyEmail('one-time-link'), userAPI.verifyEmail('one-time-link')]);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/users/verify/one-time-link');
 });

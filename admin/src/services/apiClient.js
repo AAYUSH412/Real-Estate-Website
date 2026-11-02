@@ -1,5 +1,8 @@
+import { createQueryCache } from '@buildestate/contracts';
 import axios from 'axios';
 import { APP_CONSTANTS, backendurl } from '../config/constants';
+
+export const queryCache = createQueryCache();
 
 const apiClient = axios.create({
   baseURL: backendurl,
@@ -7,8 +10,23 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem(APP_CONSTANTS.TOKEN_KEY);
+  async (config) => {
+    if (config.method && config.method !== 'get') queryCache.clear();
+    let token = localStorage.getItem(APP_CONSTANTS.TOKEN_KEY);
+    if (token && !config.url?.includes('/api/users/admin')) {
+      let expired = true;
+      try { const { exp } = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); expired = !Number.isFinite(exp) || exp * 1000 <= Date.now() + 15000; } catch { /* Invalid stored token requires a new session. */ }
+      if (expired) {
+        try {
+          const { data } = await refreshAccessToken();
+          if (!data.success || !data.token) throw new Error('Session refresh failed');
+          token = data.token; localStorage.setItem(APP_CONSTANTS.TOKEN_KEY, token);
+        } catch (error) {
+          if ([401, 403].includes(error.response?.status)) clearSession();
+          throw error;
+        }
+      }
+    }
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -18,6 +36,7 @@ apiClient.interceptors.request.use(
 );
 
 const clearSession = () => {
+  queryCache.clear();
   localStorage.removeItem(APP_CONSTANTS.TOKEN_KEY);
   localStorage.removeItem(APP_CONSTANTS.IS_ADMIN_KEY);
   if (window.location.pathname !== '/login') {
@@ -66,4 +85,9 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const queryGet = (url, params = {}, signal) => {
+  const key = JSON.stringify([localStorage.getItem(APP_CONSTANTS.TOKEN_KEY), url, params]);
+  return queryCache.get(key, () => apiClient.get(url, { params }), signal);
+};
+window.addEventListener('storage', () => queryCache.clear());
 export default apiClient;

@@ -1,3 +1,4 @@
+import ResendVerificationForm from '../components/auth/ResendVerificationForm';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthHeader from '../components/auth/AuthHeader';
@@ -46,6 +47,7 @@ const SignInPage: React.FC = () => {
 
           {/* Form */}
           <SignInForm onSubmit={handleSignIn} />
+          <details className="mt-4"><summary className="cursor-pointer">Need a new verification email?</summary><ResendVerificationForm /></details>
 
           {/* Sign Up Link */}
           <p className="text-center font-manrope font-extralight text-sm text-[#64748B] mt-6">

@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
+import * as Dropdown from '@radix-ui/react-dropdown-menu';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +18,6 @@ const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const { scrollY } = useScroll();
   const bgOpacity = useTransform(scrollY, [0, 100], [0.8, 0.95]);
@@ -36,17 +36,6 @@ const Navbar: React.FC = () => {
     setIsUserMenuOpen(false);
     navigate('/');
   };
-
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // Initials avatar
   const initials = user?.name
@@ -104,60 +93,23 @@ const Navbar: React.FC = () => {
                 + List Property
               </Link>
 
-              {/* User avatar dropdown */}
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setIsUserMenuOpen((v) => !v)}
-                  aria-expanded={isUserMenuOpen}
-                  aria-label="User menu"
-                  className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xl hover:bg-[#FAF8F4] transition-[background-color,border-color] border border-transparent hover:border-[#E6D5C3] active:scale-[0.96]"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#D4755B] text-white font-manrope font-bold text-xs flex items-center justify-center shrink-0">
-                    {initials}
-                  </div>
-                  <span className="font-manrope font-semibold text-[#221410] max-w-[100px] truncate">
-                    {user.name.split(' ')[0]}
-                  </span>
-                  <span className="font-material-icons text-[#9CA3AF] text-lg" aria-hidden="true">
-                    {isUserMenuOpen ? 'expand_less' : 'expand_more'}
-                  </span>
-                </button>
-
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#E6D5C3] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08),0_1px_4px_rgba(0,0,0,0.04)] py-2 z-50">
-                    <div className="px-4 py-2.5 border-b border-[#F3F0EC] mb-1">
-                      <p className="font-manrope text-xs text-[#9CA3AF]">Signed in as</p>
-                      <p className="font-manrope text-sm font-semibold text-[#221410] truncate">{user.email}</p>
-                    </div>
-                    {[
-                      { to: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-                      { to: '/my-listings', icon: 'home_work', label: 'My Listings' },
-                    ].map(({ to, icon, label }) => (
-                      <Link
-                        key={to}
-                        to={to}
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className={`flex items-center gap-2.5 px-4 py-2.5 font-manrope text-sm transition-[background-color,color] mx-1 rounded-xl ${
-                          isActive(to) ? 'text-[#D4755B] font-semibold bg-[#FAF8F4]' : 'text-[#374151] hover:bg-[#FAF8F4] hover:text-[#D4755B]'
-                        }`}
-                      >
-                        <span className="font-material-icons text-base" aria-hidden="true">{icon}</span>
-                        {label}
-                      </Link>
-                    ))}
-                    <div className="border-t border-[#F3F0EC] mt-1 pt-1">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 font-manrope text-sm text-[#374151] hover:bg-red-50 hover:text-red-500 transition-[background-color,color] mx-1 rounded-xl"
-                        style={{ width: 'calc(100% - 8px)' }}
-                      >
-                        <span className="font-material-icons text-base" aria-hidden="true">logout</span>
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <Dropdown.Root open={isUserMenuOpen} onOpenChange={setIsUserMenuOpen}>
+                <Dropdown.Trigger asChild>
+                  <button aria-label="User menu" className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#FAF8F4]">
+                    <span className="w-8 h-8 rounded-lg bg-[#D4755B] text-white flex items-center justify-center">{initials}</span>
+                    <span>{user.name.split(' ')[0]}</span>
+                  </button>
+                </Dropdown.Trigger>
+                <Dropdown.Portal><Dropdown.Content align="end" sideOffset={8} className="w-56 bg-white border rounded-xl p-2 z-[100]">
+                  <Dropdown.Label className="px-3 py-2 text-sm truncate">{user.email}</Dropdown.Label>
+                  {[
+                    { to: '/dashboard', label: 'Dashboard' },
+                    { to: '/my-listings', label: 'My Listings' },
+                  ].map(({ to, label }) => <Dropdown.Item key={to} asChild><Link to={to} className="block px-3 py-2 rounded-lg outline-none data-[highlighted]:bg-gray-100">{label}</Link></Dropdown.Item>)}
+                  <Dropdown.Separator className="border-t my-1" />
+                  <Dropdown.Item onSelect={handleLogout} className="px-3 py-2 rounded-lg outline-none cursor-pointer data-[highlighted]:bg-red-50">Logout</Dropdown.Item>
+                </Dropdown.Content></Dropdown.Portal>
+              </Dropdown.Root>
             </>
           ) : (
             <>

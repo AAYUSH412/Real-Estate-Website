@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
@@ -187,12 +187,13 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [inFlight, setInFlight] = useState(false);
+  const inFlight = useRef(false);
 
   const fetchStats = useCallback(async (isRefresh = false) => {
-    if (inFlight) return;
+    if (inFlight.current) return;
     try {
-      setInFlight(true);
+      inFlight.current = true;
+      setError(null);
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
@@ -203,6 +204,10 @@ const Dashboard = () => {
         apiClient.get("/api/admin/activity-logs?limit=10"),
       ]);
 
+      const results = [overviewRes, userRes, propertyRes, activityRes];
+      if (results.some(result => result.status === 'rejected' || !result.value.data.success)) {
+        throw new Error('Some dashboard data is unavailable. Retry to load current figures.');
+      }
       let overviewData = null;
       if (overviewRes.status === "fulfilled" && overviewRes.value.data.success) {
         overviewData = overviewRes.value.data.data;
@@ -231,11 +236,11 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setInFlight(false);
+      inFlight.current = false;
     }
   }, []);
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
 
   // Transform data for Recharts
   const viewsData = (stats?.viewsData?.labels || []).map((d, i) => ({

@@ -7,7 +7,7 @@ function auditQuery(input) {
   const query = {};
   if (input.action !== undefined) query.action = text(input.action, 'action', { max: 100 });
   if (input.adminEmail !== undefined) query.adminEmail = text(input.adminEmail, 'adminEmail', { max: 254 });
-  if (input.targetType !== undefined) query.targetType = choice(input.targetType, ['user', 'property', 'appointment', 'aiModel', 'session'], 'targetType');
+  if (input.targetType !== undefined) query.targetType = choice(input.targetType, ['user', 'property', 'appointment', 'aiModel', 'session', 'lead', 'subscriber'], 'targetType');
   for (const name of ['startDate', 'endDate']) if (input[name] !== undefined) {
     const raw = text(input[name], name, { max: 40 });
     const date = new Date(raw);

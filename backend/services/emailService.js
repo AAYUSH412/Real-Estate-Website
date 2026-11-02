@@ -104,10 +104,9 @@ class EmailService {
   /**
    * Send newsletter subscription confirmation email
    */
-  async sendNewsletterWelcome(userEmail) {
+  async sendNewsletterWelcome(userEmail, unsubscribeUrl) {
     const subject = 'Welcome to BuildEstate Newsletter';
-    const siteUrl = process.env.WEBSITE_URL || 'https://buildestate.vercel.app';
-    const unsubscribeUrl = `${siteUrl}/unsubscribe?email=${encodeURIComponent(userEmail)}`;
+    if (!unsubscribeUrl) throw new Error('A signed newsletter opt-out URL is required');
     const htmlContent = getNewsletterTemplate(userEmail, unsubscribeUrl);
 
     return await this.sendEmail(userEmail, subject, htmlContent);

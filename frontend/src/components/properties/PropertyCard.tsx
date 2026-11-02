@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 interface PropertyCardProps {
   id: string;
@@ -24,7 +24,6 @@ const badgeColor: Record<string, string> = {
 const PropertyCard: React.FC<PropertyCardProps> = ({
   id, image, name, price, location, beds, baths, sqft, badge, tags = []
 }) => {
-  const [favorited, setFavorited] = useState(false);
 
   return (
     <Link to={`/property/${id}`} className="group block outline-none focus-visible:ring-2 focus-visible:ring-[#D4755B] rounded-2xl">
@@ -50,17 +49,6 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
               {badge}
             </div>
           )}
-
-          {/* Favourite */}
-          <button
-            aria-label={favorited ? 'Remove from favourites' : 'Add to favourites'}
-            onClick={e => { e.preventDefault(); setFavorited(f => !f); }}
-            className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/40 transition-colors duration-200 active:scale-[0.96]"
-          >
-            <Heart
-              className={`w-4 h-4 transition-colors duration-200 ${favorited ? 'text-[#D4755B] fill-[#D4755B]' : 'text-white'}`}
-            />
-          </button>
 
           {/* Price overlay — bottom of image */}
           <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-8">

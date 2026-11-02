@@ -52,3 +52,8 @@ export interface AppointmentDTO {
 export interface AppointmentPage { success: boolean; appointments: AppointmentDTO[]; pagination: PageDTO; statusCounts: Partial<Record<BookingStatus, number>>; upcomingCount: number; }
 export interface PropertyPage { success: boolean; properties: PropertyDTO[]; pagination: PageDTO & { totalProperties: number }; statusCounts?: Partial<Record<ListingStatus, number>>; }
 export function reviewCommand(record: {version: number}, reason?: string): { expectedVersion: number; reason?: string };
+
+export function createQueryCache(options?: { maxEntries?: number; ttl?: number }): {
+  get<T>(key: string, fetcher: () => Promise<T>, signal?: AbortSignal): Promise<T>;
+  clear(): void;
+};

@@ -1,3 +1,4 @@
+import AccessibleDialog from './AccessibleDialog';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, AlertTriangle } from 'lucide-react';
@@ -24,7 +25,7 @@ const SuspendUserModal = ({
 
     // Validation
     const newErrors = {};
-    if (!days || days < 1 || days > 365) {
+    if (!Number.isInteger(Number(days)) || days < 1 || days > 365) {
       newErrors.days = 'Days must be between 1 and 365';
     }
     if (!reason.trim()) {
@@ -34,11 +35,12 @@ const SuspendUserModal = ({
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length === 0) {
-      onConfirm({ days: parseInt(days), reason: reason.trim() });
+      onConfirm({ days: Number(days), reason: reason.trim() });
     }
   };
 
   const handleClose = () => {
+    if (isLoading) return;
     setDays(7);
     setReason('');
     setErrors({});
@@ -49,7 +51,7 @@ const SuspendUserModal = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <AccessibleDialog label="Account moderation" onClose={handleClose} busy={isLoading}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -92,12 +94,12 @@ const SuspendUserModal = ({
 
             {/* Days Input */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-[#1C1B1A] mb-2">
+              <label htmlFor="suspend-days" className="block text-sm font-semibold text-[#1C1B1A] mb-2">
                 Suspension Duration
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  id="suspend-days" type="number"
                   min="1"
                   max="365"
                   value={days}
@@ -120,10 +122,10 @@ const SuspendUserModal = ({
 
             {/* Reason Input */}
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-[#1C1B1A] mb-2">
+              <label htmlFor="suspend-reason" className="block text-sm font-semibold text-[#1C1B1A] mb-2">
                 Reason for Suspension
               </label>
-              <textarea
+              <textarea id="suspend-reason" maxLength={2000}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
@@ -166,7 +168,7 @@ const SuspendUserModal = ({
             </div>
           </form>
         </motion.div>
-      </div>
+      </AccessibleDialog>
     </AnimatePresence>
   );
 };

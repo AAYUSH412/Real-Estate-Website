@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -6,7 +6,7 @@ import {
   AlertCircle, RefreshCw, UserCheck, Ban
 } from "lucide-react";
 import { toast } from "sonner";
-import apiClient from "../services/apiClient";
+import apiClient, { queryGet, queryCache } from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";
 
 // Components
@@ -40,6 +40,7 @@ const UsersManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -51,9 +52,11 @@ const UsersManagement = () => {
   }, [searchTerm]);
 
   // Fetch users with filters
+  const latestRequest = useRef(0);
   const fetchUsers = useCallback(async (isRefresh = false) => {
+    const requestId = ++latestRequest.current;
     try {
-      if (isRefresh) setRefreshing(true);
+      if (isRefresh) { queryCache.clear(); setRefreshing(true); }
       else setLoading(true);
       setError(null);
 
@@ -67,7 +70,8 @@ const UsersManagement = () => {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (debouncedSearchTerm) params.search = debouncedSearchTerm;
 
-      const response = await apiClient.get('/api/admin/users', { params });
+      const response = await queryGet('/api/admin/users', params);
+      if (requestId !== latestRequest.current) return;
 
       if (response.data.success) {
         setUsers(response.data.users);
@@ -78,11 +82,11 @@ const UsersManagement = () => {
         setError(response.data.message);
       }
     } catch (err) {
+      if (requestId !== latestRequest.current) return;
       console.error("Error fetching users:", err);
       setError("Unable to load users. Please try again.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === latestRequest.current) { setLoading(false); setRefreshing(false); }
     }
   }, [currentPage, statusFilter, debouncedSearchTerm, sortBy, sortOrder]);
 
@@ -92,6 +96,7 @@ const UsersManagement = () => {
 
   // User Actions
   const handleSuspendUser = async (suspendData) => {
+    if (bulkMode) return handleBulkModeration('suspend', suspendData);
     try {
       setActionLoading(true);
       const response = await apiClient.put(
@@ -116,6 +121,7 @@ const UsersManagement = () => {
   };
 
   const handleBanUser = async (banData) => {
+    if (bulkMode) return handleBulkModeration('ban', banData);
     try {
       setActionLoading(true);
       const response = await apiClient.put(
@@ -159,6 +165,18 @@ const UsersManagement = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleBulkModeration = async (action, data) => {
+    setActionLoading(true);
+    try {
+      const response = await apiClient.post(`/api/admin/users/bulk-${action}`, { userIds: [...selectedUsers], ...data });
+      toast.success(`${response.data.count} accounts updated`);
+      setShowSuspendModal(false); setShowBanModal(false); setBulkMode(false);
+      await fetchUsers(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No accounts changed. Refresh and try again.');
+    } finally { setActionLoading(false); }
   };
 
   // Bulk Actions
@@ -519,38 +537,36 @@ const UsersManagement = () => {
       <BulkActionBar
         selectedCount={selectedUsers.size}
         onClearSelection={() => setSelectedUsers(new Set())}
-        onSuspendAll={() => {
-          // Show bulk suspend modal (would need to create this)
-          toast.info('Bulk suspend functionality coming soon');
-        }}
-        onBanAll={() => {
-          // Show bulk ban modal (would need to create this)
-          toast.info('Bulk ban functionality coming soon');
-        }}
+        onSuspendAll={() => { setBulkMode(true); setSelectedUser(null); setShowSuspendModal(true); }}
+        onBanAll={() => { setBulkMode(true); setSelectedUser(null); setShowBanModal(true); }}
         context="users"
         isVisible={selectedUsers.size > 0}
       />
 
       {/* Modals */}
-      <SuspendUserModal
+      <SuspendUserModal key={`suspend-${showSuspendModal}-${bulkMode}-${selectedUser?._id}`}
         isOpen={showSuspendModal}
         onClose={() => {
+          if (actionLoading) return;
+          setBulkMode(false);
           setShowSuspendModal(false);
           setSelectedUser(null);
         }}
         onConfirm={handleSuspendUser}
-        user={selectedUser}
+        user={bulkMode ? { name: `${selectedUsers.size} selected accounts` } : selectedUser}
         isLoading={actionLoading}
       />
 
-      <BanUserModal
+      <BanUserModal key={`ban-${showBanModal}-${bulkMode}-${selectedUser?._id}`}
         isOpen={showBanModal}
         onClose={() => {
+          if (actionLoading) return;
+          setBulkMode(false);
           setShowBanModal(false);
           setSelectedUser(null);
         }}
         onConfirm={handleBanUser}
-        user={selectedUser}
+        user={bulkMode ? { name: `${selectedUsers.size} selected accounts` } : selectedUser}
         isLoading={actionLoading}
       />
     </div>

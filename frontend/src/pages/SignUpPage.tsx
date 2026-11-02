@@ -1,3 +1,4 @@
+import ResendVerificationForm from '../components/auth/ResendVerificationForm';
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, ArrowLeft } from 'lucide-react';
@@ -9,6 +10,7 @@ const SignUpPage: React.FC = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [deliveryFailed, setDeliveryFailed] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
 
   const handleSignUp = async (formData: any) => {
@@ -17,6 +19,7 @@ const SignUpPage: React.FC = () => {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
       const result = await register(fullName, formData.email, '', formData.password);
       if (result?.requiresVerification) {
+        setDeliveryFailed(result.verificationEmailSent === false);
         setVerificationEmail(formData.email);
       } else {
         navigate('/');
@@ -39,7 +42,7 @@ const SignUpPage: React.FC = () => {
               Check Your Email
             </h1>
             <p className="font-manrope font-extralight text-sm text-[#4B5563] mb-2">
-              We've sent a verification link to
+              {deliveryFailed ? 'Your account was created, but we could not send a verification email to' : 'We sent a verification link to'}
             </p>
             <p className="font-manrope font-semibold text-[#D4755B] mb-4">{verificationEmail}</p>
             <p className="font-manrope font-extralight text-sm text-[#6B7280] mb-6">
@@ -51,6 +54,7 @@ const SignUpPage: React.FC = () => {
             >
               Go to Sign In
             </Link>
+            <details className="mt-4 text-left"><summary>Didn’t receive the email?</summary><ResendVerificationForm /></details>
           </div>
           <div className="text-center mt-6">
             <Link

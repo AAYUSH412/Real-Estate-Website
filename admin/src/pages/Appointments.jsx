@@ -1,8 +1,10 @@
-import { BOOKING_STATUSES, BOOKING_TRANSITIONS } from '@buildestate/contracts';
+import AppointmentActions from '../components/AppointmentActions';
+import { getAppointmentActions } from '../lib/appointmentActions.js';
+import { BOOKING_STATUSES } from '@buildestate/contracts';
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Calendar, Clock, User, Home, Check, X, Loader2,
+  Calendar, Clock, User, Home, X,
   Search, Link as LinkIcon, Send, } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "../services/apiClient";
@@ -11,6 +13,7 @@ import { cn, formatDate } from "../lib/utils";
 const STATUS_CONFIG = {
   pending: { label: "Pending", className: "bg-amber-50 text-amber-700 border border-amber-200" },
   confirmed: { label: "Confirmed", className: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+  completed: { label: "Completed", className: "bg-blue-50 text-blue-700 border border-blue-200" },
   cancelled: { label: "Cancelled", className: "bg-red-50 text-red-700 border border-red-200" },
 };
 
@@ -34,6 +37,11 @@ const Appointments = () => {
   const [editingMeetingLink, setEditingMeetingLink] = useState(null);
   const [meetingLink, setMeetingLink] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -56,9 +64,12 @@ const Appointments = () => {
   }, [page, filter, searchTerm]);
 
   const handleStatusChange = async (appointmentId, newStatus) => {
+    const appointment = appointments.find(a => a._id === appointmentId);
+    const action = appointment && getAppointmentActions(appointment).find(item => item.status === newStatus);
+    if (!action || action.disabled) { toast.info(action?.reason || 'This action is no longer available. Refresh the appointments.'); return; }
     try {
       setUpdatingId(appointmentId);
-      const response = await apiClient.put('/api/appointments/status', { appointmentId, status: newStatus, expectedVersion: appointments.find(a => a._id === appointmentId)?.version });
+      const response = await apiClient.put('/api/appointments/status', { appointmentId, status: newStatus, expectedVersion: appointment.version });
       if (response.data.success) {
         toast.success(`Appointment ${newStatus} successfully`);
         fetchAppointments();
@@ -67,7 +78,8 @@ const Appointments = () => {
       }
     } catch (error) {
       console.error("Error updating appointment:", error);
-      toast.error("Failed to update appointment status");
+      toast.error(error.response?.data?.message || "Failed to update appointment status");
+      if (error.response?.status === 409) await fetchAppointments();
     } finally {
       setUpdatingId(null);
     }
@@ -198,10 +210,10 @@ const Appointments = () => {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-[#1C1B1A]">
-                              {appointment.userId?.name || appointment.guestInfo?.name || "Unknown"}
+                              {appointment.userId?.name || appointment.contactSnapshot?.name || appointment.guestInfo?.name || "Unavailable account"}
                             </p>
                             <p className="text-xs text-[#9CA3AF]">
-                              {appointment.userId?.email || appointment.guestInfo?.email || "—"}
+                              {appointment.userId?.email || appointment.contactSnapshot?.email || appointment.guestInfo?.email || "—"}
                             </p>
                             {!appointment.userId && appointment.guestInfo && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-full font-medium">Guest</span>
@@ -271,29 +283,7 @@ const Appointments = () => {
 
                       {/* Actions */}
                       <td className="px-6 py-4">
-                        {["pending", "confirmed"].includes(appointment.status) && (
-                          <div className="flex items-center gap-1.5">
-                            {updatingId === appointment._id ? (
-                              <Loader2 className="w-4 h-4 text-[#9CA3AF] animate-spin" />
-                            ) : (
-                              <>
-                                <button
-                                  disabled={!BOOKING_TRANSITIONS[appointment.status].includes("confirmed")} onClick={() => handleStatusChange(appointment._id, "confirmed")}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">
-                                  <Check className="w-3.5 h-3.5" />
-                                  Confirm
-                                </button>
-                                {appointment.status === 'confirmed' && <button disabled={!appointment.endsAt || new Date(appointment.endsAt) > new Date()} onClick={() => handleStatusChange(appointment._id, 'completed')} className="px-2 py-1 text-xs border rounded">Complete</button>}
-                                <button
-                                  onClick={() => handleStatusChange(appointment._id, "cancelled")}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors">
-                                  <X className="w-3.5 h-3.5" />
-                                  Cancel
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
+                        <AppointmentActions appointment={appointment} now={now} busy={updatingId === appointment._id} onStatusChange={handleStatusChange} />
                       </td>
                     </motion.tr>
                   ))}

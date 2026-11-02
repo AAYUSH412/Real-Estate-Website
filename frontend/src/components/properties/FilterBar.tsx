@@ -1,3 +1,4 @@
+import { PROPERTY_TYPES } from '@buildestate/contracts';
 import React, { useState, useRef, useEffect } from 'react';
 import { SlidersHorizontal, ChevronDown, X, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +22,6 @@ export interface FilterState {
   amenities?: string[];
 }
 
-const PROPERTY_TYPES = ['Apartment', 'House', 'Villa', 'Office'];
 const AMENITIES = [
   'Parking', 'Swimming Pool', 'Gym', 'Garden', 'Security',
   'Clubhouse', 'Power Backup', 'Lift', 'Balcony', 'CCTV Surveillance',

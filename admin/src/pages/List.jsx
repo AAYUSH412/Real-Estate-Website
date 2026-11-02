@@ -212,7 +212,7 @@ const PropertyListings = () => {
   };
 
   const handleRemoveProperty = async (propertyId, propertyTitle) => {
-    if (!window.confirm(`Remove "${propertyTitle}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Archive "${propertyTitle}"? Open viewings will be cancelled; history is retained.`)) return;
     try {
       const response = await apiClient.post('/api/products/remove', { id: propertyId });
       if (response.data.success) {

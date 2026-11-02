@@ -1,3 +1,4 @@
+import type { AppointmentDTO as Appointment } from '@buildestate/contracts';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -18,29 +19,6 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface AppointmentProperty {
-  _id: string;
-  title: string;
-  location: string;
-  image?: string[];
-}
-
-interface Appointment {
-  _id: string;
-  propertyId: AppointmentProperty | null;
-  date: string;
-  time: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  meetingLink?: string;
-  cancelReason?: string;
-  createdAt: string;
-}
-
-interface ListingSummary {
-  _id: string;
-  status: 'pending' | 'active' | 'rejected' | 'expired';
-}
-
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const APPOINTMENT_STATUS = {
@@ -59,13 +37,6 @@ function formatDate(dateStr: string): string {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function isUpcoming(apt: Appointment): boolean {
-  return (
-    (apt.status === 'pending' || apt.status === 'confirmed') &&
-    new Date(apt.date).getTime() >= Date.now() - 24 * 60 * 60 * 1000
-  );
 }
 
 // ── Settings tab ──────────────────────────────────────────────────────────────
@@ -211,6 +182,9 @@ const DashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [page, setPage] = useState(1);
+  const [appointmentPage, setAppointmentPage] = useState({ total: 0, totalPages: 1 });
+  const [upcomingCount, setUpcomingCount] = useState(0);
   const [listingTotals, setListingTotals] = useState({ all: 0, active: 0 });
   const [fetchLoading, setFetchLoading] = useState(true);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
@@ -230,12 +204,14 @@ const DashboardPage: React.FC = () => {
   const fetchData = useCallback(async () => {
     setFetchLoading(true);
     const [aptRes, listRes] = await Promise.allSettled([
-      appointmentsAPI.getByUser(),
+      appointmentsAPI.getByUser({ page, limit: 20 }),
       userListingsAPI.getMyListings({ limit: 1 }),
     ]);
 
     if (aptRes.status === 'fulfilled') {
       setAppointments(aptRes.value.data.appointments ?? []);
+      setAppointmentPage(aptRes.value.data.pagination);
+      setUpcomingCount(aptRes.value.data.upcomingCount);
     } else {
       toast.error('Failed to load your appointments.');
     }
@@ -245,7 +221,7 @@ const DashboardPage: React.FC = () => {
     }
 
     setFetchLoading(false);
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (isAuthenticated) fetchData();
@@ -257,11 +233,9 @@ const DashboardPage: React.FC = () => {
     if (!cancelTarget) return;
     setCancelling(true);
     try {
-      await appointmentsAPI.cancel(cancelTarget._id, 'Cancelled by user from dashboard');
+      await appointmentsAPI.cancel(cancelTarget._id, 'Cancelled by user from dashboard', cancelTarget.version);
       toast.success('Appointment cancelled.');
-      setAppointments((prev) =>
-        prev.map((a) => (a._id === cancelTarget._id ? { ...a, status: 'cancelled' } : a))
-      );
+      await fetchData();
     } catch {
       toast.error('Failed to cancel the appointment. Please try again.');
     } finally {
@@ -272,12 +246,11 @@ const DashboardPage: React.FC = () => {
 
   // ── Derived stats ───────────────────────────────────────────
 
-  const upcomingCount = appointments.filter(isUpcoming).length;
   const liveListings = listingTotals.active;
 
   const stats = [
     { label: 'Upcoming Viewings', value: upcomingCount, icon: 'event' },
-    { label: 'Total Appointments', value: appointments.length, icon: 'calendar_month' },
+    { label: 'Total Appointments', value: appointmentPage.total, icon: 'calendar_month' },
     { label: 'My Listings', value: listingTotals.all, icon: 'home_work' },
     { label: 'Live Listings', value: liveListings, icon: 'verified' },
   ];
@@ -470,6 +443,11 @@ const DashboardPage: React.FC = () => {
           )}
         </section>
         </>}
+        {activeTab === 'overview' && appointmentPage.totalPages > 1 && <nav aria-label="Appointment pages" className="flex items-center justify-center gap-4 mt-5">
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
+          <span>Page {page} of {appointmentPage.totalPages}</span>
+          <button disabled={page >= appointmentPage.totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+        </nav>}
       </main>
 
       <Footer />

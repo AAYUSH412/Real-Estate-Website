@@ -35,7 +35,8 @@
     "openai": "^6.45.0",
     "uuid": "^13.0.0",
     "validator": "^13.12.0",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "@buildestate/contracts": "file:../shared/contracts"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.3.0",

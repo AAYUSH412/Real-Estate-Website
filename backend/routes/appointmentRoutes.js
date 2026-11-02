@@ -6,14 +6,17 @@ import {
   getAppointmentsByUser,
   cancelAppointment,
   updateAppointmentMeetingLink,
-  getAppointmentStats,
   submitAppointmentFeedback,
   getUpcomingAppointments
-} from "../controller/appointmentController.js";
-import { updateAppointmentStatus } from "../controller/adminController.js";
+} from "../controller/bookingController.js";
+import { getAppointmentStats } from '../controller/appointmentController.js';
+import { updateAppointmentStatus } from '../controller/bookingController.js';
+import { validId, validatePage, validateBody } from '../middleware/contracts.js';
 
 
 const router = express.Router();
+router.param('id', validId);
+router.use((req, res, next) => req.method === 'GET' ? validatePage(req, res, next) : validateBody(req, res, next));
 
 // User routes — guest booking supported (no protect), auth booking also supported
 router.post("/schedule", scheduleViewing);              // Guest booking (no auth required)

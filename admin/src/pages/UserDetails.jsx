@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -19,6 +19,10 @@ const UserDetailsPage = () => {
 
   // State
   const [user, setUser] = useState(null);
+  const [propertyPage, setPropertyPage] = useState(1);
+  const [appointmentPage, setAppointmentPage] = useState(1);
+  const [propertyPagination, setPropertyPagination] = useState({ totalPages: 1 });
+  const [appointmentPagination, setAppointmentPagination] = useState({ totalPages: 1 });
   const [properties, setProperties] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,15 +35,17 @@ const UserDetailsPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Fetch user details
-  const fetchUserDetails = async () => {
+  const fetchUserDetails = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await apiClient.get(`/api/admin/users/${id}`);
+      const response = await apiClient.get(`/api/admin/users/${id}`, { params: { propertyPage, appointmentPage } });
 
       if (response.data.success) {
         setUser(response.data.user);
+        setPropertyPagination(response.data.propertyPagination);
+        setAppointmentPagination(response.data.appointmentPagination);
         setProperties(response.data.properties || []);
         setAppointments(response.data.appointments || []);
       } else {
@@ -51,13 +57,13 @@ const UserDetailsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, propertyPage, appointmentPage]);
 
   useEffect(() => {
     if (id) {
       fetchUserDetails();
     }
-  }, [id]);
+  }, [id, fetchUserDetails]);
 
   // User Actions
   const handleSuspendUser = async (suspendData) => {
@@ -367,6 +373,7 @@ const UserDetailsPage = () => {
 
             {activeTab === 'properties' && (
               <div>
+                {propertyPagination.totalPages > 1 && <nav aria-label="properties pages" className="flex gap-4 mb-4"><button disabled={propertyPage <= 1} onClick={() => setPropertyPage(p => p - 1)}>Previous</button><span>Page {propertyPage} of {propertyPagination.totalPages}</span><button disabled={propertyPage >= propertyPagination.totalPages} onClick={() => setPropertyPage(p => p + 1)}>Next</button></nav>}
                 <h3 className="text-lg font-bold text-[#1C1B1A] mb-4">User&apos;s Properties</h3>
                 {properties.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -418,6 +425,7 @@ const UserDetailsPage = () => {
 
             {activeTab === 'appointments' && (
               <div>
+                {appointmentPagination.totalPages > 1 && <nav aria-label="appointments pages" className="flex gap-4 mb-4"><button disabled={appointmentPage <= 1} onClick={() => setAppointmentPage(p => p - 1)}>Previous</button><span>Page {appointmentPage} of {appointmentPagination.totalPages}</span><button disabled={appointmentPage >= appointmentPagination.totalPages} onClick={() => setAppointmentPage(p => p + 1)}>Next</button></nav>}
                 <h3 className="text-lg font-bold text-[#1C1B1A] mb-4">User&apos;s Appointments</h3>
                 {appointments.length > 0 ? (
                   <div className="space-y-4">

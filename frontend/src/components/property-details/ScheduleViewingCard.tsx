@@ -1,3 +1,4 @@
+import { BOOKING_SLOTS } from '@buildestate/contracts';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Calendar } from 'lucide-react';
@@ -125,7 +126,7 @@ const ScheduleViewingCard: React.FC<ScheduleViewingCardProps> = ({ property, pri
                       className={INPUT + ' appearance-none cursor-pointer'} required
                     >
                       <option value="" className="bg-[#221410]">Pick time</option>
-                      {['09:00','10:00','11:00','14:00','15:00','16:00'].map(t => (
+                      {BOOKING_SLOTS.map(t => (
                         <option key={t} value={t} className="bg-[#221410]">
                           {t.replace('09:','9:')}
                           {+t.split(':')[0] < 12 ? ' AM' : ' PM'}

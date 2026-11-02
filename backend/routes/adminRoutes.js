@@ -1,3 +1,4 @@
+import { validId, validatePage } from '../middleware/contracts.js';
 import { adminListProperties, adminSingleProperty } from '../controller/productController.js';
 import express from 'express';
 import {
@@ -33,6 +34,8 @@ import { adminProtect } from '../middleware/authMiddleware.js';
 import { registry } from '../utils/circuitBreaker.js';
 
 const router = express.Router();
+router.param('id', validId);
+router.use((req, res, next) => req.method === 'GET' ? validatePage(req, res, next) : next());
 
 // Apply admin authentication to ALL routes
 router.use(adminProtect);

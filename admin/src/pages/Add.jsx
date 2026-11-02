@@ -1,3 +1,4 @@
+import { PROPERTY_TYPES, PURPOSES } from '@buildestate/contracts';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -6,8 +7,7 @@ import { Upload, X, Plus, Home, MapPin, Phone, DollarSign, BedDouble, Bath, Maxi
 import { AMENITIES_LIST } from '../constants/amenities';
 import { cn } from '../lib/utils';
 
-const PROPERTY_TYPES = ['Flat', 'House', 'Villa', 'Plot', 'Penthouse', 'Studio', 'Commercial', 'Apartment', 'Office'];
-const AVAILABILITY_TYPES = ['buy', 'rent', 'For Sale', 'For Rent', 'sale', 'sold'];
+const AVAILABILITY_TYPES = PURPOSES;
 
 const inputClass = "w-full px-4 py-3 bg-white border border-[#E6D5C3] rounded-xl text-[#1C1B1A] placeholder-[#9CA3AF] text-sm transition-all duration-200 outline-none focus:border-[#D4755B] focus:ring-2 focus:ring-[#D4755B]/15";
 const labelClass = "block text-sm font-semibold text-[#1C1B1A] mb-2";
@@ -90,7 +90,7 @@ const PropertyForm = () => {
       const formdata = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'amenities') {
-          value.forEach((amenity, i) => formdata.append(`amenities[${i}]`, amenity));
+          formdata.append('amenities', JSON.stringify(value));
         } else if (key === 'images') {
           value.forEach((image, i) => formdata.append(`image${i + 1}`, image));
         } else {

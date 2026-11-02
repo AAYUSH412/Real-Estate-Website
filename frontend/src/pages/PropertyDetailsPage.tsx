@@ -26,6 +26,7 @@ interface PropertyData {
   sqft: number;
   type: string;
   availability: string;
+  marketStatus?: 'available' | 'sold' | 'rented';
   description: string;
   amenities: string[];
   phone: string;
@@ -177,7 +178,7 @@ const PropertyDetailsPage: React.FC = () => {
 
       {/* Property Header with Price & Specs */}
       <PropertyHeader
-        status={getStatus(property.availability)}
+        status={getStatus(property.marketStatus || 'available')}
         refNumber={`#${property._id.slice(-8).toUpperCase()}`}
         name={property.title}
         location={property.location}
@@ -213,10 +214,10 @@ const PropertyDetailsPage: React.FC = () => {
 
             {/* Right Column - Schedule Viewing Sidebar */}
             <div className="lg:col-span-1">
-              <ScheduleViewingCard
+              {['sold', 'rented'].includes(property.marketStatus || '') ? <p className="p-6 bg-white rounded-2xl">This property is {property.marketStatus}. Viewings are unavailable.</p> : <ScheduleViewingCard
                 property={{ name: property.title, id: property._id }}
                 price={formatPrice(property.price)}
-              />
+              />}
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { listingReviewAPI } from '../services/domainAPI';
 import PaginationControls from '../components/PaginationControls';
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -423,7 +424,7 @@ const PendingListings = () => {
   const handleApprove = async (id) => {
     setActionLoading(`approve-${id}`);
     try {
-      await apiClient.put(`/api/admin/properties/${id}/approve`, {});
+      await listingReviewAPI.approve(listings.find(listing => listing._id === id));
       await fetchPending();
       toast.success("Listing approved and is now live!");
     } catch (err) {
@@ -438,7 +439,7 @@ const PendingListings = () => {
     const id = rejectTarget._id;
     setActionLoading(`reject-${id}`);
     try {
-      await apiClient.put(`/api/admin/properties/${id}/reject`, { reason });
+      await listingReviewAPI.reject(rejectTarget, reason);
       await fetchPending();
       toast.success("Listing rejected. Owner has been notified.");
     } catch (err) {

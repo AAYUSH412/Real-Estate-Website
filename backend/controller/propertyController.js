@@ -1,3 +1,6 @@
+import { effectiveListingStatus } from '../utils/catalogQuery.js';
+import { propertyDTO } from '@buildestate/contracts';
+import { archiveListing } from '../services/domain/archival.js';
 import { saveListing, listingError } from '../services/listingService.js';
 import { pagination, pageMetadata } from '../utils/pagination.js';
 import { createFirecrawlService } from '../services/firecrawlService.js';
@@ -40,10 +43,12 @@ function _modelForKey(key) {
     return key.startsWith('trends:') ? TrendsCache : SearchCache;
 }
 
-async function getCached(key) {
+function cacheFreshness(Model) { return { createdAt: { $gt: new Date(Date.now() - Number(Model.schema.path('createdAt').options.expires) * 1000) } }; }
+
+export async function getCached(key) {
     try {
         const Model  = _modelForKey(key);
-        const cached = await Model.findOne({ cacheKey: key });
+        const cached = await Model.findOne({ cacheKey: key, ...cacheFreshness(Model) });
         return cached?.data || null;
     } catch (err) {
         logger.warn('Cache MongoDB read error', { key: key.substring(0, 30), error: err.message });
@@ -74,7 +79,7 @@ export async function getCacheStats() {
         return {
             cachedSearches: count,
             oldestEntry: oldestEntry?.createdAt || null,
-            ttlMinutes: 10,
+            ttlMinutes: Number(SearchCache.schema.path('createdAt').options.expires) / 60,
             inFlightRequests: getInFlightCount()
         };
     } catch (err) {
@@ -98,7 +103,7 @@ export async function getLocalitySuggestions(req, res) {
         // Escape regex special chars so city names like "Navi Mumbai" work safely
         const escaped = city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const docs = await SearchCache.find(
-            { cacheKey: { $regex: `^search:${escaped}:` } },
+            { cacheKey: { $regex: `^search:${escaped}:` }, ...cacheFreshness(SearchCache) },
             { 'data.properties': 1 }
         ).limit(50).lean();
 
@@ -626,34 +631,34 @@ export const validateApiKeys = async (req, res) => {
 
 export const createUserListing = async (req, res) => {
     try {
-        const property = await saveListing({ body: req.body, files: req.files || [], owner: req.user._id });
-        res.status(201).json({ success: true, message: 'Listing submitted for review', property });
+        const property = await saveListing({ body: req.body, files: req.files || [], owner: req.user._id, req });
+        res.status(201).json({ success: true, message: 'Listing submitted for review', property: propertyDTO(property, true) });
     } catch (error) { return listingError(res, error); }
 };
 
-export const getOwnedListing = (req, res) => res.json({ success: true, property: req.listing });
+export const getOwnedListing = (req, res) => res.json({ success: true, property: propertyDTO(req.listing, true) });
 
 /** GET /api/user/properties — get all listings by the logged-in user */
 export const getUserListings = async (req, res) => {
     try {
         const { page, limit, skip } = pagination(req.query, 10);
 
-        const query = { postedBy: req.user._id };
+        const query = { postedBy: req.user._id, status: { $ne: 'archived' } };
 
         // Get total count for pagination metadata
         const totalProperties = await Property.countDocuments(query);
-        const counts = await Property.aggregate([{ $match: { postedBy: req.user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]);
+        const counts = await Property.aggregate([{ $match: query }, { $group: { _id: effectiveListingStatus(), count: { $sum: 1 } } }]);
         const statusCounts = Object.fromEntries(counts.map(row => [row._id, row.count]));
 
         // Get properties with pagination
         const properties = await Property.find(query)
-            .sort({ createdAt: -1 })
+            .sort({ createdAt: -1, _id: -1 })
             .limit(limit)
             .skip(skip);
 
         res.json({
             success: true,
-            properties,
+            properties: properties.map(p => propertyDTO(p, true)),
             statusCounts,
             pagination: pageMetadata(totalProperties, page, limit),
         });
@@ -666,28 +671,15 @@ export const getUserListings = async (req, res) => {
 /** PUT /api/user/properties/:id — edit an owned listing (resets to pending) */
 export const updateUserListing = async (req, res) => {
     try {
-        const property = await saveListing({ body: req.body, files: req.files || [], existing: req.listing, owner: req.user._id });
-        res.json({ success: true, message: 'Listing updated and resubmitted for review', property });
+        const property = await saveListing({ body: req.body, files: req.files || [], existing: req.listing, owner: req.user._id, req });
+        res.json({ success: true, message: 'Listing updated and resubmitted for review', property: propertyDTO(property, true) });
     } catch (error) { return listingError(res, error); }
 };
 
 /** DELETE /api/user/properties/:id — delete an owned listing */
 export const deleteUserListing = async (req, res) => {
     try {
-        const property = await Property.findById(req.params.id);
-
-        if (!property) {
-            return res.status(404).json({ success: false, message: 'Listing not found' });
-        }
-
-        if (!property.postedBy || property.postedBy.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Not authorised to delete this listing' });
-        }
-
-        await Property.findByIdAndDelete(req.params.id);
-        res.json({ success: true, message: 'Listing deleted successfully' });
-    } catch (error) {
-        logger.error("Error deleting user listing", { error: error.message, stack: error.stack });
-        res.status(500).json({ success: false, message: 'Failed to delete listing', error: error.message });
-    }
+        const property = await archiveListing(req.params.id, req);
+        res.json({ success: true, message: 'Listing archived; booking history retained', property });
+    } catch (error) { return listingError(res, error); }
 };

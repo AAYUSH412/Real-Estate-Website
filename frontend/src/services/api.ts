@@ -1,3 +1,4 @@
+import type { AppointmentPage, PropertyDTO } from '@buildestate/contracts';
 import axios from 'axios';
 
 // API Base URL - uses env variable or falls back to localhost
@@ -134,7 +135,7 @@ export const userListingsAPI = {
   getMyListings: (params: { page?: number; limit?: number } = {}, signal?: AbortSignal) =>
     apiClient.get('/user/properties', { params, signal }),
 
-  getById: (id: string) => apiClient.get(`/user/properties/${id}`),
+  getById: (id: string) => apiClient.get<{ success: boolean; property: PropertyDTO }>(`/user/properties/${id}`),
 
   update: (id: string, formData: FormData) =>
     apiClient.put(`/user/properties/${id}`, formData, {
@@ -158,12 +159,12 @@ export const appointmentsAPI = {
   }) =>
     apiClient.post(localStorage.getItem('buildestate_token') ? '/appointments/schedule/auth' : '/appointments/schedule', data),
 
-  getByUser: () =>
-    apiClient.get('/appointments/user'),
+  getByUser: (params: { page?: number; limit?: number; status?: string } = {}) =>
+    apiClient.get<AppointmentPage>('/appointments/user', { params }),
 
   // backend reads req.body.reason
-  cancel: (id: string, reason?: string) =>
-    apiClient.put(`/appointments/cancel/${id}`, { reason }),
+  cancel: (id: string, reason?: string, expectedVersion?: number) =>
+    apiClient.put(`/appointments/cancel/${id}`, { reason, expectedVersion }),
 };
 
 // AI-Powered Property Search

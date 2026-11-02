@@ -9,42 +9,26 @@ const adminActivityLogSchema = new mongoose.Schema({
   action: {
     type: String,
     required: true,
-    enum: [
-      'approve_property',
-      'reject_property',
-      'delete_property',
-      'bulk_approve_properties',
-      'bulk_reject_properties',
-      'bulk_delete_properties',
-      'suspend_user',
-      'ban_user',
-      'unban_user',
-      'delete_user',
-      'bulk_suspend_users',
-      'bulk_ban_users'
-    ]
+
   },
   targetType: {
     type: String,
     required: true,
-    enum: ['property', 'user', 'appointment']
+    enum: ['property', 'user', 'appointment', 'aiModel', 'session']
   },
   targetId: {
     type: mongoose.Schema.Types.ObjectId,
-    refPath: 'targetType'
+    ref: function() { return ({ property: 'Property', user: 'User', appointment: 'Appointment', aiModel: 'AIModel', session: 'AuthSession' })[this.targetType]; }
   },
   targetName: {
     type: String,
     default: ''
   },
-  metadata: {
-    reason: String,
-    count: Number,
-    affectedIds: [mongoose.Schema.Types.ObjectId],
-    previousStatus: String,
-    newStatus: String,
-    days: Number
-  },
+  actorType: { type: String, enum: ['admin', 'user', 'system'], default: 'admin' },
+  actorId: mongoose.Schema.Types.ObjectId,
+  requestId: String,
+  sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'AuthSession' },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   ipAddress: {
     type: String,
     default: 'unknown'
@@ -64,6 +48,7 @@ adminActivityLogSchema.index({ targetType: 1, createdAt: -1 });
 adminActivityLogSchema.index({ targetId: 1 });
 adminActivityLogSchema.index({ createdAt: -1 });
 
+adminActivityLogSchema.index({ createdAt: -1, _id: -1 });
 const AdminActivityLog = mongoose.model('AdminActivityLog', adminActivityLogSchema);
 
 export default AdminActivityLog;

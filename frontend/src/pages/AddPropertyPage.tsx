@@ -1,3 +1,4 @@
+import { PROPERTY_TYPES, PURPOSES } from '@buildestate/contracts';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -8,8 +9,7 @@ import Footer from '../components/common/Footer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PROPERTY_TYPES = ['Flat', 'House', 'Villa', 'Plot', 'Penthouse', 'Studio', 'Commercial'];
-const AVAILABILITY_OPTIONS = ['For Sale', 'For Rent'];
+const AVAILABILITY_OPTIONS = PURPOSES;
 const AMENITIES_LIST = [
   'Parking', 'Swimming Pool', 'Gym', 'Security', 'Power Backup',
   'Lift', 'Garden', 'Club House', 'CCTV', 'Intercom',
@@ -52,7 +52,7 @@ const AddPropertyPage: React.FC = () => {
   const [form, setForm] = useState<FormState>({
     title: '',
     type: 'Flat',
-    availability: 'For Sale',
+    availability: 'sale',
     location: '',
     price: '',
     beds: '',
@@ -69,6 +69,7 @@ const AddPropertyPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [expectedVersion, setExpectedVersion] = useState(0);
   const [retainedImages, setRetainedImages] = useState<string[]>([]);
   const [fetching, setFetching] = useState(Boolean(id));
   const [loadError, setLoadError] = useState('');
@@ -82,7 +83,8 @@ const AddPropertyPage: React.FC = () => {
     userListingsAPI.getById(id).then(({ data }) => {
       if (!active) return;
       const listing = data.property;
-      setForm(Object.fromEntries(['title', 'type', 'availability', 'location', 'price', 'beds', 'baths', 'sqft', 'description', 'phone', 'googleMapLink'].map(key => [key, String(listing[key] ?? '')])) as unknown as FormState);
+      setExpectedVersion(listing.version);
+      setForm(Object.fromEntries(['title', 'type', 'availability', 'location', 'price', 'beds', 'baths', 'sqft', 'description', 'phone', 'googleMapLink'].map(key => [key, String(listing[key as keyof typeof listing] ?? '')])) as unknown as FormState);
       let values = listing.amenities || [];
       if (values.length === 1 && typeof values[0] === 'string' && values[0].startsWith('[')) {
         try { values = JSON.parse(values[0]); } catch { values = []; }
@@ -142,7 +144,7 @@ const AddPropertyPage: React.FC = () => {
     const fd = new FormData();
     Object.entries(form).forEach(([key, val]) => fd.append(key, val));
     fd.append('amenities', JSON.stringify(amenities));
-    if (editing) fd.append('retainedImages', JSON.stringify(retainedImages));
+    if (editing) { fd.append('retainedImages', JSON.stringify(retainedImages)); fd.append('expectedVersion', String(expectedVersion)); }
     images.forEach((img) => fd.append('images', img));
 
     setSubmitting(true);

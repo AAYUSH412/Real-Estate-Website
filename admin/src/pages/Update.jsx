@@ -1,3 +1,4 @@
+import { PROPERTY_TYPES, PURPOSES, MARKET_STATUSES } from '@buildestate/contracts';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -7,8 +8,7 @@ import { X, Upload, Home, MapPin, Phone, DollarSign, BedDouble, Bath, Maximize, 
 import { AMENITIES_LIST } from '../constants/amenities';
 import { cn } from '../lib/utils';
 
-const PROPERTY_TYPES = ['Flat', 'House', 'Villa', 'Plot', 'Penthouse', 'Studio', 'Commercial', 'Apartment', 'Office'];
-const AVAILABILITY_TYPES = ['buy', 'rent', 'For Sale', 'For Rent', 'sale', 'sold'];
+const AVAILABILITY_TYPES = PURPOSES;
 
 const inputClass = "w-full px-4 py-3 bg-white border border-[#E6D5C3] rounded-xl text-[#1C1B1A] placeholder-[#9CA3AF] text-sm transition-all duration-200 outline-none focus:border-[#D4755B] focus:ring-2 focus:ring-[#D4755B]/15";
 const labelClass = "block text-sm font-semibold text-[#1C1B1A] mb-2";
@@ -31,7 +31,7 @@ const Update = () => {
   const [formData, setFormData] = useState({
     title: '', type: '', price: '', location: '', description: '',
     beds: '', baths: '', sqft: '', phone: '', availability: '',
-    amenities: [], googleMapLink: '', images: [],
+    amenities: [], googleMapLink: '', images: [], expectedVersion: 0, marketStatus: 'available',
   });
   const [previewUrls, setPreviewUrls] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ const Update = () => {
             try { amenities = JSON.parse(amenities[0]); } catch { /* keep as-is */ }
           }
           setFormData({
-            title: property.title, type: property.type, price: property.price,
+            expectedVersion: property.version, marketStatus: property.marketStatus, title: property.title, type: property.type, price: property.price,
             location: property.location, description: property.description,
             beds: property.beds, baths: property.baths, sqft: property.sqft,
             phone: property.phone, availability: property.availability,
@@ -108,10 +108,12 @@ const Update = () => {
     try {
       const formdata = new FormData();
       formdata.append('id', id);
+      formdata.append('expectedVersion', String(formData.expectedVersion));
+      formdata.append('marketStatus', formData.marketStatus);
       ['title', 'type', 'price', 'location', 'description', 'beds', 'baths', 'sqft', 'phone', 'availability', 'googleMapLink'].forEach((key) => {
         formdata.append(key, formData[key]);
       });
-      formData.amenities.forEach((amenity, i) => formdata.append(`amenities[${i}]`, amenity));
+      formdata.append('amenities', JSON.stringify(formData.amenities));
       formdata.append('retainedImages', JSON.stringify(formData.images.filter(image => typeof image === 'string')));
       formData.images.filter(image => typeof image !== 'string').forEach((image, i) => formdata.append(`image${i + 1}`, image));
 
@@ -195,6 +197,7 @@ const Update = () => {
             </div>
           </div>
 
+          <div><label htmlFor="marketStatus" className={labelClass}>Market status</label><select id="marketStatus" name="marketStatus" value={formData.marketStatus} onChange={handleInputChange} className={inputClass}>{MARKET_STATUSES.filter(status => status === 'available' || (formData.availability === 'sale' ? status === 'sold' : status === 'rented')).map(status => <option key={status}>{status}</option>)}</select><p className="text-sm mt-2">Marking a property sold or rented cancels its open viewings.</p></div>
           {/* Location & Pricing */}
           <div className="bg-white rounded-2xl p-6 border border-[#E6D5C3] shadow-card">
             <SectionHeader icon={MapPin} title="Location & Pricing" />

@@ -1,3 +1,4 @@
+import { PROPERTY_TYPES } from '@buildestate/contracts';
 import React, { useState, useEffect, useRef } from 'react';
 
 interface FilterSidebarProps {
@@ -15,15 +16,10 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange }) => {
   const isFirstRender = useRef(true);
 
   // Aligned with backend: admin/src/pages/Add.jsx → PROPERTY_TYPES
-  const propertyTypes = [
-    { id: 'apartment', label: 'Apartment', icon: 'apartment' },
-    { id: 'house', label: 'House', icon: 'house' },
-    { id: 'villa', label: 'Villa', icon: 'villa' },
-    { id: 'office', label: 'Office', icon: 'business' },
-  ];
+  const propertyTypes = PROPERTY_TYPES.map(type => ({ id: type, label: type, icon: 'home' }));
 
   const availabilityTypes = [
-    { id: 'buy', label: 'Buy' },
+    { id: 'sale', label: 'Buy' },
     { id: 'rent', label: 'Rent' },
   ];
 

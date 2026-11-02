@@ -136,9 +136,9 @@ const MyListingsPage: React.FC = () => {
     try {
       await userListingsAPI.delete(deleteTarget._id);
       await fetchListings();
-      toast.success('Listing deleted successfully.');
+      toast.success('Listing archived. Open viewings have been cancelled.');
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to delete listing.';
+      const msg = err.response?.data?.message || 'Failed to archive listing.';
       toast.error(msg);
     } finally {
       setDeleting(false);
@@ -381,7 +381,7 @@ const MyListingsPage: React.FC = () => {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        Delete
+                        Archive
                       </button>
                     </div>
                   </div>
@@ -397,10 +397,9 @@ const MyListingsPage: React.FC = () => {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open: boolean) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this listing?</AlertDialogTitle>
+            <AlertDialogTitle>Archive this listing?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong className="text-[#221410]">{deleteTarget?.title}</strong> will be permanently
-              removed. This action cannot be undone.
+              <strong className="text-[#221410]">{deleteTarget?.title}</strong> will be archived. Open viewings will be cancelled and history retained. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -410,7 +409,7 @@ const MyListingsPage: React.FC = () => {
               disabled={deleting}
               className="bg-red-600 text-white hover:bg-red-700"
             >
-              {deleting ? 'Deleting…' : 'Yes, delete'}
+              {deleting ? 'Archiving…' : 'Yes, archive'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

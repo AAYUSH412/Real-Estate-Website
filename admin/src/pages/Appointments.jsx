@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { BOOKING_STATUSES, BOOKING_TRANSITIONS } from '@buildestate/contracts';
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar, Clock, User, Home, Check, X, Loader2,
@@ -23,6 +24,9 @@ const StatusBadge = ({ status }) => {
 };
 
 const Appointments = () => {
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ totalPages: 1 });
+  const [counts, setCounts] = useState({});
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -31,12 +35,14 @@ const Appointments = () => {
   const [meetingLink, setMeetingLink] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/appointments/all');
+      const response = await apiClient.get('/api/appointments/all', { params: { page, limit: 20, status: filter, search: searchTerm || undefined } });
       if (response.data.success) {
-        const valid = response.data.appointments.filter((apt) => apt.propertyId);
+        const valid = response.data.appointments.map(apt => ({ ...apt, propertyId: apt.propertyId || apt.propertySnapshot }));
+        setPagination(response.data.pagination);
+        setCounts({ ...response.data.statusCounts, all: Object.values(response.data.statusCounts).reduce((a, b) => a + b, 0) });
         setAppointments(valid);
       } else {
         toast.error(response.data.message);
@@ -47,12 +53,12 @@ const Appointments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, filter, searchTerm]);
 
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       setUpdatingId(appointmentId);
-      const response = await apiClient.put('/api/appointments/status', { appointmentId, status: newStatus });
+      const response = await apiClient.put('/api/appointments/status', { appointmentId, status: newStatus, expectedVersion: appointments.find(a => a._id === appointmentId)?.version });
       if (response.data.success) {
         toast.success(`Appointment ${newStatus} successfully`);
         fetchAppointments();
@@ -70,7 +76,7 @@ const Appointments = () => {
   const handleMeetingLinkUpdate = async (appointmentId) => {
     if (!meetingLink) { toast.error("Please enter a meeting link"); return; }
     try {
-      const response = await apiClient.put('/api/appointments/update-meeting', { appointmentId, meetingLink });
+      const response = await apiClient.put('/api/appointments/update-meeting', { appointmentId, meetingLink, expectedVersion: appointments.find(a => a._id === appointmentId)?.version });
       if (response.data.success) {
         toast.success("Meeting link sent successfully");
         setEditingMeetingLink(null);
@@ -85,26 +91,9 @@ const Appointments = () => {
     }
   };
 
-  useEffect(() => { fetchAppointments(); }, []);
+  useEffect(() => { const timer = setTimeout(fetchAppointments, 200); return () => clearTimeout(timer); }, [fetchAppointments]);
 
-  const filteredAppointments = appointments.filter((apt) => {
-    const clientName = apt.userId?.name || apt.guestInfo?.name || "";
-    const clientEmail = apt.userId?.email || apt.guestInfo?.email || "";
-    const matchesSearch =
-      !searchTerm ||
-      apt.propertyId?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clientEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filter === "all" || apt.status === filter;
-    return matchesSearch && matchesFilter;
-  });
-
-  const counts = {
-    all: appointments.length,
-    pending: appointments.filter((a) => a.status === "pending").length,
-    confirmed: appointments.filter((a) => a.status === "confirmed").length,
-    cancelled: appointments.filter((a) => a.status === "cancelled").length,
-  };
+  const filteredAppointments = appointments;
 
   if (loading) {
     return (
@@ -133,8 +122,8 @@ const Appointments = () => {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             {/* Status Tabs */}
             <div className="flex items-center gap-1 bg-[#FAF8F4] rounded-xl p-1">
-              {["all", "pending", "confirmed", "cancelled"].map((status) => (
-                <button key={status} onClick={() => setFilter(status)}
+              {["all", ...BOOKING_STATUSES].map((status) => (
+                <button key={status} onClick={() => { setFilter(status); setPage(1); }}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 capitalize",
                     filter === status
@@ -156,12 +145,15 @@ const Appointments = () => {
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
               <input type="text" placeholder="Search by property, client..."
-                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                 className="w-full pl-9 pr-4 py-2.5 bg-[#FAF8F4] border border-[#E6D5C3] rounded-xl text-sm text-[#1C1B1A] placeholder-[#9CA3AF] outline-none focus:border-[#D4755B] focus:ring-2 focus:ring-[#D4755B]/15 transition-all" />
             </div>
           </div>
         </motion.div>
 
+        {pagination.totalPages > 1 && <nav aria-label="Appointment pages" className="flex justify-center gap-4 mb-5">
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button><span>Page {page} of {pagination.totalPages}</span><button disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+        </nav>}
         {/* Table */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="bg-white rounded-2xl border border-[#E6D5C3] shadow-card overflow-hidden">
@@ -279,18 +271,19 @@ const Appointments = () => {
 
                       {/* Actions */}
                       <td className="px-6 py-4">
-                        {appointment.status === "pending" && (
+                        {["pending", "confirmed"].includes(appointment.status) && (
                           <div className="flex items-center gap-1.5">
                             {updatingId === appointment._id ? (
                               <Loader2 className="w-4 h-4 text-[#9CA3AF] animate-spin" />
                             ) : (
                               <>
                                 <button
-                                  onClick={() => handleStatusChange(appointment._id, "confirmed")}
+                                  disabled={!BOOKING_TRANSITIONS[appointment.status].includes("confirmed")} onClick={() => handleStatusChange(appointment._id, "confirmed")}
                                   className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors">
                                   <Check className="w-3.5 h-3.5" />
                                   Confirm
                                 </button>
+                                {appointment.status === 'confirmed' && <button disabled={!appointment.endsAt || new Date(appointment.endsAt) > new Date()} onClick={() => handleStatusChange(appointment._id, 'completed')} className="px-2 py-1 text-xs border rounded">Complete</button>}
                                 <button
                                   onClick={() => handleStatusChange(appointment._id, "cancelled")}
                                   className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors">

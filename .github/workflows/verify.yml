@@ -40,7 +40,6 @@ jobs:
           cache-dependency-path: ${{ matrix.app }}/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm test
-        if: matrix.app == 'frontend'
       - run: npm run lint
         if: matrix.app == 'admin'
       - run: npm run build

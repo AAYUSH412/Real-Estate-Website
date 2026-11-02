@@ -1,3 +1,7 @@
+import { keys, text, number, choice, ContractError } from '@buildestate/contracts';
+import { transaction } from '../services/domain/transaction.js';
+import { audit } from '../services/domain/audit.js';
+import { respondError } from '../utils/httpErrors.js';
 import AIModel from '../models/aiModelModel.js';
 import logger from '../utils/logger.js';
 
@@ -172,59 +176,72 @@ export async function listModels(req, res) {
   }
 }
 
+function modelInput(input, partial = false) {
+  keys(input, ['name', 'slug', 'modelId', 'badge', 'description', 'isActive', 'isDefault', 'order', 'config', 'provider', 'expectedVersion']);
+  const output = {};
+  for (const field of ['name', 'slug', 'modelId', 'badge', 'description']) {
+    if (input[field] !== undefined || (!partial && ['name', 'slug', 'modelId'].includes(field))) output[field] = text(input[field], field, { min: ['badge', 'description'].includes(field) ? 0 : 1, max: field === 'description' ? 2000 : 200 });
+  }
+  if (output.slug && !/^[a-z0-9-]+$/.test(output.slug)) throw new ContractError('Invalid model slug', 'slug');
+  if (!partial || input.provider !== undefined) output.provider = choice(input.provider, ['github', 'nvidia'], 'provider');
+  for (const field of ['isActive', 'isDefault']) if (input[field] !== undefined) {
+    if (typeof input[field] !== 'boolean') throw new ContractError(`${field} must be boolean`, field);
+    output[field] = input[field];
+  }
+  if (input.order !== undefined) output.order = number(input.order, 'order', { integer: true, max: 10000 });
+  if (input.config !== undefined) {
+    keys(input.config, ['maxTokens', 'timeoutMs', 'temperature', 'topP', 'enableThinking', 'reasoningBudget']);
+    output.config = {};
+    const bounds = { maxTokens: { min: 1, max: 65536, integer: true }, timeoutMs: { min: 1000, max: 120000, integer: true }, temperature: { max: 2 }, topP: { min: 0.01, max: 1 }, reasoningBudget: { max: 65536, integer: true } };
+    for (const [field, options] of Object.entries(bounds)) if (input.config[field] !== undefined) output.config[field] = field === 'reasoningBudget' && input.config[field] === null ? null : number(input.config[field], field, options);
+    if (input.config.enableThinking !== undefined) {
+      if (typeof input.config.enableThinking !== 'boolean') throw new ContractError('enableThinking must be boolean', 'enableThinking');
+      output.config.enableThinking = input.config.enableThinking;
+    }
+  }
+  return output;
+}
+
 export async function createModel(req, res) {
   try {
-    const { name, slug, modelId, badge, description, isActive, isDefault, order, config, provider } = req.body;
-    if (!name || !slug || !modelId || !['github', 'nvidia'].includes(provider)) {
-      return res.status(400).json({ success: false, message: 'name, slug, modelId, and a valid provider are required' });
-    }
-
-    if (isDefault) {
-      await AIModel.updateMany({ isDefault: true }, { isDefault: false });
-    }
-
-    const model = await AIModel.create({ name, slug, modelId, badge, description, isActive, isDefault, order: order ?? 0, config, provider });
-    invalidateCache();
-    res.status(201).json({ success: true, model });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ success: false, message: 'A model with that slug already exists' });
-    }
-    logger.error('createModel error', { error: err.message });
-    res.status(500).json({ success: false, message: 'Failed to create model' });
-  }
+    const values = modelInput(req.body);
+    const model = await transaction(async session => {
+      const candidate = new AIModel(values); await candidate.validate();
+      if (candidate.isDefault && !candidate.isActive) throw new ContractError('Default model must be active', 'isDefault');
+      if (candidate.isDefault) await AIModel.updateMany({ isDefault: true }, { $set: { isDefault: false }, $inc: { __v: 1 } }, { session });
+      await candidate.save({ session });
+      await audit(req, 'create_ai_model', 'aiModel', candidate, { provider: candidate.provider }, session);
+      return candidate;
+    });
+    invalidateCache(); res.status(201).json({ success: true, model });
+  } catch (error) { return respondError(res, error); }
 }
-
 export async function updateModel(req, res) {
   try {
-    const { id } = req.params;
-    const updates = Object.fromEntries(['name', 'slug', 'modelId', 'badge', 'description', 'isActive', 'isDefault', 'order', 'config', 'provider'].filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
-
-    if (updates.isDefault) {
-      await AIModel.updateMany({ _id: { $ne: id }, isDefault: true }, { isDefault: false });
-    }
-
-    const model = await AIModel.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
-    if (!model) return res.status(404).json({ success: false, message: 'Model not found' });
-
-    invalidateCache();
-    res.json({ success: true, model });
-  } catch (err) {
-    logger.error('updateModel error', { error: err.message });
-    res.status(500).json({ success: false, message: 'Failed to update model' });
-  }
+    const updates = modelInput(req.body, true);
+    const model = await transaction(async session => {
+      const current = await AIModel.findById(req.params.id).session(session);
+      if (!current) throw new ContractError('Model not found', 'id', 404);
+      if (req.body.expectedVersion !== undefined && number(req.body.expectedVersion, 'expectedVersion', { integer: true }) !== (current.__v || 0)) throw new ContractError('Model changed. Refresh first.', 'version', 409);
+      if (updates.config) updates.config = { ...current.config.toObject(), ...updates.config };
+      current.set(updates);
+      if (!current.isActive) current.isDefault = false;
+      await current.validate();
+      if (current.isDefault) await AIModel.updateMany({ _id: { $ne: current._id }, isDefault: true }, { $set: { isDefault: false }, $inc: { __v: 1 } }, { session });
+      await current.save({ session });
+      await audit(req, 'update_ai_model', 'aiModel', current, { provider: current.provider, changedFields: Object.keys(updates) }, session);
+      return current;
+    });
+    invalidateCache(); res.json({ success: true, model });
+  } catch (error) { return respondError(res, error); }
 }
-
 export async function deleteModel(req, res) {
   try {
-    const { id } = req.params;
-    const model = await AIModel.findByIdAndDelete(id);
-    if (!model) return res.status(404).json({ success: false, message: 'Model not found' });
-
-    invalidateCache();
-    res.json({ success: true, message: 'Model deleted' });
-  } catch (err) {
-    logger.error('deleteModel error', { error: err.message });
-    res.status(500).json({ success: false, message: 'Failed to delete model' });
-  }
+    await transaction(async session => {
+      const model = await AIModel.findByIdAndDelete(req.params.id, { session });
+      if (!model) throw new ContractError('Model not found', 'id', 404);
+      await audit(req, 'delete_ai_model', 'aiModel', model, {}, session);
+    });
+    invalidateCache(); res.json({ success: true, message: 'Model deleted' });
+  } catch (error) { return respondError(res, error); }
 }

@@ -1,3 +1,5 @@
+import { text } from '@buildestate/contracts';
+import { validId, validatePage, validate, aiInput } from '../middleware/contracts.js';
 import { loadOwnedListing } from '../middleware/listingOwnership.js';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
@@ -9,6 +11,9 @@ import upload from '../middleware/multer.js';
 import { createDistributedRateLimiter } from '../utils/distributedRateLimiter.js';
 
 const router = express.Router();
+router.param('id', validId);
+router.param('city', (req, res, next, city) => { try { text(city, 'city', { max: 120 }); next(); } catch (error) { res.status(400).json({ success: false, message: error.message }); } });
+router.use((req, res, next) => req.method === 'GET' ? validatePage(req, res, next) : next());
 
 // ── AI-specific distributed rate limiter (works across multiple instances) ────
 // Each AI call costs real Firecrawl + GitHub Models quota, so cap per IP/hour.
@@ -30,16 +35,16 @@ const distributedLimiter = createDistributedRateLimiter({
 const aiLimiter = distributedLimiter.createMiddleware();
 
 // Original route (backend format) — also rate-limited
-router.post('/properties/search', aiLimiter, searchProperties);
+router.post('/properties/search', aiLimiter, aiInput(false), searchProperties);
 
 // Alias route for frontend — transforms format, then rate-limits, then searches
-router.post('/ai/search', aiLimiter, transformAISearchRequest, searchProperties);
+router.post('/ai/search', aiLimiter, aiInput(true), transformAISearchRequest, searchProperties);
 
 // Validate user-provided API keys before save/use
 router.post('/ai/validate-keys', validateApiKeys);
 
 // Locality autocomplete — harvested from cached scraped data, no AI keys needed
-router.get('/ai/localities', getLocalitySuggestions);
+router.get('/ai/localities', validate(req => { for (const field of ['city', 'q']) if (req.query[field] !== undefined) text(req.query[field], field, { min: 0, max: 120 }); }), getLocalitySuggestions);
 
 // Public: list active AI models for the frontend model picker
 router.get('/ai/models', getPublicModels);

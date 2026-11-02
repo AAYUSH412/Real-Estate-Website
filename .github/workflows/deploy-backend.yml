@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'shared/**'
+      - '.dockerignore'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
@@ -47,7 +49,8 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
-          context: backend
+          context: .
+          file: backend/Dockerfile
           push: true
           # SHA tag guarantees the App Service sees a config change and
           # actually pulls + restarts; :latest alone is a no-op redeploy.

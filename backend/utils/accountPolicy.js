@@ -1,5 +1,6 @@
 // Read-time policy also handles expired suspensions before the daily job runs.
 export function accountDenial(user, now = Date.now()) {
+  if (user.status === 'deleted' || user.deletedAt) return 'This account is archived.';
   if (user.status === 'banned') return 'This account is banned.';
   if (user.status === 'suspended' && (!user.suspendedUntil || new Date(user.suspendedUntil).getTime() > now)) {
     return 'This account is suspended.';
@@ -23,7 +24,7 @@ export function publicUser(user) {
 }
 
 export function adminUser(user) {
-  const dto = publicUser(user);
+  const dto = { ...publicUser(user), version: user.__v || 0 };
   for (const field of ['suspendedUntil', 'banReason', 'suspendReason', 'bannedAt', 'suspendedAt', 'bannedBy', 'suspendedBy', 'lastActive']) {
     dto[field] = user[field];
   }

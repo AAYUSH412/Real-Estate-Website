@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 
 const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 254 },
     password: { type: String, select: false, required: true },
     resetToken: { type: String, select: false },
     resetTokenExpire: { type: Date, select: false },
@@ -16,7 +16,7 @@ const UserSchema = new mongoose.Schema({
     // User status management fields
     status: {
         type: String,
-        enum: ['active', 'suspended', 'banned'],
+        enum: ['active', 'suspended', 'banned', 'deleted'],
         default: 'active'
     },
     suspendedUntil: { type: Date },
@@ -27,6 +27,8 @@ const UserSchema = new mongoose.Schema({
     bannedBy: { type: String },      // Admin email
     suspendedBy: { type: String },   // Admin email
     lastActive: { type: Date },
+    deletedAt: Date,
+    sessionFence: { type: Number, default: 0 },
     sessionVersion: { type: Number, default: 0 },
     rememberMe: { type: Boolean, default: false },
 
@@ -38,7 +40,7 @@ const UserSchema = new mongoose.Schema({
     userRefreshTokenHash: { type: String, select: false },
     userRefreshTokenExpiry: { type: Date, select: false }
 }, {
-    timestamps: true  // Adds createdAt and updatedAt
+    timestamps: true, optimisticConcurrency: true
 });
 
 // Indexes for efficient queries
@@ -50,10 +52,12 @@ const User = mongoose.model('User', UserSchema);
 
 // Admin model with password hashing
 const AdminSchema = new mongoose.Schema({
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 254 },
     password: { type: String, select: false, required: true },
     role: { type: String, default: 'admin' },
     lastLogin: { type: Date },
+    sessionVersion: { type: Number, default: 0 },
+    sessionFence: { type: Number, default: 0 },
 
     // Brute-force protection
     failedLoginAttempts: { type: Number, default: 0 },

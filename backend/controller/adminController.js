@@ -1,15 +1,16 @@
+import { adminUser } from '../utils/accountPolicy.js';
+export { getActivityLogs, exportActivityLogs } from './auditController.js';
+export { getAllAppointments, updateAppointmentStatus } from './bookingController.js';
+export { approveListing, rejectListing, suspendUser, banUser, unbanUser, deleteUser, bulkSuspendUsers, bulkBanUsers, bulkApproveProperties, bulkRejectProperties, bulkDeleteProperties } from './domainAdminController.js';
+import { propertyDTO, appointmentDTO, pageDTO, parsePage, text, choice, id } from '@buildestate/contracts';
+import { respondError } from '../utils/httpErrors.js';
 import { pagination, escapeRegex } from '../utils/pagination.js';
-import { revokeSessionUpdate, adminUser, accountDenial } from '../utils/accountPolicy.js';
+
 import Stats from "../models/statsModel.js";
 import Property from "../models/propertyModel.js";
 import Appointment from "../models/appointmentModel.js";
 import User from "../models/userModel.js";
-import AdminActivityLog from "../models/adminActivityLogModel.js";
-import emailService from "../services/emailService.js";
-import { getEmailTemplate, getListingApprovedTemplate, getListingRejectedTemplate } from "../email.js";
-import { logAdminActivity } from "../utils/activityLogger.js";
-import createCsvWriter from 'csv-writer';
-import fs from 'fs';
+
 import mongoose from 'mongoose';
 
 const formatRecentProperties = (properties) => {
@@ -167,67 +168,6 @@ const getViewsData = async () => {
 };
 
 // Add these new controller functions
-export const getAllAppointments = async (req, res) => {
-  try {
-    const appointments = await Appointment.find()
-      .populate("propertyId", "title location")
-      .populate("userId", "name email")
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      appointments,
-    });
-  } catch (error) {
-    console.error("Error fetching appointments:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching appointments",
-    });
-  }
-};
-
-export const updateAppointmentStatus = async (req, res) => {
-  try {
-    const { appointmentId, status } = req.body;
-
-    const appointment = await Appointment.findByIdAndUpdate(
-      appointmentId,
-      { status },
-      { new: true }
-    ).populate("propertyId").populate("userId", "name email");
-
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: "Appointment not found",
-      });
-    }
-
-    // Send email notification (guest bookings may have no userId)
-    const recipientEmail = appointment.userId?.email || appointment.guestInfo?.email;
-    if (recipientEmail) {
-      try {
-        await emailService.sendAppointmentStatusUpdate(recipientEmail, appointment, status);
-      } catch (emailError) {
-        console.error('Failed to send appointment status email:', emailError);
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Appointment ${status} successfully`,
-      appointment,
-    });
-  } catch (error) {
-    console.error("Error updating appointment:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating appointment",
-    });
-  }
-};
-
 // ── Admin listing review ──────────────────────────────────────────────────────
 
 /** GET /api/admin/properties/pending — FIFO queue of user-submitted listings */
@@ -254,7 +194,7 @@ export const getPendingListings = async (req, res) => {
 
     res.json({
       success: true,
-      properties,
+      properties: properties.map(p => propertyDTO(p, true)),
       pagination: {
         currentPage: page,
         totalPages,
@@ -271,81 +211,6 @@ export const getPendingListings = async (req, res) => {
 };
 
 /** PUT /api/admin/properties/:id/approve — approve a pending listing */
-export const approveListing = async (req, res) => {
-  try {
-    const property = await Property.findById(req.params.id).populate("postedBy", "name email status suspendedUntil");
-
-    if (!property) {
-      return res.status(404).json({ success: false, message: "Listing not found" });
-    }
-
-    if (property.postedBy && accountDenial(property.postedBy)) {
-      return res.status(409).json({ success: false, message: 'The listing owner is banned or suspended.' });
-    }
-    if (property.postedBy) property.expiresAt = new Date(Date.now() + 45 * 86400000);
-    property.status = "active";
-    property.rejectionReason = "";
-    await property.save();
-
-    // Email the submitter
-    if (property.postedBy?.email) {
-      try {
-        await emailService.sendListingApproved(
-          property.postedBy.email,
-          property.title,
-          property._id.toString()
-        );
-      } catch (mailErr) {
-        console.error("Approval email failed (non-fatal):", mailErr.message);
-      }
-    }
-
-    res.json({ success: true, message: "Listing approved", property });
-  } catch (error) {
-    console.error("Error approving listing:", error);
-    res.status(500).json({ success: false, message: "Error approving listing" });
-  }
-};
-
-/** PUT /api/admin/properties/:id/reject — reject a pending listing */
-export const rejectListing = async (req, res) => {
-  try {
-    const { reason } = req.body;
-
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ success: false, message: "Rejection reason is required" });
-    }
-
-    const property = await Property.findById(req.params.id).populate("postedBy", "name email");
-
-    if (!property) {
-      return res.status(404).json({ success: false, message: "Listing not found" });
-    }
-
-    property.status = "rejected";
-    property.rejectionReason = reason.trim();
-    await property.save();
-
-    // Email the submitter
-    if (property.postedBy?.email) {
-      try {
-        await emailService.sendListingRejected(
-          property.postedBy.email,
-          property.title,
-          reason.trim()
-        );
-      } catch (mailErr) {
-        console.error("Rejection email failed (non-fatal):", mailErr.message);
-      }
-    }
-
-    res.json({ success: true, message: "Listing rejected", property });
-  } catch (error) {
-    console.error("Error rejecting listing:", error);
-    res.status(500).json({ success: false, message: "Error rejecting listing" });
-  }
-};
-
 // ── USER MANAGEMENT ────────────────────────────────────────────────────────────
 
 /**
@@ -354,23 +219,21 @@ export const rejectListing = async (req, res) => {
  */
 export const getAllUsers = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 15;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = pagination(req.query, 15);
     const status = req.query.status; // active, suspended, banned, or undefined (all)
-    const search = req.query.search?.trim();
-    const sortBy = req.query.sortBy || 'createdAt'; // createdAt, lastActive, name
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+    const search = req.query.search === undefined ? undefined : text(req.query.search, 'search');
+    const sortBy = choice(req.query.sortBy || 'createdAt', ['createdAt', 'lastActive', 'name'], 'sortBy'); // createdAt, lastActive, name
+    const sortOrder = choice(req.query.sortOrder || 'desc', ['asc', 'desc'], 'sortOrder') === 'asc' ? 1 : -1;
 
     // Build query
-    const query = {};
-    if (status && ['active', 'suspended', 'banned'].includes(status)) {
+    const query = { status: { $ne: 'deleted' } };
+    if (status && choice(status, ['active', 'suspended', 'banned'], 'status')) {
       query.status = status;
     }
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { name: { $regex: escapeRegex(search), $options: 'i' } },
+        { email: { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
 
@@ -391,16 +254,9 @@ export const getAllUsers = async (req, res) => {
       .limit(limit)
       .skip(skip);
 
-    // Get property counts for each user
-    const usersWithCounts = await Promise.all(
-      users.map(async (user) => {
-        const propertyCount = await Property.countDocuments({ postedBy: user._id });
-        return {
-          ...adminUser(user),
-          propertyCount
-        };
-      })
-    );
+    const counts = await Property.aggregate([{ $match: { postedBy: { $in: users.map(user => user._id) }, status: { $ne: 'archived' } } }, { $group: { _id: '$postedBy', count: { $sum: 1 } } }]);
+    const byUser = new Map(counts.map(row => [String(row._id), row.count]));
+    const usersWithCounts = users.map(user => ({ ...adminUser(user), propertyCount: byUser.get(String(user._id)) || 0 }));
 
     res.json({
       success: true,
@@ -422,7 +278,7 @@ export const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching users:", error);
-    res.status(500).json({ success: false, message: "Error fetching users" });
+    return respondError(res, error);
   }
 };
 
@@ -432,7 +288,7 @@ export const getAllUsers = async (req, res) => {
  */
 export const getUserDetails = async (req, res) => {
   try {
-    const userId = req.params.id;
+    const userId = id(req.params.id);
 
     const user = await User.findById(userId).select('-password -resetToken -resetTokenExpire');
 
@@ -441,27 +297,30 @@ export const getUserDetails = async (req, res) => {
     }
 
     // Get user's properties and appointments in parallel
-    const [properties, appointments] = await Promise.all([
-      Property.find({ postedBy: userId }).sort({ createdAt: -1 }),
+    const propertyPage = parsePage({ page: req.query.propertyPage, limit: 20 });
+    const appointmentPage = parsePage({ page: req.query.appointmentPage, limit: 20 });
+    const [properties, appointments, propertyCount, appointmentCount] = await Promise.all([
+      Property.find({ postedBy: userId }).sort({ createdAt: -1, _id: -1 }).skip(propertyPage.skip).limit(propertyPage.limit),
       Appointment.find({ userId })
         .populate('propertyId', 'title location')
         .sort({ createdAt: -1 })
-        .limit(20)
+        .skip(appointmentPage.skip).limit(appointmentPage.limit),
+      Property.countDocuments({ postedBy: userId }), Appointment.countDocuments({ userId })
     ]);
 
     res.json({
       success: true,
       user: {
         ...adminUser(user),
-        propertyCount: properties.length,
-        appointmentCount: appointments.length
+        propertyCount, appointmentCount
       },
-      properties,
-      appointments
+      properties: properties.map(p => propertyDTO(p, true)),
+      appointments: appointments.map(appointmentDTO),
+      propertyPagination: pageDTO(propertyCount, propertyPage.page, propertyPage.limit),
+      appointmentPagination: pageDTO(appointmentCount, appointmentPage.page, appointmentPage.limit)
     });
   } catch (error) {
-    console.error("Error fetching user details:", error);
-    res.status(500).json({ success: false, message: "Error fetching user details" });
+    respondError(res, error);
   }
 };
 
@@ -469,827 +328,12 @@ export const getUserDetails = async (req, res) => {
  * PUT /api/admin/users/:id/suspend
  * Suspend a user account temporarily
  */
-export const suspendUser = async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const { days, reason } = req.body;
-
-    // Validation
-    if (!days || days < 1 || days > 365) {
-      return res.status(400).json({
-        success: false,
-        message: "Days must be between 1 and 365"
-      });
-    }
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Suspension reason is required"
-      });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Calculate suspension end date
-    const suspendedUntil = new Date();
-    suspendedUntil.setDate(suspendedUntil.getDate() + parseInt(days));
-
-    // Update user status
-    user.status = 'suspended';
-    user.suspendedUntil = suspendedUntil;
-    user.suspendReason = reason.trim();
-    user.suspendedAt = new Date();
-    user.suspendedBy = req.admin.email;
-    await User.updateOne({ _id: userId }, {
-      $set: { status: user.status, suspendedUntil: user.suspendedUntil, suspendReason: user.suspendReason, suspendedAt: user.suspendedAt, suspendedBy: user.suspendedBy },
-      ...revokeSessionUpdate,
-    });
-
-    // Expire all active properties
-    await Property.updateMany(
-      { postedBy: userId, status: 'active' },
-      { $set: { status: 'expired' } }
-    );
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'suspend_user',
-      'user',
-      userId,
-      user.name,
-      { reason: reason.trim(), days: parseInt(days), suspendedUntil },
-      req
-    );
-
-    // Send email notification (non-fatal)
-    try {
-      await emailService.sendUserSuspended(user.email, user.name, days, reason.trim(), suspendedUntil);
-    } catch (mailErr) {
-      console.error("Suspension email failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: `User suspended for ${days} days`,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        status: user.status,
-        suspendedUntil
-      }
-    });
-  } catch (error) {
-    console.error("Error suspending user:", error);
-    res.status(500).json({ success: false, message: "Error suspending user" });
-  }
-};
-
-/**
- * PUT /api/admin/users/:id/ban
- * Ban a user account permanently
- */
-export const banUser = async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const { reason } = req.body;
-
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Ban reason is required"
-      });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Update user status
-    user.status = 'banned';
-    user.banReason = reason.trim();
-    user.bannedAt = new Date();
-    user.bannedBy = req.admin.email;
-    await User.updateOne({ _id: userId }, {
-      $set: { status: user.status, banReason: user.banReason, bannedAt: user.bannedAt, bannedBy: user.bannedBy },
-      ...revokeSessionUpdate,
-    });
-
-    // Expire all active properties
-    await Property.updateMany(
-      { postedBy: userId, status: 'active' },
-      { $set: { status: 'expired' } }
-    );
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'ban_user',
-      'user',
-      userId,
-      user.name,
-      { reason: reason.trim() },
-      req
-    );
-
-    // Send email notification (non-fatal)
-    try {
-      await emailService.sendUserBanned(user.email, user.name, reason.trim());
-    } catch (mailErr) {
-      console.error("Ban email failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: "User banned successfully",
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        status: user.status,
-        bannedAt: user.bannedAt
-      }
-    });
-  } catch (error) {
-    console.error("Error banning user:", error);
-    res.status(500).json({ success: false, message: "Error banning user" });
-  }
-};
-
-/**
- * PUT /api/admin/users/:id/unban
- * Unban a user account (reactivate)
- */
-export const unbanUser = async (req, res) => {
-  try {
-    const userId = req.params.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    if (user.status !== 'banned' && user.status !== 'suspended') {
-      return res.status(400).json({
-        success: false,
-        message: "User is not banned or suspended"
-      });
-    }
-
-    // Clear ban/suspension fields
-    user.status = 'active';
-    user.banReason = undefined;
-    user.suspendReason = undefined;
-    user.bannedAt = undefined;
-    user.suspendedAt = undefined;
-    user.suspendedUntil = undefined;
-    user.bannedBy = undefined;
-    user.suspendedBy = undefined;
-    await user.save();
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'unban_user',
-      'user',
-      userId,
-      user.name,
-      {},
-      req
-    );
-
-    // Send email notification (non-fatal)
-    try {
-      await emailService.sendUserReactivated(user.email, user.name);
-    } catch (mailErr) {
-      console.error("Reactivation email failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: "User account reactivated",
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        status: user.status
-      }
-    });
-  } catch (error) {
-    console.error("Error unbanning user:", error);
-    res.status(500).json({ success: false, message: "Error unbanning user" });
-  }
-};
-
-/**
- * DELETE /api/admin/users/:id
- * Delete a user account and all their data (cascade)
- */
-export const deleteUser = async (req, res) => {
-  try {
-    const userId = req.params.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Delete all user's properties
-    await Property.deleteMany({ postedBy: userId });
-
-    // Delete all user's appointments
-    await Appointment.deleteMany({ userId });
-
-    // Delete the user
-    await User.findByIdAndDelete(userId);
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'delete_user',
-      'user',
-      userId,
-      user.name,
-      { email: user.email },
-      req
-    );
-
-    res.json({
-      success: true,
-      message: "User and all associated data deleted successfully"
-    });
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).json({ success: false, message: "Error deleting user" });
-  }
-};
-
-
-// ── BULK OPERATIONS ────────────────────────────────────────────────────────────
-
-/**
- * POST /api/admin/users/bulk-suspend
- * Suspend multiple users at once
- */
-export const bulkSuspendUsers = async (req, res) => {
-  try {
-    const { userIds, days, reason } = req.body;
-
-    // Validation
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "userIds array is required and cannot be empty"
-      });
-    }
-    if (!days || days < 1 || days > 365) {
-      return res.status(400).json({
-        success: false,
-        message: "Days must be between 1 and 365"
-      });
-    }
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Suspension reason is required"
-      });
-    }
-
-    // Limit bulk operations to prevent abuse
-    if (userIds.length > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot suspend more than 100 users at once"
-      });
-    }
-
-    const suspendedUntil = new Date();
-    suspendedUntil.setDate(suspendedUntil.getDate() + parseInt(days));
-
-    // Bulk update users
-    const result = await User.updateMany(
-      { _id: { $in: userIds } },
-      {
-        $set: {
-          status: 'suspended',
-          suspendedUntil,
-          suspendReason: reason.trim(),
-          suspendedAt: new Date(),
-          suspendedBy: req.admin.email
-        },
-        ...revokeSessionUpdate,
-      }
-    );
-
-    // Expire all properties from these users
-    await Property.updateMany(
-      { postedBy: { $in: userIds }, status: 'active' },
-      { $set: { status: 'expired' } }
-    );
-
-    // Get affected users for email notifications
-    const users = await User.find({ _id: { $in: userIds } }).select('name email');
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'bulk_suspend_users',
-      'user',
-      null,
-      `${result.modifiedCount} users`,
-      {
-        reason: reason.trim(),
-        days: parseInt(days),
-        count: result.modifiedCount,
-        affectedIds: userIds
-      },
-      req
-    );
-
-    // Send emails (non-fatal, use Promise.allSettled)
-    try {
-      await Promise.allSettled(
-        users.map(user =>
-          emailService.sendUserSuspended(user.email, user.name, days, reason.trim(), suspendedUntil)
-        )
-      );
-    } catch (mailErr) {
-      console.error("Bulk suspension emails failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: `${result.modifiedCount} user(s) suspended successfully`,
-      count: result.modifiedCount
-    });
-  } catch (error) {
-    console.error("Error bulk suspending users:", error);
-    res.status(500).json({ success: false, message: "Error suspending users" });
-  }
-};
-
-/**
- * POST /api/admin/users/bulk-ban
- * Ban multiple users at once
- */
-export const bulkBanUsers = async (req, res) => {
-  try {
-    const { userIds, reason } = req.body;
-
-    // Validation
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "userIds array is required and cannot be empty"
-      });
-    }
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Ban reason is required"
-      });
-    }
-
-    // Limit bulk operations
-    if (userIds.length > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot ban more than 100 users at once"
-      });
-    }
-
-    // Bulk update users
-    const result = await User.updateMany(
-      { _id: { $in: userIds } },
-      {
-        $set: {
-          status: 'banned',
-          banReason: reason.trim(),
-          bannedAt: new Date(),
-          bannedBy: req.admin.email
-        },
-        ...revokeSessionUpdate,
-      }
-    );
-
-    // Expire all properties from these users
-    await Property.updateMany(
-      { postedBy: { $in: userIds }, status: 'active' },
-      { $set: { status: 'expired' } }
-    );
-
-    // Get affected users for email notifications
-    const users = await User.find({ _id: { $in: userIds } }).select('name email');
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'bulk_ban_users',
-      'user',
-      null,
-      `${result.modifiedCount} users`,
-      {
-        reason: reason.trim(),
-        count: result.modifiedCount,
-        affectedIds: userIds
-      },
-      req
-    );
-
-    // Send emails (non-fatal)
-    try {
-      await Promise.allSettled(
-        users.map(user =>
-          emailService.sendUserBanned(user.email, user.name, reason.trim())
-        )
-      );
-    } catch (mailErr) {
-      console.error("Bulk ban emails failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: `${result.modifiedCount} user(s) banned successfully`,
-      count: result.modifiedCount
-    });
-  } catch (error) {
-    console.error("Error bulk banning users:", error);
-    res.status(500).json({ success: false, message: "Error banning users" });
-  }
-};
-
-/**
- * POST /api/admin/properties/bulk-approve
- * Approve multiple properties at once
- */
-export const bulkApproveProperties = async (req, res) => {
-  try {
-    const { propertyIds } = req.body;
-
-    // Validation
-    if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "propertyIds array is required and cannot be empty"
-      });
-    }
-
-    // Limit bulk operations
-    if (propertyIds.length > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot approve more than 100 properties at once"
-      });
-    }
-
-    // Bulk update properties
-    const result = await Property.updateMany(
-      { _id: { $in: propertyIds } },
-      {
-        $set: { status: 'active', rejectionReason: '' }
-      }
-    );
-
-    // Get affected properties with owner info for emails
-    const properties = await Property.find({ _id: { $in: propertyIds } })
-      .populate('postedBy', 'name email')
-      .select('title postedBy _id');
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'bulk_approve_properties',
-      'property',
-      null,
-      `${result.modifiedCount} properties`,
-      {
-        count: result.modifiedCount,
-        affectedIds: propertyIds
-      },
-      req
-    );
-
-    // Send emails (non-fatal)
-    try {
-      await Promise.allSettled(
-        properties.map(property => {
-          if (property.postedBy?.email) {
-            return emailService.sendListingApproved(
-              property.postedBy.email,
-              property.title,
-              property._id.toString()
-            );
-          }
-          return Promise.resolve();
-        })
-      );
-    } catch (mailErr) {
-      console.error("Bulk approval emails failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: `${result.modifiedCount} property(ies) approved successfully`,
-      count: result.modifiedCount
-    });
-  } catch (error) {
-    console.error("Error bulk approving properties:", error);
-    res.status(500).json({ success: false, message: "Error approving properties" });
-  }
-};
-
-/**
- * POST /api/admin/properties/bulk-reject
- * Reject multiple properties at once
- */
-export const bulkRejectProperties = async (req, res) => {
-  try {
-    const { propertyIds, reason } = req.body;
-
-    // Validation
-    if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "propertyIds array is required and cannot be empty"
-      });
-    }
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Rejection reason is required"
-      });
-    }
-
-    // Limit bulk operations
-    if (propertyIds.length > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot reject more than 100 properties at once"
-      });
-    }
-
-    // Bulk update properties
-    const result = await Property.updateMany(
-      { _id: { $in: propertyIds } },
-      {
-        $set: {
-          status: 'rejected',
-          rejectionReason: reason.trim()
-        }
-      }
-    );
-
-    // Get affected properties with owner info
-    const properties = await Property.find({ _id: { $in: propertyIds } })
-      .populate('postedBy', 'name email')
-      .select('title postedBy');
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'bulk_reject_properties',
-      'property',
-      null,
-      `${result.modifiedCount} properties`,
-      {
-        reason: reason.trim(),
-        count: result.modifiedCount,
-        affectedIds: propertyIds
-      },
-      req
-    );
-
-    // Send emails (non-fatal)
-    try {
-      await Promise.allSettled(
-        properties.map(property => {
-          if (property.postedBy?.email) {
-            return emailService.sendListingRejected(
-              property.postedBy.email,
-              property.title,
-              reason.trim()
-            );
-          }
-          return Promise.resolve();
-        })
-      );
-    } catch (mailErr) {
-      console.error("Bulk rejection emails failed (non-fatal):", mailErr.message);
-    }
-
-    res.json({
-      success: true,
-      message: `${result.modifiedCount} property(ies) rejected successfully`,
-      count: result.modifiedCount
-    });
-  } catch (error) {
-    console.error("Error bulk rejecting properties:", error);
-    res.status(500).json({ success: false, message: "Error rejecting properties" });
-  }
-};
-
-/**
- * POST /api/admin/properties/bulk-delete
- * Delete multiple properties at once
- */
-export const bulkDeleteProperties = async (req, res) => {
-  try {
-    const { propertyIds } = req.body;
-
-    // Validation
-    if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "propertyIds array is required and cannot be empty"
-      });
-    }
-
-    // Limit bulk operations
-    if (propertyIds.length > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot delete more than 100 properties at once"
-      });
-    }
-
-    // Bulk delete properties
-    const result = await Property.deleteMany({ _id: { $in: propertyIds } });
-
-    // Log activity
-    await logAdminActivity(
-      req.admin.email,
-      'bulk_delete_properties',
-      'property',
-      null,
-      `${result.deletedCount} properties`,
-      {
-        count: result.deletedCount,
-        affectedIds: propertyIds
-      },
-      req
-    );
-
-    res.json({
-      success: true,
-      message: `${result.deletedCount} property(ies) deleted successfully`,
-      count: result.deletedCount
-    });
-  } catch (error) {
-    console.error("Error bulk deleting properties:", error);
-    res.status(500).json({ success: false, message: "Error deleting properties" });
-  }
-};
-
 // ── ACTIVITY LOGS ──────────────────────────────────────────────────────────────
 
 /**
  * GET /api/admin/activity-logs
  * Get activity logs with pagination and filters
  */
-export const getActivityLogs = async (req, res) => {
-  try {
-    // Check if database is connected
-    if (!mongoose.connection.readyState) {
-      console.warn('Database not connected for getActivityLogs');
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection unavailable',
-        code: 'DB_NOT_CONNECTED'
-      });
-    }
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-
-    // Build query from filters
-    const query = {};
-    
-    if (req.query.action) {
-      query.action = req.query.action;
-    }
-    if (req.query.targetType) {
-      query.targetType = req.query.targetType;
-    }
-    if (req.query.adminEmail) {
-      query.adminEmail = req.query.adminEmail;
-    }
-   
-    // Date range filter
-    if (req.query.startDate || req.query.endDate) {
-      query.createdAt = {};
-      if (req.query.startDate) {
-        query.createdAt.$gte = new Date(req.query.startDate);
-      }
-      if (req.query.endDate) {
-        query.createdAt.$lte = new Date(req.query.endDate);
-      }
-    }
-
-    // Get total count
-    const totalLogs = await AdminActivityLog.countDocuments(query);
-    const totalPages = Math.ceil(totalLogs / limit);
-
-    // Get logs
-    const logs = await AdminActivityLog.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip(skip);
-
-    res.json({
-      success: true,
-      logs,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalLogs,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-        limit
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching activity logs:", error);
-    res.status(500).json({ success: false, message: "Error fetching activity logs" });
-  }
-};
-
-/**
- * GET /api/admin/activity-logs/export
- * Export activity logs as CSV
- */
-export const exportActivityLogs = async (req, res) => {
-  try {
-    // Build query from filters (same as getActivityLogs)
-    const query = {};
-    
-    if (req.query.action) query.action = req.query.action;
-    if (req.query.targetType) query.targetType = req.query.targetType;
-    if (req.query.adminEmail) query.adminEmail = req.query.adminEmail;
-    
-    if (req.query.startDate || req.query.endDate) {
-      query.createdAt = {};
-      if (req.query.startDate) query.createdAt.$gte = new Date(req.query.startDate);
-      if (req.query.endDate) query.createdAt.$lte = new Date(req.query.endDate);
-    }
-
-    // Get all matching logs (limit to 10000 for performance)
-    const logs = await AdminActivityLog.find(query)
-      .sort({ createdAt: -1 })
-      .limit(10000);
-
-    // Convert to CSV
-    const csvWriter = createCsvWriter.createObjectCsvWriter({
-      path: '/tmp/activity-logs.csv',
-      header: [
-        { id: 'createdAt', title: 'Timestamp' },
-        { id: 'adminEmail', title: 'Admin' },
-        { id: 'action', title: 'Action' },
-        { id: 'targetType', title: 'Target Type' },
-        { id: 'targetName', title: 'Target' },
-        { id: 'reason', title: 'Reason' },
-        { id: 'count', title: 'Count' },
-        { id: 'ipAddress', title: 'IP Address' }
-      ]
-    });
-
-    // Format records
-    const records = logs.map(log => ({
-      createdAt: log.createdAt.toISOString(),
-      adminEmail: log.adminEmail,
-      action: log.action,
-      targetType: log.targetType,
-      targetName: log.targetName || '',
-      reason: log.metadata?.reason || '',
-      count: log.metadata?.count || '',
-      ipAddress: log.ipAddress
-    }));
-
-    await csvWriter.writeRecords(records);
-
-    // Send file
-    res.download('/tmp/activity-logs.csv', 'activity-logs.csv', (err) => {
-      if (err) {
-        console.error('CSV download error:', err);
-      }
-      // Clean up temp file
-      try {
-        fs.unlinkSync('/tmp/activity-logs.csv');
-      } catch (unlinkErr) {
-        console.error('Failed to delete temp file:', unlinkErr);
-      }
-    });
-  } catch (error) {
-    console.error("Error exporting activity logs:", error);
-    res.status(500).json({ success: false, message: "Error exporting activity logs" });
-  }
-};
-
 // ── ENHANCED STATS ─────────────────────────────────────────────────────────────
 
 /**

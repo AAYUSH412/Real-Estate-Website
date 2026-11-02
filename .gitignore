@@ -154,7 +154,6 @@ backend/skills-lock.json
 backend/.rate-limit-store/
 
 # Docker
-.dockerignore
 docker-compose.override.yml
 
 # Terraform (if using for infrastructure)

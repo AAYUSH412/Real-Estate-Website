@@ -1,8 +1,11 @@
+import { transaction } from '../services/domain/transaction.js';
+import { audit } from '../services/domain/audit.js';
+import { AuthSession } from '../models/authSessionModel.js';
+import { ContractError } from '@buildestate/contracts';
+import { respondError } from '../utils/httpErrors.js';
+import { createSession, rotateSession, closeSession } from '../services/sessionService.js';
 import { accountDenial, publicUser, sessionVersion, versionFilter, revokeSessionUpdate, USER_AUTH_FIELDS, ADMIN_AUTH_FIELDS } from '../utils/accountPolicy.js';
-import express from "express";
-import { Router } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import validator from "validator";
 import crypto from "crypto";
@@ -24,24 +27,10 @@ const userRefreshCookieOptions = () => ({
 });
 
 // rememberMe → 30d refresh token; else → 7d
-const issueUserSession = async (res, user, rememberMe = false, expectedRefreshHash = null) => {
-  const denial = accountDenial(user);
-  if (denial || !user.isEmailVerified) throw Object.assign(new Error(denial || 'Please verify your email.'), { statusCode: 403 });
-  const ttlMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-  const refreshToken = crypto.randomBytes(48).toString('hex');
-  const updated = await userModel.findOneAndUpdate({
-    _id: user._id, ...versionFilter(user),
-    $and: [{ $or: [{ status: 'active' }, { status: { $exists: false } }, { status: 'suspended', suspendedUntil: { $lte: new Date() } }] }],
-    isEmailVerified: true,
-    ...(expectedRefreshHash && { userRefreshTokenHash: expectedRefreshHash, userRefreshTokenExpiry: { $gt: new Date() } }),
-  }, { $set: {
-    userRefreshTokenHash: crypto.createHash('sha256').update(refreshToken).digest('hex'),
-    userRefreshTokenExpiry: new Date(Date.now() + ttlMs),
-    rememberMe,
-  } }, { new: true });
-  if (!updated) throw Object.assign(new Error('Session changed. Please sign in again.'), { statusCode: 401 });
-  res.cookie(USER_REFRESH_COOKIE, refreshToken, { ...userRefreshCookieOptions(), maxAge: ttlMs });
-  return jwt.sign({ id: user._id, sv: sessionVersion(updated) }, process.env.JWT_SECRET, { expiresIn: '1h' });
+const issueUserSession = async (res, user, rememberMe = false, req = {}) => {
+  const issued = await createSession(user, 'user', rememberMe, req);
+  res.cookie(USER_REFRESH_COOKIE, issued.raw, { ...userRefreshCookieOptions(), maxAge: issued.maxAge });
+  return issued.token;
 };
 
 dotenv.config();
@@ -149,7 +138,7 @@ const login = async (req, res) => {
       }
     }
 
-    const token = await issueUserSession(res, Registeruser, rememberMe);
+    const token = await issueUserSession(res, Registeruser, rememberMe, req);
     return res.json({
       token,
       user: publicUser(Registeruser),
@@ -157,7 +146,7 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    respondError(res, error);
   }
 };
 
@@ -167,19 +156,19 @@ const register = async (req, res) => {
 
     // Validate email format
     if (!validator.isEmail(email)) {
-      return res.json({ message: "Invalid email format", success: false });
+      return res.status(400).json({ message: "Invalid email format", success: false });
     }
 
     // Validate against disposable/fake emails
     const emailValidation = validateEmail(email);
     if (!emailValidation.valid) {
-      return res.json({ message: emailValidation.reason, success: false });
+      return res.status(400).json({ message: emailValidation.reason, success: false });
     }
 
     // Check for existing account before attempting insert
     const existing = await userModel.findOne({ email }).select(USER_AUTH_FIELDS);
     if (existing) {
-      return res.json({ message: "An account with this email already exists.", success: false });
+      return res.status(409).json({ message: "An account with this email already exists.", success: false });
     }
 
     if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
@@ -222,10 +211,10 @@ const register = async (req, res) => {
   } catch (error) {
     // Handle race-condition duplicate inserts (two simultaneous requests)
     if (error.code === 11000) {
-      return res.json({ message: "An account with this email already exists.", success: false });
+      return res.status(409).json({ message: "An account with this email already exists.", success: false });
     }
     console.error(error);
-    return res.json({ message: "Server error", success: false });
+    return respondError(res, error);
   }
 };
 
@@ -260,7 +249,7 @@ const forgotpassword = async (req, res) => {
     return res.status(200).json({ message: "If an account with that email exists, a reset link has been sent.", success: true });
   } catch (error) {
     console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    return respondError(res, error);
   }
 };
 
@@ -284,18 +273,22 @@ const resetpassword = async (req, res) => {
     if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters and at most 72 UTF-8 bytes.' });
     }
-    const updated = await userModel.findOneAndUpdate({ _id: user._id, resetToken: hashedToken, resetTokenExpire: { $gt: Date.now() } }, {
-      $set: { password: await bcrypt.hash(password, 12) },
-      $inc: revokeSessionUpdate.$inc,
-      $unset: { ...revokeSessionUpdate.$unset, resetToken: '', resetTokenExpire: '' },
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await transaction(async session => {
+      const updated = await userModel.findOneAndUpdate({ _id: user._id, resetToken: hashedToken, resetTokenExpire: { $gt: Date.now() }, ...versionFilter(user) }, {
+        $set: { password: hashedPassword }, $inc: { ...revokeSessionUpdate.$inc, __v: 1 },
+        $unset: { ...revokeSessionUpdate.$unset, resetToken: '', resetTokenExpire: '' },
+      }, { new: true, session });
+      if (!updated) throw new ContractError('Invalid or expired token', 'token');
+      await AuthSession.updateMany({ subjectId: user._id, subjectType: 'user', revokedAt: null }, { $set: { revokedAt: new Date(), revokeReason: 'password_reset' } }, { session });
+      await audit({ ...req, user: updated }, 'password_reset', 'user', updated, {}, session);
     });
-    if (!updated) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
     res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
 
     return res.status(200).json({ message: "Password reset successful", success: true });
   } catch (error) {
     console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    return respondError(res, error);
   }
 };
 
@@ -317,18 +310,10 @@ const refreshCookieOptions = () => ({
   path: '/api/users/admin',
 });
 
-const issueAdminSession = async (res, admin) => {
-  const refreshToken = crypto.randomBytes(48).toString('hex');
-  admin.refreshTokenHash = sha256(refreshToken);
-  admin.refreshTokenExpiry = new Date(Date.now() + REFRESH_TTL_MS);
-  await admin.save();
-
-  res.cookie(ADMIN_REFRESH_COOKIE, refreshToken, {
-    ...refreshCookieOptions(),
-    maxAge: REFRESH_TTL_MS,
-  });
-
-  return jwt.sign({ email: admin.email }, process.env.JWT_SECRET, { expiresIn: '2h' });
+const issueAdminSession = async (res, admin, req) => {
+  const issued = await createSession(admin, 'admin', true, req);
+  res.cookie(ADMIN_REFRESH_COOKIE, issued.raw, { ...refreshCookieOptions(), maxAge: issued.maxAge });
+  return issued.token;
 };
 
 const adminlogin = async (req, res) => {
@@ -354,106 +339,40 @@ const adminlogin = async (req, res) => {
     admin.lockUntil = undefined;
     admin.lastLogin = new Date();
 
-    const token = await issueAdminSession(res, admin);
+    await admin.save();
+    const token = await issueAdminSession(res, admin, req);
     return res.json({ token, success: true });
   } catch (error) {
     console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    return respondError(res, error);
   }
 };
 
-const adminRefresh = async (req, res) => {
+const refresh = kind => async (req, res) => {
+  const cookie = kind === 'admin' ? ADMIN_REFRESH_COOKIE : USER_REFRESH_COOKIE;
+  const options = kind === 'admin' ? refreshCookieOptions() : userRefreshCookieOptions();
   try {
-    const raw = req.cookies?.[ADMIN_REFRESH_COOKIE];
-    if (!raw) {
-      return res.status(401).json({ message: "Session expired. Please login again.", success: false });
-    }
-
-    const admin = await Admin.findOne({
-      refreshTokenHash: sha256(raw),
-      refreshTokenExpiry: { $gt: new Date() },
-    }).select(ADMIN_AUTH_FIELDS);
-
-    if (!admin) {
-      res.clearCookie(ADMIN_REFRESH_COOKIE, refreshCookieOptions());
-      return res.status(401).json({ message: "Session expired. Please login again.", success: false });
-    }
-
-    // Rotate: each refresh token is single-use
-    const token = await issueAdminSession(res, admin);
-    return res.json({ token, success: true });
+    const issued = await rotateSession(req.cookies?.[cookie], kind, req);
+    res.cookie(cookie, issued.raw, { ...options, maxAge: issued.maxAge });
+    return res.json({ success: true, token: issued.token });
   } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    res.clearCookie(cookie, options);
+    return res.status(error.statusCode || 500).json({ success: false, code: error.code || 'INTERNAL_ERROR', message: error.statusCode ? error.message : 'Session service unavailable' });
   }
 };
-
-const adminLogout = async (req, res) => {
+const signOut = kind => async (req, res) => {
+  const cookie = kind === 'admin' ? ADMIN_REFRESH_COOKIE : USER_REFRESH_COOKIE;
+  const options = kind === 'admin' ? refreshCookieOptions() : userRefreshCookieOptions();
   try {
-    const raw = req.cookies?.[ADMIN_REFRESH_COOKIE];
-    if (raw) {
-      await Admin.updateOne(
-        { refreshTokenHash: sha256(raw) },
-        { $unset: { refreshTokenHash: '', refreshTokenExpiry: '' } }
-      );
-    }
-    res.clearCookie(ADMIN_REFRESH_COOKIE, refreshCookieOptions());
-    return res.json({ message: "Logged out", success: true });
-  } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
-  }
+    await closeSession(req.cookies?.[cookie], kind, req);
+    res.clearCookie(cookie, options);
+    return res.json({ success: true, message: 'Logged out' });
+  } catch (error) { return res.status(503).json({ success: false, message: 'Unable to revoke session. Please retry.' }); }
 };
-
-const userRefresh = async (req, res) => {
-  try {
-    const raw = req.cookies?.[USER_REFRESH_COOKIE];
-    if (!raw) {
-      return res.status(401).json({ message: 'Session expired. Please login again.', success: false });
-    }
-
-    const hash = crypto.createHash('sha256').update(raw).digest('hex');
-    const user = await userModel.findOne({
-      userRefreshTokenHash: hash,
-      userRefreshTokenExpiry: { $gt: new Date() },
-    }).select(USER_AUTH_FIELDS);
-
-    if (!user) {
-      res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
-      return res.status(401).json({ message: 'Session expired. Please login again.', success: false });
-    }
-
-    // Rotate — single-use token
-    const denial = accountDenial(user);
-    if (denial || !user.isEmailVerified) {
-      res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
-      return res.status(403).json({ success: false, message: denial || 'Please verify your email.' });
-    }
-    const token = await issueUserSession(res, user, user.rememberMe === true, hash);
-    return res.json({ token, success: true });
-  } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Server error', success: false });
-  }
-};
-
-const logout = async (req, res) => {
-  try {
-    const raw = req.cookies?.[USER_REFRESH_COOKIE];
-    if (raw) {
-      const hash = crypto.createHash('sha256').update(raw).digest('hex');
-      await userModel.updateOne(
-        { userRefreshTokenHash: hash },
-        revokeSessionUpdate
-      );
-    }
-    res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
-    return res.json({ message: 'Logged out', success: true });
-  } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Server error', success: false });
-  }
-};
+const adminRefresh = refresh('admin');
+const userRefresh = refresh('user');
+const adminLogout = signOut('admin');
+const logout = signOut('user');
 
 // Email verification endpoint
 const verifyEmail = async (req, res) => {
@@ -492,7 +411,7 @@ const verifyEmail = async (req, res) => {
     }
 
     // Auto-login after verification — issue a session with rememberMe=true (30d refresh cookie)
-    const authToken = await issueUserSession(res, user, true);
+    const authToken = await issueUserSession(res, user, true, req);
 
     return res.status(200).json({
       message: "Email verified successfully! You can now log in.",
@@ -502,7 +421,7 @@ const verifyEmail = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    return respondError(res, error);
   }
 };
 
@@ -512,7 +431,7 @@ const getname = async (req, res) => {
   }
   catch (error) {
     console.error(error);
-    return res.json({ message: "Server error", success: false });
+    return respondError(res, error);
   }
 }
 
@@ -521,6 +440,8 @@ const updateProfile = async (req, res) => {
     const { name, currentPassword, newPassword } = req.body;
     const user = await userModel.findById(req.user.id).select(USER_AUTH_FIELDS);
     if (!user) return res.status(404).json({ message: "User not found", success: false });
+
+    if (accountDenial(user) || sessionVersion(user) !== sessionVersion(req.user)) throw new ContractError('Account changed. Please sign in again.', 'account', 409);
 
     if (name !== undefined) {
       const trimmed = name.trim();
@@ -539,19 +460,30 @@ const updateProfile = async (req, res) => {
       if (typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72) {
         return res.status(400).json({ message: "New password must be at least 8 characters", success: false });
       }
-      const changed = await userModel.findOneAndUpdate({ _id: user._id, password: user.password, ...versionFilter(user) }, {
-        $set: { password: await bcrypt.hash(newPassword, 12), name: user.name }, ...revokeSessionUpdate,
-      }, { new: true });
-      if (!changed) return res.status(409).json({ success: false, message: 'Account changed. Please sign in again.' });
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      const changed = await transaction(async session => {
+        const result = await userModel.findOneAndUpdate({ _id: user._id, password: user.password, ...versionFilter(user) }, {
+          $set: { password: hashedPassword, name: user.name }, $inc: { ...revokeSessionUpdate.$inc, __v: 1 }, $unset: revokeSessionUpdate.$unset,
+        }, { new: true, session });
+        if (!result) throw new ContractError('Account changed. Please sign in again.', 'account', 409);
+        await AuthSession.updateMany({ subjectId: user._id, subjectType: 'user', revokedAt: null }, { $set: { revokedAt: new Date(), revokeReason: 'password_change' } }, { session });
+        await audit(req, 'password_change', 'user', result, {}, session);
+        return result;
+      });
       res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
       return res.json({ success: true, sessionRevoked: true, message: 'Password changed. Please sign in again.', user: publicUser(changed) });
     }
 
-    await user.save();
-    return res.json({ message: 'Profile updated successfully', success: true, user: publicUser(user) });
+    const saved = await transaction(async session => {
+      const current = await userModel.findOneAndUpdate({ _id: user._id, ...versionFilter(user), __v: user.__v === undefined ? { $exists: false } : user.__v }, { $set: { name: user.name }, $inc: { __v: 1 } }, { new: true, session, runValidators: true });
+      if (!current || accountDenial(current)) throw new ContractError('Account changed. Refresh before updating.', 'account', 409);
+      await audit(req, 'update_profile', 'user', current, {}, session);
+      return current;
+    });
+    return res.json({ message: 'Profile updated successfully', success: true, user: publicUser(saved) });
   } catch (error) {
     console.error(error);
-    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
+    return respondError(res, error);
   }
 };
 

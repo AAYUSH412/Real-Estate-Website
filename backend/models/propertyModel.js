@@ -1,3 +1,4 @@
+import { normalizePropertyType, normalizePurpose, PROPERTY_TYPES, PURPOSES, LISTING_STATUSES, MARKET_STATUSES } from '@buildestate/contracts';
 import mongoose from "mongoose";
 
 const propertySchema = new mongoose.Schema(
@@ -5,10 +6,14 @@ const propertySchema = new mongoose.Schema(
     title: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 10000,
     },
     location: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 10000,
     },
     price: {
       type: Number,
@@ -41,14 +46,26 @@ const propertySchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
+      enum: PROPERTY_TYPES, set: value => typeof value === 'string' ? normalizePropertyType(value) : value,
     },
+    purpose: { type: String, enum: PURPOSES },
+    marketStatus: { type: String, enum: MARKET_STATUSES, default: 'available' },
+    archivedAt: Date,
+    moderationUntil: { type: Date, default: null },
+    hiddenByModeration: { type: Boolean, default: false },
+    archivedBy: String,
+    bookingFence: { type: Number, default: 0 },
+    publishedAt: Date,
     availability: {
       type: String,
       required: true,
+      enum: PURPOSES, set: value => typeof value === 'string' ? normalizePurpose(value) : value,
     },
     description: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 10000,
     },
     amenities: {
       type: [String],
@@ -57,6 +74,8 @@ const propertySchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 10000,
     },
     googleMapLink: {
       type: String,
@@ -74,7 +93,7 @@ const propertySchema = new mongoose.Schema(
     // Admin-panel listings are saved directly as 'active' (no review needed).
     status: {
       type: String,
-      enum: ["pending", "active", "rejected", "expired"],
+      enum: LISTING_STATUSES,
       default: "active", // admin-added properties go live immediately
     },
 
@@ -114,6 +133,8 @@ propertySchema.index({ expiresAt: 1 }); // Expiry cleanup queries
 propertySchema.index({ location: "text", title: "text", description: "text" }); // Text search
 propertySchema.index({ price: 1, beds: 1, type: 1, location: 1 }); // Property filters
 
+propertySchema.index({ status: 1, hiddenByModeration: 1, createdAt: -1, _id: -1 });
+propertySchema.index({ postedBy: 1, createdAt: -1, _id: -1 });
 const Property = mongoose.model("Property", propertySchema);
 
 export default Property;

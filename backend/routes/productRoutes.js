@@ -1,9 +1,12 @@
+import { validId, validatePage } from '../middleware/contracts.js';
 import express from 'express';
 import { addproperty, listproperty, removeproperty, updateproperty,singleproperty } from '../controller/productController.js';
 import upload from '../middleware/multer.js';
 import { adminProtect } from '../middleware/authMiddleware.js';
 
 const propertyrouter = express.Router();
+propertyrouter.param('id', validId);
+propertyrouter.use((req, res, next) => req.method === 'GET' ? validatePage(req, res, next) : next());
 
 // Mutations are admin-panel only; public users submit listings via /api/user/properties
 propertyrouter.post('/add', adminProtect, upload.fields([

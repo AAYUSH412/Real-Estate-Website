@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { BOOKING_TIME_ZONE, BOOKING_STATUSES } from '@buildestate/contracts';
 
 const appointmentSchema = new mongoose.Schema({
   propertyId: {
@@ -16,6 +17,12 @@ const appointmentSchema = new mongoose.Schema({
     email: { type: String },
     phone: { type: String }
   },
+  startsAt: Date,
+  endsAt: Date,
+  timeZone: { type: String, default: BOOKING_TIME_ZONE },
+  activeReservation: { type: Boolean, default: true },
+  propertySnapshot: { title: String, location: String, image: [String], phone: String, unavailable: Boolean },
+  contactSnapshot: { name: String, email: String, phone: String, unavailable: Boolean },
   date: {
     type: Date,
     required: true
@@ -26,7 +33,7 @@ const appointmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
+    enum: BOOKING_STATUSES,
     default: 'pending'
   },
   meetingLink: {
@@ -57,14 +64,18 @@ const appointmentSchema = new mongoose.Schema({
     comment: String
   }
 }, {
-  timestamps: true
+  timestamps: true, optimisticConcurrency: true
 });
 
+appointmentSchema.index({ propertyId: 1, startsAt: 1 }, { unique: true, name: 'one_active_property_slot', partialFilterExpression: { activeReservation: true, startsAt: { $type: 'date' } } });
+appointmentSchema.index({ userId: 1, startsAt: 1, status: 1 });
 // Add indexes for better query performance
 appointmentSchema.index({ userId: 1, date: -1 });
 appointmentSchema.index({ propertyId: 1, date: -1 });
 appointmentSchema.index({ status: 1 });
 
+appointmentSchema.index({ status: 1, createdAt: -1, _id: -1 });
+appointmentSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 
 export default Appointment;

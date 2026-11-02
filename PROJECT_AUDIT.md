@@ -1,6 +1,8 @@
 # BuildEstate project audit
 
-> **Implementation update:** Phase 1 changes and verification are documented in [docs/phase1/PHASE_1.md](docs/phase1/PHASE_1.md). The findings below preserve the original audit snapshot; use the Phase 1 register for current remediation status.
+> **Implementation update:** Phase 1 changes and verification are documented in [docs/phase1/PHASE_1.md](docs/phase1/PHASE_1.md). The findings below preserve the original audit snapshot; use the phase registers for current remediation status.
+>
+> **Phase 2 implementation:** Shared contracts, domain transactions, device sessions and verification are documented in [docs/phase2/PHASE_2.md](docs/phase2/PHASE_2.md). Deployment and legacy-data migration remain explicit rollout steps.
 
 Audit date: **2 November 2026**. Scope: the local working tree of `backend/`, `admin/`, `frontend/`, `shared/`, application manifests/lockfiles, and checked-in deployment configuration. This is an audit and improvement plan; application behavior was not changed.
 

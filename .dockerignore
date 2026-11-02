@@ -1,0 +1,12 @@
+**/node_modules
+**/.env*
+.git
+.agents
+.azure
+**/dist
+**/coverage
+claude_code*.txt
+**/.aws
+**/.codex
+**/.rate-limit-store
+**/*.log

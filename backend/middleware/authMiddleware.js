@@ -1,3 +1,5 @@
+import { restoreExpiredSuspension } from '../services/domain/maintenance.js';
+import { validateAccessSession } from '../services/sessionService.js';
 import jwt from "jsonwebtoken";
 import userModel, { Admin } from "../models/userModel.js";
 import Appointment from "../models/appointmentModel.js";
@@ -31,6 +33,8 @@ export const protect = async (req, res, next) => {
     if ((decoded.sv ?? 0) !== sessionVersion(user)) {
       return res.status(401).json({ success: false, message: 'Session revoked. Please sign in again.' });
     }
+    req.authSession = await validateAccessSession(decoded, 'user');
+    if (user.status === 'suspended' && user.suspendedUntil && user.suspendedUntil <= new Date()) { await restoreExpiredSuspension(user._id); user.status = 'active'; }
     req.user = user;
     next();
   } catch (error) {
@@ -67,7 +71,9 @@ export const adminProtect = async (req, res, next) => {
     if (!admin || admin.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Admin access denied' });
     }
-    req.admin = { email: admin.email };
+    if ((decoded.sv ?? 0) !== (admin.sessionVersion || 0)) return res.status(401).json({ success: false, message: 'Session revoked' });
+    req.authSession = await validateAccessSession(decoded, 'admin');
+    req.admin = { _id: admin._id, email: admin.email };
     next();
   } catch (error) {
     console.error("Admin auth error:", error);

@@ -20,6 +20,7 @@ export interface Property {
   sqft: number;
   type: string;
   availability: string;
+  marketStatus?: 'available' | 'sold' | 'rented';
   description: string;
   amenities: string[];
   phone: string;

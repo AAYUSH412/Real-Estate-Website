@@ -51,3 +51,10 @@ test('owner update preserves the FormData binary and explicit retained-image sel
   assert.equal(await requests[0].data.get('images').text(), 'test-binary');
   assert.match(requests[0].headers.get('Content-Type'), /multipart\/form-data/);
 });
+
+test('appointment pagination and optimistic cancellation version reach the backend unchanged', async () => {
+  await appointmentsAPI.getByUser({ page: 3, limit: 20, status: 'confirmed' });
+  await appointmentsAPI.cancel('booking-id', 'Changed plans', 7);
+  assert.deepEqual(requests[0].params, { page: 3, limit: 20, status: 'confirmed' });
+  assert.deepEqual(JSON.parse(requests[1].data), { reason: 'Changed plans', expectedVersion: 7 });
+});

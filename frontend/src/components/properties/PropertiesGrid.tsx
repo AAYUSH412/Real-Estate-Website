@@ -32,7 +32,7 @@ const item: Variants = {
 // List view row — more compact than the card
 const PropertyRow: React.FC<{ property: Property; index: number }> = ({ property, index }) => {
   const img = property.image?.[0] || fallbackImages[index % fallbackImages.length];
-  const badge = property.availability === 'sold' ? 'SOLD'
+  const badge = property.marketStatus === 'sold' ? 'SOLD' : property.marketStatus === 'rented' ? 'RENTED'
     : property.availability === 'rent' ? 'FOR RENT'
     : property.availability === 'sale' ? 'FOR SALE'
     : property.availability?.toUpperCase();
@@ -110,7 +110,7 @@ const PropertiesGrid: React.FC<PropertiesGridProps> = ({ properties, viewMode = 
                 baths={property.baths}
                 sqft={property.sqft}
                 badge={
-                  property.availability === 'sold' ? 'SOLD' :
+                  property.marketStatus === 'sold' ? 'SOLD' : property.marketStatus === 'rented' ? 'RENTED' :
                   property.availability === 'rent' ? 'FOR RENT' :
                   property.availability === 'sale' ? 'FOR SALE' :
                   property.availability?.toUpperCase()

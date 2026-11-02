@@ -20,7 +20,9 @@ const aiModelSchema = new mongoose.Schema(
       reasoningBudget: { type: Number, default: null },
     },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
+
+aiModelSchema.index({ isDefault: 1 }, { unique: true, partialFilterExpression: { isDefault: true }, name: 'one_default_ai_model' });
 
 export default mongoose.model('AIModel', aiModelSchema);

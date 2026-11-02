@@ -14,7 +14,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -31,7 +32,8 @@
     "react-router-dom": "^7.1.1",
     "recharts": "^3.9.1",
     "sonner": "^1.7.4",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "@buildestate/contracts": "file:../shared/contracts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

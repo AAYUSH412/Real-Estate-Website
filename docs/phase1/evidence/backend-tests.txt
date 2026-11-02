@@ -1,0 +1,159 @@
+
+> backend@1.0.0 test
+> node --test tests/*.test.js
+
+TAP version 13
+# ✅ Activity logged: ban_user by admin@phase1.test on user Owner
+# ✅ Activity logged: unban_user by admin@phase1.test on user Owner
+# Subtest: ban revokes old access and refresh credentials; login stays blocked after ban
+ok 1 - ban revokes old access and refresh credentials; login stays blocked after ban
+  ---
+  duration_ms: 1001.37475
+  type: 'test'
+  ...
+# ✅ Activity logged: suspend_user by admin@phase1.test on user Owner
+# Subtest: suspension blocks old access, and an expired suspension allows a fresh login
+ok 2 - suspension blocks old access, and an expired suspension allows a fresh login
+  ---
+  duration_ms: 94.71
+  type: 'test'
+  ...
+# ✅ Activity logged: bulk_ban_users by admin@phase1.test on user 1 users
+# ✅ Activity logged: bulk_suspend_users by admin@phase1.test on user 1 users
+# Subtest: bulk ban and bulk suspension revoke refresh and access tokens
+ok 3 - bulk ban and bulk suspension revoke refresh and access tokens
+  ---
+  duration_ms: 72.255125
+  type: 'test'
+  ...
+# Subtest: password reset atomically consumes reset token and revokes existing sessions
+ok 4 - password reset atomically consumes reset token and revokes existing sessions
+  ---
+  duration_ms: 302.141542
+  type: 'test'
+  ...
+# Subtest: profile password change revokes old JWT and refresh credentials
+ok 5 - profile password change revokes old JWT and refresh credentials
+  ---
+  duration_ms: 287.352666
+  type: 'test'
+  ...
+# Error: Session changed. Please sign in again.
+#     at issueUserSession (file:///Users/aayushvaghela/Documents/project/Real-Estate-Website/backend/controller/userController.js:42:37)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+#     at async userRefresh (file:///Users/aayushvaghela/Documents/project/Real-Estate-Website/backend/controller/userController.js:432:19) {
+#   statusCode: 401
+# }
+# Subtest: refresh rotation accepts an old cookie once and preserves remembered lifetime
+ok 6 - refresh rotation accepts an old cookie once and preserves remembered lifetime
+  ---
+  duration_ms: 10.440666
+  type: 'test'
+  ...
+# Subtest: safe profile/admin/appointment DTOs exclude all credential hashes
+ok 7 - safe profile/admin/appointment DTOs exclude all credential hashes
+  ---
+  duration_ms: 28.843833
+  type: 'test'
+  ...
+# Subtest: guest and unrelated user appointments cannot be cancelled or rated
+ok 8 - guest and unrelated user appointments cannot be cancelled or rated
+  ---
+  duration_ms: 14.510583
+  type: 'test'
+  ...
+# Subtest: authenticated booking is visible to its owner and cancellable only by that owner
+ok 9 - authenticated booking is visible to its owner and cancellable only by that owner
+  ---
+  duration_ms: 14.374833
+  type: 'test'
+  ...
+# Subtest: multipart admin text-only edit retains images, explicit removal/replacement respects selection
+ok 10 - multipart admin text-only edit retains images, explicit removal/replacement respects selection
+  ---
+  duration_ms: 16.552125
+  type: 'test'
+  ...
+# Subtest: bad listing metadata or spoofed image bytes never upload to CDN
+ok 11 - bad listing metadata or spoofed image bytes never upload to CDN
+  ---
+  duration_ms: 7.854
+  type: 'test'
+  ...
+# Subtest: partial CDN failure and persistence failure compensate successful uploads
+ok 12 - partial CDN failure and persistence failure compensate successful uploads
+  ---
+  duration_ms: 9.289041
+  type: 'test'
+  ...
+# Subtest: owner-only detail/edit loads rejected listings; strangers cannot upload or edit them
+ok 13 - owner-only detail/edit loads rejected listings; strangers cannot upload or edit them
+  ---
+  duration_ms: 15.400167
+  type: 'test'
+  ...
+# Subtest: public, admin, pending and owner pages reach records beyond original defaults
+ok 14 - public, admin, pending and owner pages reach records beyond original defaults
+  ---
+  duration_ms: 67.216084
+  type: 'test'
+  ...
+# Subtest: pagination caps invalid/unbounded sizes and public queries exclude expired-by-time listings
+ok 15 - pagination caps invalid/unbounded sizes and public queries exclude expired-by-time listings
+  ---
+  duration_ms: 7.937
+  type: 'test'
+  ...
+# Subtest: AI model create/update persists provider and all-disabled models stay disabled
+ok 16 - AI model create/update persists provider and all-disabled models stay disabled
+  ---
+  duration_ms: 12.216292
+  type: 'test'
+  ...
+# [CircuitBreaker:Unknown] Circuit OPENED after 1 failures. Will retry in 0.001s
+# [CircuitBreaker:Unknown] Moving to HALF_OPEN state - testing service
+# [CircuitBreaker:Unknown] Service recovered - circuit CLOSED
+# [CircuitBreaker:ghm-phase1-recovery] Circuit OPENED after 1 failures. Will retry in 0.001s
+# [CircuitBreaker:ghm-phase1-recovery] Moving to HALF_OPEN state - testing service
+# [CircuitBreaker:ghm-phase1-recovery] Service recovered - circuit CLOSED
+# Subtest: recovered LLM circuits retry once and prevent parallel recovery probes
+ok 17 - recovered LLM circuits retry once and prevent parallel recovery probes
+  ---
+  duration_ms: 3.336625
+  type: 'test'
+  ...
+# Subtest: selected NVIDIA provider runs first; disabled provider does not reappear as hardcoded fallback
+ok 18 - selected NVIDIA provider runs first; disabled provider does not reappear as hardcoded fallback
+  ---
+  duration_ms: 3.430542
+  type: 'test'
+  ...
+# Subtest: telemetry URL redaction removes raw verification/reset tokens and queries
+ok 19 - telemetry URL redaction removes raw verification/reset tokens and queries
+  ---
+  duration_ms: 1.946417
+  type: 'test'
+  ...
+# [Coalesce] Started new request: search:DefaultTest::Any:0:0.50:Residential:Flat:an...
+# [Coalesce] Started new request: search:SelectedTest::Any:0:0.50:Residential:Flat:a...
+# Subtest: HTTP search honors the default/selected provider and rejects a disabled model
+ok 20 - HTTP search honors the default/selected provider and rejects a disabled model
+  ---
+  duration_ms: 24.175458
+  type: 'test'
+  ...
+# Subtest: removed assets are deleted after commit, while retained assets remain
+ok 21 - removed assets are deleted after commit, while retained assets remain
+  ---
+  duration_ms: 6.996125
+  type: 'test'
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 21
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3008.444542

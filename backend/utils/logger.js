@@ -1,3 +1,4 @@
+import { redactUrl } from './redactUrl.js';
 /**
  * Winston Structured Logger for BuildEstate Backend
  *
@@ -64,7 +65,7 @@ logger.logRequest = (req, message, meta = {}) => {
   logger.info(message, {
     requestId: req.requestId,
     method: req.method,
-    path: req.path,
+    path: redactUrl(req.path),
     ...meta,
   });
 };

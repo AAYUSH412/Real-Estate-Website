@@ -67,6 +67,7 @@ function AnimatedRoutes() {
           <Route path="/reset/:token" element={<PageTransition><ResetPasswordPage /></PageTransition>} />
           <Route path="/verify-email/:token" element={<PageTransition><VerifyEmailPage /></PageTransition>} />
           <Route path="/add-property" element={<PageTransition><AddPropertyPage /></PageTransition>} />
+          <Route path="/edit-property/:id" element={<PageTransition><AddPropertyPage /></PageTransition>} />
           <Route path="/my-listings" element={<PageTransition><MyListingsPage /></PageTransition>} />
           <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
           <Route path="*" element={<NotFoundPage />} />

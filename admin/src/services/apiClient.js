@@ -4,9 +4,6 @@ import { APP_CONSTANTS, backendurl } from '../config/constants';
 const apiClient = axios.create({
   baseURL: backendurl,
   withCredentials: true, // send the httpOnly admin_refresh cookie
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 apiClient.interceptors.request.use(

@@ -1,6 +1,7 @@
+import { loadOwnedListing } from '../middleware/listingOwnership.js';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { searchProperties, getLocationTrends, getLocalitySuggestions, createUserListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
+import { searchProperties, getLocationTrends, getLocalitySuggestions, createUserListing, getOwnedListing, getUserListings, updateUserListing, deleteUserListing, validateApiKeys, getCacheStats } from '../controller/propertyController.js';
 import { getPublicModels } from '../controller/aiModelController.js';
 import { transformAISearchRequest } from '../middleware/transformRequest.js';
 import { protect, adminProtect } from '../middleware/authMiddleware.js';
@@ -49,7 +50,8 @@ router.get('/locations/:city/trends', aiLimiter, getLocationTrends);
 // ── User listing routes (auth required) ──────────────────────────────────────
 router.post('/user/properties', protect, upload.array('images', 4), createUserListing);
 router.get('/user/properties', protect, getUserListings);
-router.put('/user/properties/:id', protect, upload.array('images', 4), updateUserListing);
+router.get('/user/properties/:id', protect, loadOwnedListing, getOwnedListing);
+router.put('/user/properties/:id', protect, loadOwnedListing, upload.array('images', 4), updateUserListing);
 router.delete('/user/properties/:id', protect, deleteUserListing);
 
 // ── Rate limiter stats (for monitoring) ──────────────────────────────────────

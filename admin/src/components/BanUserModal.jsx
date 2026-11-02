@@ -116,7 +116,7 @@ const BanUserModal = ({
             {/* Confirmation Input */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-[#1C1B1A] mb-2">
-                Type "PERMANENTLY BAN" to confirm <span className="text-red-500">*</span>
+                Type &quot;PERMANENTLY BAN&quot; to confirm <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"

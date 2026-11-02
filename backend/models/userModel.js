@@ -4,14 +4,14 @@ import bcrypt from 'bcryptjs';
 const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    resetToken: { type: String },
-    resetTokenExpire: { type: Date },
+    password: { type: String, select: false, required: true },
+    resetToken: { type: String, select: false },
+    resetTokenExpire: { type: Date, select: false },
 
     // Email verification fields
     isEmailVerified: { type: Boolean, default: false },
-    emailVerificationToken: { type: String },
-    verificationTokenExpiry: { type: Date },
+    emailVerificationToken: { type: String, select: false },
+    verificationTokenExpiry: { type: Date, select: false },
 
     // User status management fields
     status: {
@@ -27,14 +27,16 @@ const UserSchema = new mongoose.Schema({
     bannedBy: { type: String },      // Admin email
     suspendedBy: { type: String },   // Admin email
     lastActive: { type: Date },
+    sessionVersion: { type: Number, default: 0 },
+    rememberMe: { type: Boolean, default: false },
 
     // Brute-force protection: 5 failed logins → 15 min lock
     failedLoginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date },
 
     // Rotating httpOnly refresh token (SHA-256 hash of the cookie value)
-    userRefreshTokenHash: { type: String },
-    userRefreshTokenExpiry: { type: Date }
+    userRefreshTokenHash: { type: String, select: false },
+    userRefreshTokenExpiry: { type: Date, select: false }
 }, {
     timestamps: true  // Adds createdAt and updatedAt
 });
@@ -49,7 +51,7 @@ const User = mongoose.model('User', UserSchema);
 // Admin model with password hashing
 const AdminSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, select: false, required: true },
     role: { type: String, default: 'admin' },
     lastLogin: { type: Date },
 
@@ -58,8 +60,8 @@ const AdminSchema = new mongoose.Schema({
     lockUntil: { type: Date },
 
     // Refresh token (SHA-256 hash of the httpOnly cookie value)
-    refreshTokenHash: { type: String },
-    refreshTokenExpiry: { type: Date }
+    refreshTokenHash: { type: String, select: false },
+    refreshTokenExpiry: { type: Date, select: false }
 });
 
 // Hash password before saving

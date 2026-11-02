@@ -1,3 +1,4 @@
+import PaginationControls, { type PageMetadata } from '../components/common/PaginationControls';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -90,6 +91,10 @@ const MyListingsPage: React.FC = () => {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Listing | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PageMetadata | null>(null);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [fetchError, setFetchError] = useState(false);
 
   // ── Auth guard ──────────────────────────────────────────────
 
@@ -104,15 +109,20 @@ const MyListingsPage: React.FC = () => {
 
   const fetchListings = useCallback(async () => {
     setFetchLoading(true);
+    setFetchError(false);
     try {
-      const res = await userListingsAPI.getMyListings();
-      setListings(res.data.properties ?? res.data ?? []);
+      const res = await userListingsAPI.getMyListings({ page });
+      if (page > 1 && !res.data.properties.length) { setPage(page - 1); return; }
+      setListings(res.data.properties);
+      setPagination(res.data.pagination);
+      setStatusCounts(res.data.statusCounts || {});
     } catch {
+      setFetchError(true);
       toast.error('Failed to load your listings. Please try again.');
     } finally {
       setFetchLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (isAuthenticated) fetchListings();
@@ -125,7 +135,7 @@ const MyListingsPage: React.FC = () => {
     setDeleting(true);
     try {
       await userListingsAPI.delete(deleteTarget._id);
-      setListings((prev) => prev.filter((l) => l._id !== deleteTarget._id));
+      await fetchListings();
       toast.success('Listing deleted successfully.');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to delete listing.';
@@ -161,6 +171,8 @@ const MyListingsPage: React.FC = () => {
     );
   }
 
+  if (fetchError) return <div className="min-h-screen bg-[#FAF8F4]"><Navbar /><div role="alert" className="p-12 text-center">Unable to load listings. <button onClick={fetchListings}>Try again</button></div><Footer /></div>;
+
   // ── Empty state ─────────────────────────────────────────────
 
   if (!fetchLoading && listings.length === 0) {
@@ -192,13 +204,8 @@ const MyListingsPage: React.FC = () => {
 
   // ── Main view ───────────────────────────────────────────────
 
-  const counts = {
-    all: listings.length,
-    active: listings.filter((l) => l.status === 'active').length,
-    pending: listings.filter((l) => l.status === 'pending').length,
-    rejected: listings.filter((l) => l.status === 'rejected').length,
-    expired: listings.filter((l) => l.status === 'expired').length,
-  };
+  const counts = { all: pagination?.totalProperties || 0, active: statusCounts.active || 0,
+    pending: statusCounts.pending || 0, rejected: statusCounts.rejected || 0, expired: statusCounts.expired || 0 };
 
   return (
     <div className="min-h-screen bg-[#FAF8F4]">
@@ -385,6 +392,7 @@ const MyListingsPage: React.FC = () => {
         </div>
       </div>
 
+      <PaginationControls pagination={pagination} onPageChange={setPage} />
       {/* ── Delete confirmation dialog ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open: boolean) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

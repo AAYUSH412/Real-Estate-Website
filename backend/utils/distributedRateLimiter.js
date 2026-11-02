@@ -28,7 +28,7 @@ class DistributedRateLimiter {
     this.ensureStoreDirectory();
 
     // Cleanup old entries periodically
-    setInterval(() => this.cleanup(), Math.min(this.windowMs, 5 * 60 * 1000)); // Every 5 minutes
+    setInterval(() => this.cleanup(), Math.min(this.windowMs, 5 * 60 * 1000)).unref(); // Every 5 minutes
   }
 
   async ensureStoreDirectory() {

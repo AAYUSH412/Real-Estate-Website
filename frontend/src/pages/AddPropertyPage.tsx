@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { userListingsAPI } from '../services/api';
@@ -37,7 +37,9 @@ interface FormState {
 
 const AddPropertyPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, token } = useAuth();
+  const { id } = useParams<{ id: string }>();
+  const editing = Boolean(id);
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Redirect to sign-in if not authenticated
   useEffect(() => {
@@ -67,6 +69,30 @@ const AddPropertyPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [retainedImages, setRetainedImages] = useState<string[]>([]);
+  const [fetching, setFetching] = useState(Boolean(id));
+  const [loadError, setLoadError] = useState('');
+  const objectUrls = useRef<string[]>([]);
+
+  useEffect(() => () => objectUrls.current.forEach(url => URL.revokeObjectURL(url)), []);
+  useEffect(() => {
+    if (!id || !isAuthenticated) return;
+    let active = true;
+    setFetching(true);
+    userListingsAPI.getById(id).then(({ data }) => {
+      if (!active) return;
+      const listing = data.property;
+      setForm(Object.fromEntries(['title', 'type', 'availability', 'location', 'price', 'beds', 'baths', 'sqft', 'description', 'phone', 'googleMapLink'].map(key => [key, String(listing[key] ?? '')])) as unknown as FormState);
+      let values = listing.amenities || [];
+      if (values.length === 1 && typeof values[0] === 'string' && values[0].startsWith('[')) {
+        try { values = JSON.parse(values[0]); } catch { values = []; }
+      }
+      setAmenities(values);
+      setRetainedImages(listing.image || []);
+    }).catch(() => { if (active) setLoadError('Unable to load this listing. It may have been removed or belong to another account.'); })
+      .finally(() => { if (active) setFetching(false); });
+    return () => { active = false; };
+  }, [id, isAuthenticated]);
 
   // ── Handlers ──────────────────────────────────────────────
 
@@ -84,7 +110,7 @@ const AddPropertyPage: React.FC = () => {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const remaining = 4 - images.length;
+    const remaining = 4 - images.length - retainedImages.length;
     if (remaining <= 0) {
       toast.error('Maximum 4 images allowed.');
       return;
@@ -93,6 +119,7 @@ const AddPropertyPage: React.FC = () => {
     const newImages = [...images, ...allowed];
     setImages(newImages);
     const newPreviews = allowed.map((f) => URL.createObjectURL(f));
+    objectUrls.current.push(...newPreviews);
     setPreviews((prev) => [...prev, ...newPreviews]);
     // Reset input so the same file can be re-selected after removal
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -107,7 +134,7 @@ const AddPropertyPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (images.length === 0) {
+    if (images.length + retainedImages.length === 0) {
       toast.error('Please upload at least one image.');
       return;
     }
@@ -115,11 +142,13 @@ const AddPropertyPage: React.FC = () => {
     const fd = new FormData();
     Object.entries(form).forEach(([key, val]) => fd.append(key, val));
     fd.append('amenities', JSON.stringify(amenities));
+    if (editing) fd.append('retainedImages', JSON.stringify(retainedImages));
     images.forEach((img) => fd.append('images', img));
 
     setSubmitting(true);
     try {
-      await userListingsAPI.create(fd);
+      if (id) await userListingsAPI.update(id, fd);
+      else await userListingsAPI.create(fd);
       setSubmitted(true);
       toast.success('Listing submitted! It will go live once approved by our team.');
     } catch (err: any) {
@@ -132,13 +161,15 @@ const AddPropertyPage: React.FC = () => {
 
   // ── Loading / not-auth guard ───────────────────────────────
 
-  if (isLoading) {
+  if (isLoading || fetching || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF8F4]">
         <div className="w-12 h-12 border-4 border-[#D4755B] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
+
+  if (loadError) return <div className="min-h-screen bg-[#FAF8F4]"><Navbar /><div className="p-12 text-center" role="alert"><p>{loadError}</p><Link to="/my-listings">Back to my listings</Link></div><Footer /></div>;
 
   // ── Success screen ─────────────────────────────────────────
 
@@ -187,7 +218,7 @@ const AddPropertyPage: React.FC = () => {
         {/* Header */}
         <div className="mb-10">
           <h1 className="font-fraunces text-4xl font-bold text-[#221410] mb-2">
-            List Your Property
+            {editing ? 'Edit Your Listing' : 'List Your Property'}
           </h1>
           <p className="font-manrope text-[#6B7280]">
             Fill in the details below. Your listing will be reviewed by our team before going live.
@@ -428,6 +459,12 @@ const AddPropertyPage: React.FC = () => {
               Upload up to 4 images (JPG, PNG, WebP). First image will be the cover.
             </p>
 
+            {retainedImages.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {retainedImages.map((src, index) => <div key={src} className="relative aspect-square rounded-lg overflow-hidden">
+                <img src={src} alt={`Existing photo ${index + 1}`} className="w-full h-full object-cover" />
+                <button type="button" aria-label={`Remove existing photo ${index + 1}`} onClick={() => setRetainedImages(current => current.filter(url => url !== src))} className="absolute top-1 right-1 bg-black/70 text-white rounded-full w-7 h-7">×</button>
+              </div>)}
+            </div>}
             {/* Previews */}
             {previews.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -453,7 +490,7 @@ const AddPropertyPage: React.FC = () => {
             )}
 
             {/* Upload button */}
-            {images.length < 4 && (
+            {images.length + retainedImages.length < 4 && (
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -462,7 +499,7 @@ const AddPropertyPage: React.FC = () => {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Add Photos ({images.length}/4)
+                Add Photos ({images.length + retainedImages.length}/4)
               </button>
             )}
 
@@ -500,7 +537,7 @@ const AddPropertyPage: React.FC = () => {
                 Submitting…
               </span>
             ) : (
-              'Submit for Review'
+              editing ? 'Save and Resubmit for Review' : 'Submit for Review'
             )}
           </button>
         </form>

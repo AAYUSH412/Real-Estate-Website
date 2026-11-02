@@ -30,6 +30,7 @@ class CircuitBreaker {
     this.successCount = 0;
     this.nextAttempt = Date.now();
     this.lastFailureTime = null;
+    this.probeInFlight = false;
 
     // Stats for monitoring
     this.stats = {
@@ -59,6 +60,10 @@ class CircuitBreaker {
       console.log(`[CircuitBreaker:${this.name}] Moving to HALF_OPEN state - testing service`);
     }
 
+    if (this.state === CircuitState.HALF_OPEN) {
+      if (this.probeInFlight) throw new Error(`[CircuitBreaker:${this.name}] Recovery probe already running`);
+      this.probeInFlight = true;
+    }
     try {
       const result = await fn();
       this.onSuccess();
@@ -66,6 +71,8 @@ class CircuitBreaker {
     } catch (error) {
       this.onFailure();
       throw error;
+    } finally {
+      this.probeInFlight = false;
     }
   }
 
@@ -142,6 +149,12 @@ class CircuitBreaker {
   /**
    * Check if the circuit breaker is health (closed or success in half-open)
    */
+  canAttempt() {
+    return this.state === CircuitState.CLOSED ||
+      (this.state === CircuitState.OPEN && Date.now() >= this.nextAttempt) ||
+      (this.state === CircuitState.HALF_OPEN && !this.probeInFlight);
+  }
+
   isHealthy() {
     return this.state === CircuitState.CLOSED ||
            (this.state === CircuitState.HALF_OPEN && this.successCount > 0);

@@ -286,7 +286,7 @@ export const cancelAppointment = async (req, res) => {
     }
 
     // Verify user owns this appointment (skip for guest bookings cancelled by admin)
-    if (appointment.userId && req.user && appointment.userId._id.toString() !== req.user._id.toString()) {
+    if (!appointment.userId || !req.user || appointment.userId._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to cancel this appointment'
@@ -346,7 +346,7 @@ export const updateAppointmentMeetingLink = async (req, res) => {
       appointmentId,
       { meetingLink },
       { new: true }
-    ).populate('propertyId userId');
+    ).populate('propertyId').populate('userId', 'name email');
 
     if (!appointment) {
       return res.status(404).json({
@@ -446,7 +446,7 @@ export const submitAppointmentFeedback = async (req, res) => {
       });
     }
 
-    if (appointment.userId.toString() !== req.user._id.toString()) {
+    if (!appointment.userId || appointment.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to submit feedback for this appointment'

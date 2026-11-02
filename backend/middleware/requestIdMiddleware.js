@@ -1,3 +1,4 @@
+import { redactUrl } from '../utils/redactUrl.js';
 /**
  * Request ID Middleware for Request Correlation
  *
@@ -24,7 +25,7 @@ export const requestIdMiddleware = (req, res, next) => {
   req.logger = logger.child({
     requestId: req.requestId,
     method: req.method,
-    path: req.path,
+    path: redactUrl(req.path),
   });
 
   // Only log errors/warnings (4xx/5xx responses)

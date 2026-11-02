@@ -16,6 +16,7 @@ interface AuthContextType {
   register: (fullName: string, email: string, phone: string, password: string) => Promise<{ requiresVerification?: boolean }>;
   logout: () => void;
   updateUser: (partial: Partial<User>) => void;
+  establishSession: (token: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,6 +40,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setIsLoading(false);
+  }, []);
+
+  const establishSession = useCallback((nextToken: string, nextUser: User) => {
+    localStorage.setItem('buildestate_token', nextToken);
+    localStorage.setItem('buildestate_user', JSON.stringify(nextUser));
+    setToken(nextToken);
+    setUser(nextUser);
+  }, []);
+
+  useEffect(() => {
+    const syncToken = () => setToken(localStorage.getItem('buildestate_token'));
+    window.addEventListener('buildestate:session', syncToken);
+    return () => window.removeEventListener('buildestate:session', syncToken);
   }, []);
 
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
@@ -97,6 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         updateUser,
+        establishSession,
       }}
     >
       {children}

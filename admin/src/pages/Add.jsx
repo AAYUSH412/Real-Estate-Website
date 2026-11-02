@@ -6,8 +6,8 @@ import { Upload, X, Plus, Home, MapPin, Phone, DollarSign, BedDouble, Bath, Maxi
 import { AMENITIES_LIST } from '../constants/amenities';
 import { cn } from '../lib/utils';
 
-const PROPERTY_TYPES = ['House', 'Apartment', 'Office', 'Villa'];
-const AVAILABILITY_TYPES = ['rent', 'buy'];
+const PROPERTY_TYPES = ['Flat', 'House', 'Villa', 'Plot', 'Penthouse', 'Studio', 'Commercial', 'Apartment', 'Office'];
+const AVAILABILITY_TYPES = ['buy', 'rent', 'For Sale', 'For Rent', 'sale', 'sold'];
 
 const inputClass = "w-full px-4 py-3 bg-white border border-[#E6D5C3] rounded-xl text-[#1C1B1A] placeholder-[#9CA3AF] text-sm transition-all duration-200 outline-none focus:border-[#D4755B] focus:ring-2 focus:ring-[#D4755B]/15";
 const labelClass = "block text-sm font-semibold text-[#1C1B1A] mb-2";

@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
-import userModel from "../models/userModel.js";
+import userModel, { Admin } from "../models/userModel.js";
+import Appointment from "../models/appointmentModel.js";
+import { accountDenial, sessionVersion } from "../utils/accountPolicy.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -12,7 +14,7 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     const user = await userModel.findById(decoded.id).select("-password");
 
     if (!user) {
@@ -22,6 +24,13 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    const denial = accountDenial(user);
+    if (denial || user.isEmailVerified === false) {
+      return res.status(403).json({ success: false, message: denial || 'Please verify your email.' });
+    }
+    if ((decoded.sv ?? 0) !== sessionVersion(user)) {
+      return res.status(401).json({ success: false, message: 'Session revoked. Please sign in again.' });
+    }
     req.user = user;
     next();
   } catch (error) {
@@ -44,7 +53,7 @@ export const adminProtect = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 
     // Verify this is an admin token (has email field matching admin email)
     if (!decoded.email || decoded.email !== process.env.ADMIN_EMAIL) {
@@ -54,7 +63,11 @@ export const adminProtect = async (req, res, next) => {
       });
     }
 
-    req.admin = { email: decoded.email };
+    const admin = await Admin.findOne({ email: decoded.email });
+    if (!admin || admin.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access denied' });
+    }
+    req.admin = { email: admin.email };
     next();
   } catch (error) {
     console.error("Admin auth error:", error);
@@ -76,7 +89,7 @@ export const checkAppointmentOwnership = async (req, res, next) => {
       });
     }
 
-    if (appointment.userId.toString() !== req.user._id.toString()) {
+    if (!appointment.userId || appointment.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to access this appointment",

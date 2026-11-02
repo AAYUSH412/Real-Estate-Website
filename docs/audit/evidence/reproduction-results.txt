@@ -1,0 +1,16 @@
+⚠️  Email API configuration incomplete. Missing BREVO_API_KEY environment variable. Emails will fail silently.
+REPRODUCED S01: banned user passes shared authentication
+REPRODUCED S02: guest appointment cancellable by unrelated signed-in user
+REPRODUCED B01: text-only admin edit erases existing images
+REPRODUCED S05: profile response includes session/token hashes
+REPRODUCED S04: admin access token requires no current admin DB record
+[CircuitBreaker:Unknown] Circuit OPENED after 1 failures. Will retry in 0.001s
+REPRODUCED A01: opened LLM circuit is skipped even after recovery time
+REPRODUCED A02: creating GitHub model drops supplied provider
+REPRODUCED B06: negative dimensions and empty images pass property schema validation
+REPRODUCED B08: past booking without user or guest identity passes schema
+REPRODUCED F06: sitemap omits real API property response
+REPRODUCED A07: AI validator accepts invented property and out-of-range score
+REPRODUCED F02: listing edit link has no application route
+REPRODUCED B02: admin JSON default serializes FormData image to empty object
+13 isolated probes reproduced current defects. No database/provider requests made.

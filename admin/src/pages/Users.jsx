@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
-  Users, Search, Filter, ChevronDown, MoreVertical,
-  Calendar, Mail, Shield, Clock, Trash2, Eye,
+  Users, Search, Clock, Eye,
   AlertCircle, RefreshCw, UserCheck, Ban
 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,7 +10,7 @@ import apiClient from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";
 
 // Components
-import UserStatusBadge from "../components/UserStatusBadge";
+
 import SuspendUserModal from "../components/SuspendUserModal";
 import BanUserModal from "../components/BanUserModal";
 import BulkActionBar from "../components/BulkActionBar";
@@ -163,52 +162,6 @@ const UsersManagement = () => {
   };
 
   // Bulk Actions
-  const handleBulkSuspend = async (suspendData) => {
-    try {
-      setActionLoading(true);
-      const response = await apiClient.post('/api/admin/users/bulk-suspend', {
-        userIds: Array.from(selectedUsers),
-        ...suspendData,
-      });
-
-      if (response.data.success) {
-        toast.success(`${response.data.count} users suspended`);
-        setSelectedUsers(new Set());
-        fetchUsers(true);
-      } else {
-        toast.error(response.data.message);
-      }
-    } catch (err) {
-      console.error("Error bulk suspending users:", err);
-      toast.error("Failed to suspend selected users");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleBulkBan = async (banData) => {
-    try {
-      setActionLoading(true);
-      const response = await apiClient.post('/api/admin/users/bulk-ban', {
-        userIds: Array.from(selectedUsers),
-        ...banData,
-      });
-
-      if (response.data.success) {
-        toast.success(`${response.data.count} users banned`);
-        setSelectedUsers(new Set());
-        fetchUsers(true);
-      } else {
-        toast.error(response.data.message);
-      }
-    } catch (err) {
-      console.error("Error bulk banning users:", err);
-      toast.error("Failed to ban selected users");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   // Selection Handlers
   const handleSelectUser = (userId) => {
     const newSelected = new Set(selectedUsers);

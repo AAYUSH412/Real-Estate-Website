@@ -71,7 +71,7 @@ function isUpcoming(apt: Appointment): boolean {
 // ── Settings tab ──────────────────────────────────────────────────────────────
 
 const SettingsTab: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const [name, setName] = useState(user?.name ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -99,6 +99,11 @@ const SettingsTab: React.FC = () => {
 
       const { data } = await userAPI.updateProfile(payload);
       if (data.success) {
+        if (data.sessionRevoked) {
+          logout();
+          toast.success('Password changed. Please sign in again.');
+          return;
+        }
         if (data.user) updateUser(data.user);
         setCurrentPassword('');
         setNewPassword('');
@@ -206,7 +211,7 @@ const DashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [listings, setListings] = useState<ListingSummary[]>([]);
+  const [listingTotals, setListingTotals] = useState({ all: 0, active: 0 });
   const [fetchLoading, setFetchLoading] = useState(true);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -226,7 +231,7 @@ const DashboardPage: React.FC = () => {
     setFetchLoading(true);
     const [aptRes, listRes] = await Promise.allSettled([
       appointmentsAPI.getByUser(),
-      userListingsAPI.getMyListings(),
+      userListingsAPI.getMyListings({ limit: 1 }),
     ]);
 
     if (aptRes.status === 'fulfilled') {
@@ -236,7 +241,7 @@ const DashboardPage: React.FC = () => {
     }
 
     if (listRes.status === 'fulfilled') {
-      setListings(listRes.value.data.properties ?? listRes.value.data ?? []);
+      setListingTotals({ all: listRes.value.data.pagination.totalProperties, active: listRes.value.data.statusCounts?.active || 0 });
     }
 
     setFetchLoading(false);
@@ -268,12 +273,12 @@ const DashboardPage: React.FC = () => {
   // ── Derived stats ───────────────────────────────────────────
 
   const upcomingCount = appointments.filter(isUpcoming).length;
-  const liveListings = listings.filter((l) => l.status === 'active').length;
+  const liveListings = listingTotals.active;
 
   const stats = [
     { label: 'Upcoming Viewings', value: upcomingCount, icon: 'event' },
     { label: 'Total Appointments', value: appointments.length, icon: 'calendar_month' },
-    { label: 'My Listings', value: listings.length, icon: 'home_work' },
+    { label: 'My Listings', value: listingTotals.all, icon: 'home_work' },
     { label: 'Live Listings', value: liveListings, icon: 'verified' },
   ];
 

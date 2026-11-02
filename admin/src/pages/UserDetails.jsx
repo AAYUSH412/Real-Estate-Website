@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Users, Home, Calendar, Activity, Mail, Phone,
-  MapPin, Clock, Shield, Ban, UserCheck, Trash2, Eye,
-  AlertCircle, RefreshCw, ExternalLink, CheckCircle2
+  ArrowLeft, Users, Home, Calendar, Mail, MapPin, Clock, Ban, UserCheck, AlertCircle, RefreshCw, ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "../services/apiClient";
@@ -77,7 +75,7 @@ const UserDetailsPage = () => {
       } else {
         toast.error(response.data.message);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to suspend user");
     } finally {
       setActionLoading(false);
@@ -99,7 +97,7 @@ const UserDetailsPage = () => {
       } else {
         toast.error(response.data.message);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to ban user");
     } finally {
       setActionLoading(false);
@@ -120,7 +118,7 @@ const UserDetailsPage = () => {
       } else {
         toast.error(response.data.message);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to reactivate user");
     } finally {
       setActionLoading(false);
@@ -369,7 +367,7 @@ const UserDetailsPage = () => {
 
             {activeTab === 'properties' && (
               <div>
-                <h3 className="text-lg font-bold text-[#1C1B1A] mb-4">User's Properties</h3>
+                <h3 className="text-lg font-bold text-[#1C1B1A] mb-4">User&apos;s Properties</h3>
                 {properties.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {properties.map((property) => (
@@ -420,7 +418,7 @@ const UserDetailsPage = () => {
 
             {activeTab === 'appointments' && (
               <div>
-                <h3 className="text-lg font-bold text-[#1C1B1A] mb-4">User's Appointments</h3>
+                <h3 className="text-lg font-bold text-[#1C1B1A] mb-4">User&apos;s Appointments</h3>
                 {appointments.length > 0 ? (
                   <div className="space-y-4">
                     {appointments.map((appointment) => (

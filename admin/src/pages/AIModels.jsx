@@ -12,6 +12,7 @@ const EMPTY_FORM = {
   name: '',
   slug: '',
   modelId: '',
+  provider: 'github',
   badge: '',
   description: '',
   isActive: true,
@@ -64,6 +65,7 @@ const AIModels = () => {
       name: model.name,
       slug: model.slug,
       modelId: model.modelId,
+      provider: model.provider,
       badge: model.badge || '',
       description: model.description || '',
       isActive: model.isActive,
@@ -133,7 +135,7 @@ const AIModels = () => {
       await apiClient.put(`/api/admin/ai-models/${model._id}`, { isActive: !model.isActive });
       toast.success(model.isActive ? 'Model deactivated' : 'Model activated');
       fetchModels();
-    } catch (err) {
+    } catch {
       toast.error('Failed to update model');
     }
   }
@@ -143,7 +145,7 @@ const AIModels = () => {
       await apiClient.put(`/api/admin/ai-models/${model._id}`, { isDefault: true });
       toast.success(`${model.name} set as default`);
       fetchModels();
-    } catch (err) {
+    } catch {
       toast.error('Failed to update default');
     }
   }
@@ -368,6 +370,13 @@ const AIModels = () => {
 
                 <div className="p-5 space-y-4">
                   {/* Basic fields */}
+                  <label className="block text-sm font-medium text-[#1C1B1A]">
+                    Provider
+                    <select value={form.provider} onChange={e => setField('provider', e.target.value)} className="mt-1 block w-full border rounded-lg px-3 py-2">
+                      <option value="github">GitHub Models</option>
+                      <option value="nvidia">NVIDIA NIM</option>
+                    </select>
+                  </label>
                   {[
                     { label: 'Name', field: 'name', placeholder: 'Nemotron Nano' },
                     { label: 'Slug', field: 'slug', placeholder: 'nemotron-nano' },

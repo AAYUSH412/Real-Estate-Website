@@ -82,7 +82,7 @@ export class GitHubModelsProvider extends LLMProvider {
       const model   = this.models[i];
       const circuit = this.circuits[i];
 
-      if (!circuit.isHealthy()) {
+      if (!circuit.canAttempt()) {
         logger.warn('GitHubModels circuit open, skipping', { slug: model.slug });
         continue;
       }

@@ -10,7 +10,7 @@ type VerificationStatus = 'loading' | 'success' | 'error';
 const VerifyEmailPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
+  const { establishSession } = useAuth();
   const [status, setStatus] = useState<VerificationStatus>('loading');
   const [message, setMessage] = useState('');
 
@@ -29,9 +29,7 @@ const VerifyEmailPage: React.FC = () => {
           setMessage(data.message || 'Your email has been verified successfully!');
           // If backend returned a token, log the user in automatically
           if (data.token && data.user) {
-            localStorage.setItem('buildestate_token', data.token);
-            localStorage.setItem('buildestate_user', JSON.stringify(data.user));
-            updateUser(data.user);
+            establishSession(data.token, data.user);
             setTimeout(() => navigate('/'), 3000);
           } else {
             setTimeout(() => navigate('/signin'), 4000);
@@ -51,7 +49,7 @@ const VerifyEmailPage: React.FC = () => {
     };
 
     verifyEmail();
-  }, [token, navigate, updateUser]);
+  }, [token, navigate, establishSession]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] flex items-center justify-center py-12 px-4">

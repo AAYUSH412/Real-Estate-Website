@@ -1,3 +1,4 @@
+import { accountDenial, publicUser, sessionVersion, versionFilter, revokeSessionUpdate, USER_AUTH_FIELDS, ADMIN_AUTH_FIELDS } from '../utils/accountPolicy.js';
 import express from "express";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
@@ -23,20 +24,24 @@ const userRefreshCookieOptions = () => ({
 });
 
 // rememberMe → 30d refresh token; else → 7d
-const issueUserSession = async (res, user, rememberMe = false) => {
+const issueUserSession = async (res, user, rememberMe = false, expectedRefreshHash = null) => {
+  const denial = accountDenial(user);
+  if (denial || !user.isEmailVerified) throw Object.assign(new Error(denial || 'Please verify your email.'), { statusCode: 403 });
   const ttlMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
   const refreshToken = crypto.randomBytes(48).toString('hex');
-  user.userRefreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-  user.userRefreshTokenExpiry = new Date(Date.now() + ttlMs);
-  await user.save();
-
-  res.cookie(USER_REFRESH_COOKIE, refreshToken, {
-    ...userRefreshCookieOptions(),
-    maxAge: ttlMs,
-  });
-
-  // Short-lived access token — refresh token handles persistence
-  return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const updated = await userModel.findOneAndUpdate({
+    _id: user._id, ...versionFilter(user),
+    $and: [{ $or: [{ status: 'active' }, { status: { $exists: false } }, { status: 'suspended', suspendedUntil: { $lte: new Date() } }] }],
+    isEmailVerified: true,
+    ...(expectedRefreshHash && { userRefreshTokenHash: expectedRefreshHash, userRefreshTokenExpiry: { $gt: new Date() } }),
+  }, { $set: {
+    userRefreshTokenHash: crypto.createHash('sha256').update(refreshToken).digest('hex'),
+    userRefreshTokenExpiry: new Date(Date.now() + ttlMs),
+    rememberMe,
+  } }, { new: true });
+  if (!updated) throw Object.assign(new Error('Session changed. Please sign in again.'), { statusCode: 401 });
+  res.cookie(USER_REFRESH_COOKIE, refreshToken, { ...userRefreshCookieOptions(), maxAge: ttlMs });
+  return jwt.sign({ id: user._id, sv: sessionVersion(updated) }, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
 dotenv.config();
@@ -76,7 +81,7 @@ const clearFailedAttempts = async (account) => {
 const login = async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body;
-    const Registeruser = await userModel.findOne({ email });
+    const Registeruser = await userModel.findOne({ email }).select(USER_AUTH_FIELDS);
     if (!Registeruser) {
       return res.status(401).json({ message: GENERIC_LOGIN_ERROR, success: false });
     }
@@ -93,6 +98,8 @@ const login = async (req, res) => {
       return res.status(401).json({ message: GENERIC_LOGIN_ERROR, success: false });
     }
 
+    const denial = accountDenial(Registeruser);
+    if (denial) return res.status(403).json({ success: false, message: denial });
     await clearFailedAttempts(Registeruser);
 
     // Handle legacy users (registered before email verification was implemented)
@@ -145,12 +152,12 @@ const login = async (req, res) => {
     const token = await issueUserSession(res, Registeruser, rememberMe);
     return res.json({
       token,
-      user: { name: Registeruser.name, email: Registeruser.email },
+      user: publicUser(Registeruser),
       success: true,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error", success: false });
+    res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -170,9 +177,13 @@ const register = async (req, res) => {
     }
 
     // Check for existing account before attempting insert
-    const existing = await userModel.findOne({ email });
+    const existing = await userModel.findOne({ email }).select(USER_AUTH_FIELDS);
     if (existing) {
       return res.json({ message: "An account with this email already exists.", success: false });
+    }
+
+    if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters and at most 72 UTF-8 bytes.' });
     }
 
     // Hash password (cost 12 — ~250ms on modern hardware, well above brute-force threshold)
@@ -221,7 +232,7 @@ const register = async (req, res) => {
 const forgotpassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await userModel.findOne({ email });
+    const user = await userModel.findOne({ email }).select(USER_AUTH_FIELDS);
     if (!user) {
       // Return 200 to prevent user enumeration
       return res.status(200).json({ message: "If an account with that email exists, a reset link has been sent.", success: true });
@@ -249,7 +260,7 @@ const forgotpassword = async (req, res) => {
     return res.status(200).json({ message: "If an account with that email exists, a reset link has been sent.", success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -264,21 +275,27 @@ const resetpassword = async (req, res) => {
     const user = await userModel.findOne({
       resetToken: hashedToken,
       resetTokenExpire: { $gt: Date.now() },
-    });
+    }).select(USER_AUTH_FIELDS);
 
     if (!user) {
       return res.status(400).json({ message: "Invalid or expired token", success: false });
     }
 
-    user.password = await bcrypt.hash(password, 12); // Increased salt rounds
-    user.resetToken = undefined;
-    user.resetTokenExpire = undefined;
-    await user.save();
+    if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters and at most 72 UTF-8 bytes.' });
+    }
+    const updated = await userModel.findOneAndUpdate({ _id: user._id, resetToken: hashedToken, resetTokenExpire: { $gt: Date.now() } }, {
+      $set: { password: await bcrypt.hash(password, 12) },
+      $inc: revokeSessionUpdate.$inc,
+      $unset: { ...revokeSessionUpdate.$unset, resetToken: '', resetTokenExpire: '' },
+    });
+    if (!updated) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
 
     return res.status(200).json({ message: "Password reset successful", success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -318,7 +335,7 @@ const adminlogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findOne({ email }).select(ADMIN_AUTH_FIELDS);
     if (!admin) {
       return res.status(401).json({ message: "Invalid credentials", success: false });
     }
@@ -341,7 +358,7 @@ const adminlogin = async (req, res) => {
     return res.json({ token, success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -355,7 +372,7 @@ const adminRefresh = async (req, res) => {
     const admin = await Admin.findOne({
       refreshTokenHash: sha256(raw),
       refreshTokenExpiry: { $gt: new Date() },
-    });
+    }).select(ADMIN_AUTH_FIELDS);
 
     if (!admin) {
       res.clearCookie(ADMIN_REFRESH_COOKIE, refreshCookieOptions());
@@ -367,7 +384,7 @@ const adminRefresh = async (req, res) => {
     return res.json({ token, success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -384,7 +401,7 @@ const adminLogout = async (req, res) => {
     return res.json({ message: "Logged out", success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -399,7 +416,7 @@ const userRefresh = async (req, res) => {
     const user = await userModel.findOne({
       userRefreshTokenHash: hash,
       userRefreshTokenExpiry: { $gt: new Date() },
-    });
+    }).select(USER_AUTH_FIELDS);
 
     if (!user) {
       res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
@@ -407,11 +424,16 @@ const userRefresh = async (req, res) => {
     }
 
     // Rotate — single-use token
-    const token = await issueUserSession(res, user);
+    const denial = accountDenial(user);
+    if (denial || !user.isEmailVerified) {
+      res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
+      return res.status(403).json({ success: false, message: denial || 'Please verify your email.' });
+    }
+    const token = await issueUserSession(res, user, user.rememberMe === true, hash);
     return res.json({ token, success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error', success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Server error', success: false });
   }
 };
 
@@ -422,14 +444,14 @@ const logout = async (req, res) => {
       const hash = crypto.createHash('sha256').update(raw).digest('hex');
       await userModel.updateOne(
         { userRefreshTokenHash: hash },
-        { $unset: { userRefreshTokenHash: '', userRefreshTokenExpiry: '' } }
+        revokeSessionUpdate
       );
     }
     res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
     return res.json({ message: 'Logged out', success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error', success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Server error', success: false });
   }
 };
 
@@ -444,7 +466,7 @@ const verifyEmail = async (req, res) => {
     const user = await userModel.findOne({
       emailVerificationToken: hashedToken,
       verificationTokenExpiry: { $gt: Date.now() },
-    });
+    }).select(USER_AUTH_FIELDS);
 
     if (!user) {
       return res.status(400).json({
@@ -453,6 +475,8 @@ const verifyEmail = async (req, res) => {
       });
     }
 
+    const denial = accountDenial(user);
+    if (denial) return res.status(403).json({ success: false, message: denial });
     // Mark email as verified
     user.isEmailVerified = true;
     user.emailVerificationToken = undefined;
@@ -474,18 +498,17 @@ const verifyEmail = async (req, res) => {
       message: "Email verified successfully! You can now log in.",
       success: true,
       token: authToken,
-      user: { name: user.name, email: user.email }
+      user: publicUser(user)
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
 const getname = async (req, res) => {
   try {
-    const user = await userModel.findById(req.user.id).select("-password");
-    return res.json(user);
+    return res.json(publicUser(req.user));
   }
   catch (error) {
     console.error(error);
@@ -496,7 +519,7 @@ const getname = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { name, currentPassword, newPassword } = req.body;
-    const user = await userModel.findById(req.user.id);
+    const user = await userModel.findById(req.user.id).select(USER_AUTH_FIELDS);
     if (!user) return res.status(404).json({ message: "User not found", success: false });
 
     if (name !== undefined) {
@@ -513,21 +536,22 @@ const updateProfile = async (req, res) => {
       if (!isMatch) {
         return res.status(400).json({ message: "Current password is incorrect", success: false });
       }
-      if (newPassword.length < 8) {
+      if (typeof newPassword !== 'string' || newPassword.length < 8 || Buffer.byteLength(newPassword, 'utf8') > 72) {
         return res.status(400).json({ message: "New password must be at least 8 characters", success: false });
       }
-      user.password = await bcrypt.hash(newPassword, 12);
+      const changed = await userModel.findOneAndUpdate({ _id: user._id, password: user.password, ...versionFilter(user) }, {
+        $set: { password: await bcrypt.hash(newPassword, 12), name: user.name }, ...revokeSessionUpdate,
+      }, { new: true });
+      if (!changed) return res.status(409).json({ success: false, message: 'Account changed. Please sign in again.' });
+      res.clearCookie(USER_REFRESH_COOKIE, userRefreshCookieOptions());
+      return res.json({ success: true, sessionRevoked: true, message: 'Password changed. Please sign in again.', user: publicUser(changed) });
     }
 
     await user.save();
-    return res.json({
-      message: "Profile updated successfully",
-      success: true,
-      user: { name: user.name, email: user.email },
-    });
+    return res.json({ message: 'Profile updated successfully', success: true, user: publicUser(user) });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error", success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Server error", success: false });
   }
 };
 
@@ -564,7 +588,7 @@ const resendVerification = async (req, res) => {
     return res.status(200).json({ message: 'If this account exists and is unverified, a new link has been sent.', success: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error', success: false });
+    return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Server error', success: false });
   }
 };
 

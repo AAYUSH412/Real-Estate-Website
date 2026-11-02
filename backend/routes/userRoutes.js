@@ -1,7 +1,7 @@
 import express from 'express';
 import { login, register, forgotpassword, adminlogin, adminRefresh, adminLogout, resetpassword, getname, verifyEmail, updateProfile, userRefresh, logout, resendVerification } from '../controller/userController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
-import { registrationLimiter, loginLimiter, passwordResetLimiter, passwordResetVerifyLimiter } from '../middleware/rateLimitMiddleware.js';
+import { registrationLimiter, loginLimiter, passwordResetLimiter, passwordResetVerifyLimiter, emailResendLimiter } from '../middleware/rateLimitMiddleware.js';
 
 
 const userrouter = express.Router();
@@ -9,7 +9,7 @@ const userrouter = express.Router();
 userrouter.post('/login', loginLimiter, login);
 userrouter.post('/register', registrationLimiter, register);
 userrouter.get('/verify/:token', verifyEmail);
-userrouter.post('/resend-verification', passwordResetLimiter, resendVerification);
+userrouter.post('/resend-verification', emailResendLimiter, resendVerification);
 userrouter.post('/forgot', passwordResetLimiter, forgotpassword);
 userrouter.post('/reset/:token', passwordResetVerifyLimiter, resetpassword);
 userrouter.post('/admin', loginLimiter, adminlogin);

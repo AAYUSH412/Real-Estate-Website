@@ -1,0 +1,16 @@
+
+> admin@2.0.0 lint
+> eslint .
+
+
+/Users/aayushvaghela/Documents/project/Real-Estate-Website/admin/src/pages/ActivityLogs.jsx
+  189:6  warning  React Hook useEffect has a missing dependency: 'fetchLogs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/aayushvaghela/Documents/project/Real-Estate-Website/admin/src/pages/Dashboard.jsx
+  236:6   warning  React Hook useCallback has a missing dependency: 'inFlight'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  238:38  warning  React Hook useEffect has a missing dependency: 'fetchStats'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/aayushvaghela/Documents/project/Real-Estate-Website/admin/src/pages/UserDetails.jsx
+  60:6  warning  React Hook useEffect has a missing dependency: 'fetchUserDetails'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 4 problems (0 errors, 4 warnings)

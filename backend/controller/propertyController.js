@@ -1,9 +1,9 @@
-import fs from 'fs';
+import { saveListing, listingError } from '../services/listingService.js';
+import { pagination, pageMetadata } from '../utils/pagination.js';
 import { createFirecrawlService } from '../services/firecrawlService.js';
 import { createAIService } from '../services/aiService.js';
 import { resolveModelsByProvider } from './aiModelController.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
-import imagekit from '../config/imagekit.js';
 import Property from '../models/propertyModel.js';
 import SearchCache from '../models/searchCacheModel.js';
 import TrendsCache from '../models/trendsCacheModel.js';
@@ -163,33 +163,20 @@ async function resolveServices(req) {
         throw err;
     }
 
-    // Load DB-backed model configs (cached 5 min), split by provider,
-    // and honour the user's model choice by moving their slug to front.
-    let githubModelsConfig = null;
-    let nvidiaModelsConfig = null;
-    try {
-        const { github, nvidia } = await resolveModelsByProvider();
-        const requestedSlug = req.body?.model || req.query?.model || null;
-
-        const prioritise = (list) => {
-            if (!requestedSlug) return list;
-            const ordered = [...list];
-            const idx = ordered.findIndex(m => m.slug === requestedSlug);
-            if (idx > 0) {
-                const [selected] = ordered.splice(idx, 1);
-                ordered.unshift(selected);
-            }
-            return ordered;
-        };
-
-        if (github.length)  githubModelsConfig = prioritise(github).map(({ modelId, slug, config }) => ({ modelId, slug, config }));
-        if (nvidia.length)  nvidiaModelsConfig = prioritise(nvidia).map(({ modelId, slug, config }) => ({ modelId, slug, config }));
-    } catch (err) {
-        logger.warn('Failed to load AI models from DB, falling back to defaults', { error: err.message });
+    let configured;
+    try { configured = await resolveModelsByProvider(); }
+    catch { throw Object.assign(new Error('AI model configuration is temporarily unavailable.'), { statusCode: 503, code: 'SERVER_AI_UNAVAILABLE' }); }
+    const { github, nvidia } = configured;
+    const models = [...github, ...nvidia];
+    const requestedSlug = req.body?.model || req.query?.model;
+    const selected = requestedSlug ? models.find(m => m.slug === requestedSlug) : models.find(m => m.isDefault) || models[0];
+    if (!selected) throw Object.assign(new Error(requestedSlug ? 'Selected model is unavailable.' : 'No enabled AI models are available.'), { statusCode: requestedSlug ? 400 : 503, code: 'MODEL_UNAVAILABLE' });
+    if (!(selected.provider === 'github' ? serverGithubKey : serverNvidiaKey)) {
+        throw Object.assign(new Error('Selected AI provider is not configured.'), { statusCode: 503, code: 'SERVER_AI_UNAVAILABLE' });
     }
-
+    const prioritise = list => [...list].sort((a, b) => Number(b.slug === selected.slug) - Number(a.slug === selected.slug));
     return {
-        aiService:        createAIService(serverGithubKey, serverNvidiaKey, githubModelsConfig, nvidiaModelsConfig),
+        aiService: createAIService(serverGithubKey, serverNvidiaKey, prioritise(github), prioritise(nvidia), selected.provider),
         firecrawlService: createFirecrawlService(firecrawlKey),
     };
 }
@@ -637,97 +624,26 @@ export const validateApiKeys = async (req, res) => {
 // These endpoints are protected by the `protect` middleware.
 // All user-submitted listings start as 'pending' and require admin approval.
 
-const EXPIRY_DAYS = 45;
-
-/**
- * Upload files in req.files (from multer array) to ImageKit.
- * Returns an array of public URLs.
- * Deletes each temp file after uploading.
- */
-async function uploadImages(files) {
-    return Promise.all(
-        files.map(async (file) => {
-            const result = await imagekit.upload({
-                file: fs.readFileSync(file.path),
-                fileName: file.originalname,
-                folder: 'Property',
-            });
-            fs.unlink(file.path, (err) => {
-                if (err) logger.warn("Error deleting temp file", { error: err?.message });
-            });
-            return result.url;
-        })
-    );
-}
-
-/** POST /api/user/properties — create a new listing (pending approval) */
 export const createUserListing = async (req, res) => {
     try {
-        const { title, location, price, beds, baths, sqft, type, availability, description, phone, googleMapLink } = req.body;
-
-        // Parse amenities — frontend sends as JSON string in FormData
-        let amenities = [];
-        try {
-            amenities = req.body.amenities ? JSON.parse(req.body.amenities) : [];
-        } catch {
-            amenities = Array.isArray(req.body.amenities) ? req.body.amenities : [];
-        }
-
-        // Required field validation
-        const missing = ['title', 'location', 'price', 'beds', 'baths', 'sqft', 'type', 'availability', 'description', 'phone']
-            .filter((f) => !req.body[f]);
-        if (missing.length) {
-            return res.status(400).json({ success: false, message: `Missing required fields: ${missing.join(', ')}` });
-        }
-
-        const files = req.files || [];
-        if (files.length === 0) {
-            return res.status(400).json({ success: false, message: 'At least one image is required' });
-        }
-
-        const imageUrls = await uploadImages(files);
-
-        const expiresAt = new Date(Date.now() + EXPIRY_DAYS * 24 * 60 * 60 * 1000);
-
-        const property = await Property.create({
-            title,
-            location,
-            price: Number(price),
-            beds: Number(beds),
-            baths: Number(baths),
-            sqft: Number(sqft),
-            type,
-            availability,
-            description,
-            amenities,
-            image: imageUrls,
-            phone,
-            googleMapLink: googleMapLink || '',
-            status: 'pending',
-            postedBy: req.user._id,
-            expiresAt,
-        });
-
+        const property = await saveListing({ body: req.body, files: req.files || [], owner: req.user._id });
         res.status(201).json({ success: true, message: 'Listing submitted for review', property });
-    } catch (error) {
-        logger.error("Error creating user listing", { error: error.message, stack: error.stack });
-        res.status(500).json({ success: false, message: 'Failed to create listing', error: error.message });
-    }
+    } catch (error) { return listingError(res, error); }
 };
+
+export const getOwnedListing = (req, res) => res.json({ success: true, property: req.listing });
 
 /** GET /api/user/properties — get all listings by the logged-in user */
 export const getUserListings = async (req, res) => {
     try {
-        // Pagination parameters
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10; // Default 10 per page for user listings
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = pagination(req.query, 10);
 
         const query = { postedBy: req.user._id };
 
         // Get total count for pagination metadata
         const totalProperties = await Property.countDocuments(query);
-        const totalPages = Math.ceil(totalProperties / limit);
+        const counts = await Property.aggregate([{ $match: { postedBy: req.user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]);
+        const statusCounts = Object.fromEntries(counts.map(row => [row._id, row.count]));
 
         // Get properties with pagination
         const properties = await Property.find(query)
@@ -738,14 +654,8 @@ export const getUserListings = async (req, res) => {
         res.json({
             success: true,
             properties,
-            pagination: {
-                currentPage: page,
-                totalPages,
-                totalProperties,
-                hasNextPage: page < totalPages,
-                hasPreviousPage: page > 1,
-                limit
-            }
+            statusCounts,
+            pagination: pageMetadata(totalProperties, page, limit),
         });
     } catch (error) {
         logger.error("Error fetching user listings", { error: error.message, stack: error.stack });
@@ -756,59 +666,9 @@ export const getUserListings = async (req, res) => {
 /** PUT /api/user/properties/:id — edit an owned listing (resets to pending) */
 export const updateUserListing = async (req, res) => {
     try {
-        const property = await Property.findById(req.params.id);
-
-        if (!property) {
-            return res.status(404).json({ success: false, message: 'Listing not found' });
-        }
-
-        if (!property.postedBy || property.postedBy.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Not authorised to edit this listing' });
-        }
-
-        const { title, location, price, beds, baths, sqft, type, availability, description, phone, googleMapLink } = req.body;
-
-        let amenities = property.amenities;
-        if (req.body.amenities) {
-            try {
-                amenities = JSON.parse(req.body.amenities);
-            } catch {
-                amenities = Array.isArray(req.body.amenities) ? req.body.amenities : property.amenities;
-            }
-        }
-
-        // If new images uploaded, replace the existing set
-        let imageUrls = property.image;
-        const files = req.files || [];
-        if (files.length > 0) {
-            imageUrls = await uploadImages(files);
-        }
-
-        const updates = {
-            ...(title && { title }),
-            ...(location && { location }),
-            ...(price && { price: Number(price) }),
-            ...(beds && { beds: Number(beds) }),
-            ...(baths && { baths: Number(baths) }),
-            ...(sqft && { sqft: Number(sqft) }),
-            ...(type && { type }),
-            ...(availability && { availability }),
-            ...(description && { description }),
-            ...(phone && { phone }),
-            googleMapLink: googleMapLink ?? property.googleMapLink,
-            amenities,
-            image: imageUrls,
-            // Any edit resets to pending so admin re-reviews
-            status: 'pending',
-            rejectionReason: '',
-        };
-
-        const updated = await Property.findByIdAndUpdate(req.params.id, updates, { new: true });
-        res.json({ success: true, message: 'Listing updated and resubmitted for review', property: updated });
-    } catch (error) {
-        logger.error("Error updating user listing", { error: error.message, stack: error.stack });
-        res.status(500).json({ success: false, message: 'Failed to update listing', error: error.message });
-    }
+        const property = await saveListing({ body: req.body, files: req.files || [], existing: req.listing, owner: req.user._id });
+        res.json({ success: true, message: 'Listing updated and resubmitted for review', property });
+    } catch (error) { return listingError(res, error); }
 };
 
 /** DELETE /api/user/properties/:id — delete an owned listing */

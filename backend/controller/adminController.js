@@ -1,3 +1,5 @@
+import { pagination, escapeRegex } from '../utils/pagination.js';
+import { revokeSessionUpdate, adminUser, accountDenial } from '../utils/accountPolicy.js';
 import Stats from "../models/statsModel.js";
 import Property from "../models/propertyModel.js";
 import Appointment from "../models/appointmentModel.js";
@@ -193,7 +195,7 @@ export const updateAppointmentStatus = async (req, res) => {
       appointmentId,
       { status },
       { new: true }
-    ).populate("propertyId userId");
+    ).populate("propertyId").populate("userId", "name email");
 
     if (!appointment) {
       return res.status(404).json({
@@ -231,12 +233,13 @@ export const updateAppointmentStatus = async (req, res) => {
 /** GET /api/admin/properties/pending — FIFO queue of user-submitted listings */
 export const getPendingListings = async (req, res) => {
   try {
-    // Pagination parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 15; // Default 15 per page for admin review
-    const skip = (page - 1) * limit;
-
-    const query = { status: "pending" };
+    const { page, limit, skip } = pagination(req.query, 15);
+    const query = { status: 'pending' };
+    if (typeof req.query.search === 'string' && req.query.search.trim()) {
+      const search = { $regex: escapeRegex(req.query.search.trim()), $options: 'i' };
+      const owners = await User.find({ $or: [{ name: search }, { email: search }] }).select('_id').limit(100);
+      query.$or = [{ title: search }, { location: search }, { postedBy: { $in: owners.map(user => user._id) } }];
+    }
 
     // Get total count for pagination metadata
     const totalProperties = await Property.countDocuments(query);
@@ -270,12 +273,16 @@ export const getPendingListings = async (req, res) => {
 /** PUT /api/admin/properties/:id/approve — approve a pending listing */
 export const approveListing = async (req, res) => {
   try {
-    const property = await Property.findById(req.params.id).populate("postedBy", "name email");
+    const property = await Property.findById(req.params.id).populate("postedBy", "name email status suspendedUntil");
 
     if (!property) {
       return res.status(404).json({ success: false, message: "Listing not found" });
     }
 
+    if (property.postedBy && accountDenial(property.postedBy)) {
+      return res.status(409).json({ success: false, message: 'The listing owner is banned or suspended.' });
+    }
+    if (property.postedBy) property.expiresAt = new Date(Date.now() + 45 * 86400000);
     property.status = "active";
     property.rejectionReason = "";
     await property.save();
@@ -389,7 +396,7 @@ export const getAllUsers = async (req, res) => {
       users.map(async (user) => {
         const propertyCount = await Property.countDocuments({ postedBy: user._id });
         return {
-          ...user.toObject(),
+          ...adminUser(user),
           propertyCount
         };
       })
@@ -445,7 +452,7 @@ export const getUserDetails = async (req, res) => {
     res.json({
       success: true,
       user: {
-        ...user.toObject(),
+        ...adminUser(user),
         propertyCount: properties.length,
         appointmentCount: appointments.length
       },
@@ -496,7 +503,10 @@ export const suspendUser = async (req, res) => {
     user.suspendReason = reason.trim();
     user.suspendedAt = new Date();
     user.suspendedBy = req.admin.email;
-    await user.save();
+    await User.updateOne({ _id: userId }, {
+      $set: { status: user.status, suspendedUntil: user.suspendedUntil, suspendReason: user.suspendReason, suspendedAt: user.suspendedAt, suspendedBy: user.suspendedBy },
+      ...revokeSessionUpdate,
+    });
 
     // Expire all active properties
     await Property.updateMany(
@@ -565,7 +575,10 @@ export const banUser = async (req, res) => {
     user.banReason = reason.trim();
     user.bannedAt = new Date();
     user.bannedBy = req.admin.email;
-    await user.save();
+    await User.updateOne({ _id: userId }, {
+      $set: { status: user.status, banReason: user.banReason, bannedAt: user.bannedAt, bannedBy: user.bannedBy },
+      ...revokeSessionUpdate,
+    });
 
     // Expire all active properties
     await Property.updateMany(
@@ -768,7 +781,8 @@ export const bulkSuspendUsers = async (req, res) => {
           suspendReason: reason.trim(),
           suspendedAt: new Date(),
           suspendedBy: req.admin.email
-        }
+        },
+        ...revokeSessionUpdate,
       }
     );
 
@@ -858,7 +872,8 @@ export const bulkBanUsers = async (req, res) => {
           banReason: reason.trim(),
           bannedAt: new Date(),
           bannedBy: req.admin.email
-        }
+        },
+        ...revokeSessionUpdate,
       }
     );
 

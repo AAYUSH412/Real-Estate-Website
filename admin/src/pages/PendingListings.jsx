@@ -1,3 +1,4 @@
+import PaginationControls from '../components/PaginationControls';
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -394,27 +395,36 @@ const PendingListings = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
 
-  const fetchPending = useCallback(async () => {
+  const fetchPending = useCallback(async (signal) => {
     setLoading(true);
     try {
-      const res = await apiClient.get("/api/admin/properties/pending");
+      const res = await apiClient.get("/api/admin/properties/pending", { params: { page, search: searchQuery }, signal });
       const data = res.data.listings ?? res.data.properties ?? res.data ?? [];
+      if (signal?.aborted) return;
+      if (page > 1 && !data.length) { setPage(page - 1); return; }
       setListings(Array.isArray(data) ? data : []);
+      setPagination(res.data.pagination);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to fetch pending listings.");
+      if (!signal?.aborted) toast.error(err.response?.data?.message || "Failed to fetch pending listings.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [page, searchQuery]);
 
-  useEffect(() => { fetchPending(); }, [fetchPending]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => fetchPending(controller.signal), 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [fetchPending]);
 
   const handleApprove = async (id) => {
     setActionLoading(`approve-${id}`);
     try {
       await apiClient.put(`/api/admin/properties/${id}/approve`, {});
-      setListings((prev) => prev.filter((l) => l._id !== id));
+      await fetchPending();
       toast.success("Listing approved and is now live!");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to approve listing.");
@@ -429,7 +439,7 @@ const PendingListings = () => {
     setActionLoading(`reject-${id}`);
     try {
       await apiClient.put(`/api/admin/properties/${id}/reject`, { reason });
-      setListings((prev) => prev.filter((l) => l._id !== id));
+      await fetchPending();
       toast.success("Listing rejected. Owner has been notified.");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to reject listing.");
@@ -439,18 +449,9 @@ const PendingListings = () => {
     }
   };
 
-  const filtered = listings.filter((l) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      l.title?.toLowerCase().includes(q) ||
-      l.location?.toLowerCase().includes(q) ||
-      l.postedBy?.name?.toLowerCase().includes(q) ||
-      l.postedBy?.email?.toLowerCase().includes(q)
-    );
-  });
+  const filtered = listings;
 
-  if (loading) {
+  if (loading && !pagination) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-8">
         <div className="h-7 w-44 bg-[#EBEBEA] rounded animate-pulse mb-8" />
@@ -503,7 +504,7 @@ const PendingListings = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               placeholder="Search by title, location, or submitter…"
               className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E8E7E5] rounded-xl text-sm text-[#111110] focus:outline-none focus:ring-2 focus:ring-[#D4755B]/20 focus:border-[#D4755B] transition-all"
             />
@@ -542,6 +543,7 @@ const PendingListings = () => {
           </div>
         </AnimatePresence>
 
+        <PaginationControls pagination={pagination} onPageChange={setPage} />
         {/* Reject modal */}
         {rejectTarget && (
           <RejectModal

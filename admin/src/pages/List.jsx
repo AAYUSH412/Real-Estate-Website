@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import PaginationControls from '../components/PaginationControls';
+import { useState, useEffect, useCallback } from "react";
 import {
   Trash2, Edit3, Search, Plus, Home, BedDouble, Bath,
   Maximize, MapPin, Grid3X3, List as ListIcon, RefreshCw,
-  Building2, Tag,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -18,14 +19,11 @@ const SORT_OPTIONS = [
 ];
 
 const parseAmenities = (amenities) => {
-  if (!amenities || !Array.isArray(amenities)) return [];
-  try {
-    return typeof amenities[0] === "string"
-      ? JSON.parse(amenities[0].replace(/'/g, '"'))
-      : amenities;
-  } catch {
-    return [];
+  if (!Array.isArray(amenities)) return [];
+  if (amenities.length === 1 && typeof amenities[0] === 'string' && amenities[0].startsWith('[')) {
+    try { return JSON.parse(amenities[0]); } catch { return []; }
   }
+  return amenities;
 };
 
 // ─── Property Grid Card ───────────────────────────────────────────────────────
@@ -178,27 +176,33 @@ const PropertyListings = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [viewMode, setViewMode] = useState("grid");
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
+  const [status, setStatus] = useState('all');
 
-  const fetchProperties = async () => {
+  const fetchProperties = useCallback(async (signal) => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/api/products/list');
+      const response = await apiClient.get('/api/admin/properties', { params: { page, search: searchTerm, type: filterType, sort: sortBy, status }, signal });
       if (response.data.success) {
         const parsed = response.data.property.map((p) => ({
           ...p,
           amenities: parseAmenities(p.amenities),
         }));
+        if (signal?.aborted) return;
+        if (page > 1 && !parsed.length) { setPage(page - 1); return; }
         setProperties(parsed);
+        setPagination(response.data.pagination);
       } else {
         toast.error(response.data.error);
       }
     } catch (error) {
       console.error("Error fetching properties:", error);
-      toast.error("Failed to fetch properties");
+      if (!signal?.aborted) toast.error("Failed to fetch properties");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  };
+  }, [page, searchTerm, filterType, sortBy, status]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -223,22 +227,15 @@ const PropertyListings = () => {
     }
   };
 
-  useEffect(() => { fetchProperties(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => fetchProperties(controller.signal), 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [fetchProperties]);
 
-  const filteredProperties = properties
-    .filter((p) => {
-      const matchesSearch = !searchTerm ||
-        [p.title, p.location, p.type].some((f) => f?.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesType = filterType === "all" || p.type?.toLowerCase() === filterType.toLowerCase();
-      return matchesSearch && matchesType;
-    })
-    .sort((a, b) => {
-      if (sortBy === "price-low") return a.price - b.price;
-      if (sortBy === "price-high") return b.price - a.price;
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
+  const filteredProperties = properties;
 
-  if (loading) {
+  if (loading && !pagination) {
     return (
       <div className="min-h-screen pt-8 flex items-center justify-center bg-[#FAF8F4]">
         <div className="text-center">
@@ -259,7 +256,7 @@ const PropertyListings = () => {
           <div>
             <h1 className="text-3xl font-bold text-[#1C1B1A] mb-1">Properties</h1>
             <p className="text-[#5A5856] text-sm">
-              <span className="font-semibold text-[#D4755B]">{filteredProperties.length}</span> listings found
+              <span className="font-semibold text-[#D4755B]">{pagination?.totalProperties || 0}</span> listings found
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -287,14 +284,14 @@ const PropertyListings = () => {
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
               <input type="text" placeholder="Search properties..."
-                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                 className="w-full pl-9 pr-4 py-2.5 bg-[#FAF8F4] border border-[#E6D5C3] rounded-xl text-sm text-[#1C1B1A] placeholder-[#9CA3AF] outline-none focus:border-[#D4755B] focus:ring-2 focus:ring-[#D4755B]/15 transition-all" />
             </div>
 
             {/* Type Filter */}
             <div className="flex items-center gap-1 bg-[#FAF8F4] rounded-xl p-1 flex-shrink-0">
               {PROPERTY_TYPES.map((type) => (
-                <button key={type} onClick={() => setFilterType(type)}
+                <button key={type} onClick={() => { setFilterType(type); setPage(1); }}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 capitalize",
                     filterType === type
@@ -308,7 +305,7 @@ const PropertyListings = () => {
 
             {/* Sort + View Toggle */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+              <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
                 className="px-3 py-2.5 bg-[#FAF8F4] border border-[#E6D5C3] rounded-xl text-xs text-[#5A5856] outline-none focus:border-[#D4755B] transition-all cursor-pointer">
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -330,6 +327,11 @@ const PropertyListings = () => {
         </motion.div>
 
         {/* Properties */}
+        <label className="block mb-4 text-sm">Listing status
+          <select aria-label="Listing status" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className="ml-3 rounded border px-3 py-2">
+            {['all', 'active', 'pending', 'rejected', 'expired'].map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
         <AnimatePresence mode="wait">
           {filteredProperties.length === 0 ? (
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -369,6 +371,7 @@ const PropertyListings = () => {
             </motion.div>
           )}
         </AnimatePresence>
+        <PaginationControls pagination={pagination} onPageChange={setPage} />
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { redactUrl } from './utils/redactUrl.js';
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -88,7 +89,7 @@ app.use(mongoSanitize({
   onSanitize: ({ req, key }) => {
     logger.warn('Sanitized NoSQL injection attempt', {
       key,
-      url: req.originalUrl,
+      url: redactUrl(req.originalUrl),
       requestId: req.requestId,
     });
   }
@@ -197,10 +198,10 @@ app.use((err, req, res, next) => {
     error: err.message,
     stack: err.stack,
     requestId: req.requestId,
-    path: req.path,
+    path: redactUrl(req.path),
     method: req.method,
   });
-  const statusCode = err.status || 500;
+  const statusCode = err.status || err.statusCode || (err.name === 'MulterError' ? 400 : 500);
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal server error',

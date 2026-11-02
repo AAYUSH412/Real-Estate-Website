@@ -7,8 +7,8 @@ import { X, Upload, Home, MapPin, Phone, DollarSign, BedDouble, Bath, Maximize, 
 import { AMENITIES_LIST } from '../constants/amenities';
 import { cn } from '../lib/utils';
 
-const PROPERTY_TYPES = ['House', 'Apartment', 'Office', 'Villa'];
-const AVAILABILITY_TYPES = ['rent', 'buy'];
+const PROPERTY_TYPES = ['Flat', 'House', 'Villa', 'Plot', 'Penthouse', 'Studio', 'Commercial', 'Apartment', 'Office'];
+const AVAILABILITY_TYPES = ['buy', 'rent', 'For Sale', 'For Rent', 'sale', 'sold'];
 
 const inputClass = "w-full px-4 py-3 bg-white border border-[#E6D5C3] rounded-xl text-[#1C1B1A] placeholder-[#9CA3AF] text-sm transition-all duration-200 outline-none focus:border-[#D4755B] focus:ring-2 focus:ring-[#D4755B]/15";
 const labelClass = "block text-sm font-semibold text-[#1C1B1A] mb-2";
@@ -41,7 +41,7 @@ const Update = () => {
   useEffect(() => {
     const fetchProperty = async () => {
       try {
-        const response = await apiClient.get(`/api/products/single/${id}`);
+        const response = await apiClient.get(`/api/admin/properties/${id}`);
         if (response.data.success) {
           const property = response.data.property;
           let amenities = property.amenities || [];
@@ -92,6 +92,7 @@ const Update = () => {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length > 4) { toast.error('Maximum 4 images allowed'); return; }
     setPreviewUrls(files.map((file) => URL.createObjectURL(file)));
     setFormData((prev) => ({ ...prev, images: files }));
   };
@@ -111,9 +112,8 @@ const Update = () => {
         formdata.append(key, formData[key]);
       });
       formData.amenities.forEach((amenity, i) => formdata.append(`amenities[${i}]`, amenity));
-      formData.images.forEach((image, i) => {
-        if (typeof image !== 'string') formdata.append(`image${i + 1}`, image);
-      });
+      formdata.append('retainedImages', JSON.stringify(formData.images.filter(image => typeof image === 'string')));
+      formData.images.filter(image => typeof image !== 'string').forEach((image, i) => formdata.append(`image${i + 1}`, image));
 
       const response = await apiClient.post('/api/products/update', formdata);
       if (response.data.success) {

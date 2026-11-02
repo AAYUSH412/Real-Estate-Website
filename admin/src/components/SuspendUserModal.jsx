@@ -82,10 +82,10 @@ const SuspendUserModal = ({
               <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-amber-800 mb-1">
-                  This will temporarily suspend the user's account
+                  This will temporarily suspend the user&apos;s account
                 </p>
                 <p className="text-xs text-amber-700">
-                  Their listings will be hidden and they won't be able to log in during the suspension period.
+                  Their listings will be hidden and they won&apos;t be able to log in during the suspension period.
                 </p>
               </div>
             </div>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import PaginationControls, { type PageMetadata } from '../components/common/PaginationControls';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -37,77 +38,34 @@ const PropertiesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('featured');
   const [filters, setFilters] = useState<FilterState>({});
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PageMetadata | null>(null);
+  const changeFilters = useCallback((next: FilterState) => { setFilters(next); setPage(1); }, []);
 
   useEffect(() => {
-    const fetchProperties = async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
       try {
         setLoading(true);
         setError(null);
-        const { data } = await propertiesAPI.getAll();
-        if (data.success && data.property) {
-          setProperties(data.property);
-        }
-      } catch (err: any) {
-        console.error('Failed to fetch properties:', err);
-        setError('Failed to load properties. Please try again later.');
+        const { data } = await propertiesAPI.getAll({
+          page, sort: sortBy, location: filters.location, type: filters.propertyType?.join(','),
+          availability: filters.availability, bedrooms: filters.bedrooms, bathrooms: filters.bathrooms,
+          minPrice: filters.priceRange ? filters.priceRange[0] * 1_000_000 : undefined,
+          maxPrice: filters.priceRange && filters.priceRange[1] < 200 ? filters.priceRange[1] * 1_000_000 : undefined,
+          amenities: filters.amenities?.join(','),
+        }, controller.signal);
+        if (!controller.signal.aborted) { setProperties(data.property); setPagination(data.pagination); }
+      } catch {
+        if (!controller.signal.aborted) setError('Failed to load properties. Please try again later.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
-    };
-    fetchProperties();
-  }, []);
+    }, 200);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [page, sortBy, filters]);
 
-  const filteredProperties = useMemo(() => {
-    let result = [...properties];
-
-    if (filters.location) {
-      result = result.filter(p =>
-        p.location.toLowerCase().includes(filters.location!.toLowerCase())
-      );
-    }
-    if (filters.propertyType?.length) {
-      result = result.filter(p =>
-        filters.propertyType!.some(t => t.toLowerCase() === p.type.toLowerCase())
-      );
-    }
-    if (filters.availability) {
-      result = result.filter(p =>
-        p.availability.toLowerCase() === filters.availability!.toLowerCase()
-      );
-    }
-    if (filters.priceRange) {
-      const [min, max] = filters.priceRange;
-      const minPrice = min * 1_000_000;
-      const maxPrice = max * 1_000_000;
-      result = result.filter(p => {
-        if (p.price < minPrice) return false;
-        if (max >= 200) return true;
-        return p.price <= maxPrice;
-      });
-    }
-    if (filters.bedrooms && filters.bedrooms > 0) {
-      result = result.filter(p => p.beds >= filters.bedrooms!);
-    }
-    if (filters.bathrooms && filters.bathrooms > 0) {
-      result = result.filter(p => p.baths >= filters.bathrooms!);
-    }
-    if (filters.amenities?.length) {
-      result = result.filter(p =>
-        filters.amenities!.every(fa =>
-          p.amenities.some(pa => pa.toLowerCase() === fa.toLowerCase())
-        )
-      );
-    }
-
-    switch (sortBy) {
-      case 'price-low': result.sort((a, b) => a.price - b.price); break;
-      case 'price-high': result.sort((a, b) => b.price - a.price); break;
-      case 'beds': result.sort((a, b) => b.beds - a.beds); break;
-      case 'newest': result.sort((a, b) => b._id.localeCompare(a._id)); break;
-    }
-
-    return result;
-  }, [properties, filters, sortBy]);
+  const filteredProperties = properties;
 
   return (
     <div className="bg-[#FAF8F4] min-h-screen">
@@ -115,12 +73,12 @@ const PropertiesPage: React.FC = () => {
 
       {/* ── Sticky filter bar ── */}
       <FilterBar
-        totalProperties={filteredProperties.length}
+        totalProperties={pagination?.totalProperties || 0}
         sortBy={sortBy}
-        onSortChange={setSortBy}
+        onSortChange={value => { setSortBy(value); setPage(1); }}
         viewMode={viewMode}
         onViewChange={setViewMode}
-        onFilterChange={setFilters}
+        onFilterChange={changeFilters}
       />
 
       {/* ── Page title ── */}
@@ -164,6 +122,7 @@ const PropertiesPage: React.FC = () => {
         <PropertiesGrid properties={filteredProperties} viewMode={viewMode} />
       )}
 
+      {!loading && !error && <PaginationControls pagination={pagination} onPageChange={setPage} />}
       <Footer />
     </div>
   );

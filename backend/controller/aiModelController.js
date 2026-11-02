@@ -110,28 +110,23 @@ const SEED_MODELS = [
   },
 ];
 
-async function seedDefaultModels() {
+export async function seedDefaultModels() {
   try {
     await AIModel.insertMany(SEED_MODELS, { ordered: false });
-    logger.info('AIModel: seeded 6 default models (3 GitHub + 3 NVIDIA)');
+    logger.info('AIModel: seeded default AI models');
   } catch (err) {
     logger.warn('AIModel seed skipped (already exists or error)', { error: err.message });
   }
 }
 
 /**
- * Returns all active models from cache or DB. Auto-seeds if DB is empty.
+ * Returns active configured models. Seeding is an explicit setup operation.
  * Use resolveModelsByProvider() to split into per-provider lists.
  */
 export async function resolveActiveModels() {
   if (_cache && Date.now() < _cacheExpiry) return _cache;
 
   let models = await AIModel.find({ isActive: true }).sort('order').lean();
-
-  if (!models.length) {
-    await seedDefaultModels();
-    models = await AIModel.find({ isActive: true }).sort('order').lean();
-  }
 
   _cache = models;
   _cacheExpiry = Date.now() + 5 * 60 * 1000;
@@ -179,16 +174,16 @@ export async function listModels(req, res) {
 
 export async function createModel(req, res) {
   try {
-    const { name, slug, modelId, badge, description, isActive, isDefault, order, config } = req.body;
-    if (!name || !slug || !modelId) {
-      return res.status(400).json({ success: false, message: 'name, slug, and modelId are required' });
+    const { name, slug, modelId, badge, description, isActive, isDefault, order, config, provider } = req.body;
+    if (!name || !slug || !modelId || !['github', 'nvidia'].includes(provider)) {
+      return res.status(400).json({ success: false, message: 'name, slug, modelId, and a valid provider are required' });
     }
 
     if (isDefault) {
       await AIModel.updateMany({ isDefault: true }, { isDefault: false });
     }
 
-    const model = await AIModel.create({ name, slug, modelId, badge, description, isActive, isDefault, order: order ?? 0, config });
+    const model = await AIModel.create({ name, slug, modelId, badge, description, isActive, isDefault, order: order ?? 0, config, provider });
     invalidateCache();
     res.status(201).json({ success: true, model });
   } catch (err) {
@@ -203,7 +198,7 @@ export async function createModel(req, res) {
 export async function updateModel(req, res) {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = Object.fromEntries(['name', 'slug', 'modelId', 'badge', 'description', 'isActive', 'isDefault', 'order', 'config', 'provider'].filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
 
     if (updates.isDefault) {
       await AIModel.updateMany({ _id: { $ne: id }, isDefault: true }, { isDefault: false });

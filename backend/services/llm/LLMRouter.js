@@ -13,10 +13,6 @@ export class LLMRouter {
 
   async generateText(prompt, systemPrompt, opts = {}) {
     for (const provider of this.providers) {
-      if (!provider.isHealthy()) {
-        logger.warn('LLMRouter skipping unhealthy provider', { provider: provider.name });
-        continue;
-      }
       try {
         const result = await provider.generateText(prompt, systemPrompt, opts);
         if (result) return result;

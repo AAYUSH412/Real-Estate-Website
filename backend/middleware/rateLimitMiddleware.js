@@ -61,7 +61,7 @@ export const passwordResetLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful password resets
+  skipSuccessfulRequests: false, // Email-triggering responses must count, including 200s
   keyGenerator: (req) => {
     return req.ip || req.connection.remoteAddress;
   },

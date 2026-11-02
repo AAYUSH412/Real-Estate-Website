@@ -93,7 +93,7 @@ export class NvidiaNimProvider extends LLMProvider {
             const model   = this.models[i];
             const circuit = this.circuits[i];
 
-            if (!circuit.isHealthy()) {
+            if (!circuit.canAttempt()) {
                 logger.warn('NvidiaNim circuit open, skipping', { slug: model.slug });
                 continue;
             }

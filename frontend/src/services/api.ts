@@ -8,7 +8,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 // Create axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // sends httpOnly user_refresh cookie on every request
 });
 
@@ -49,12 +48,13 @@ apiClient.interceptors.response.use(
     // Don't try to refresh on auth endpoints themselves
     const isAuthEndpoint = url.includes('/users/refresh') || url.includes('/users/login') || url.includes('/users/logout');
 
-    if (error.response?.status === 401 && !original._retried && !isAuthEndpoint) {
+    if (error.response?.status === 401 && original && !original._retried && !isAuthEndpoint) {
       original._retried = true;
       try {
         const { data } = await attemptRefresh() as { data: { token: string; success: boolean } };
         if (data.success && data.token) {
           localStorage.setItem('buildestate_token', data.token);
+          window.dispatchEvent(new Event('buildestate:session'));
           original.headers.Authorization = `Bearer ${data.token}`;
           return apiClient(original);
         }
@@ -117,8 +117,8 @@ export const userAPI = {
 
 // Properties (CRUD — admin-managed listings)
 export const propertiesAPI = {
-  getAll: () =>
-    apiClient.get('/products/list'),
+  getAll: (params: Record<string, string | number | undefined> = {}, signal?: AbortSignal) =>
+    apiClient.get('/products/list', { params, signal }),
 
   getById: (id: string) =>
     apiClient.get(`/products/single/${id}`),
@@ -131,8 +131,10 @@ export const userListingsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
-  getMyListings: () =>
-    apiClient.get('/user/properties'),
+  getMyListings: (params: { page?: number; limit?: number } = {}, signal?: AbortSignal) =>
+    apiClient.get('/user/properties', { params, signal }),
+
+  getById: (id: string) => apiClient.get(`/user/properties/${id}`),
 
   update: (id: string, formData: FormData) =>
     apiClient.put(`/user/properties/${id}`, formData, {
@@ -154,7 +156,7 @@ export const appointmentsAPI = {
     phone: string;
     message?: string;
   }) =>
-    apiClient.post('/appointments/schedule', data),
+    apiClient.post(localStorage.getItem('buildestate_token') ? '/appointments/schedule/auth' : '/appointments/schedule', data),
 
   getByUser: () =>
     apiClient.get('/appointments/user'),

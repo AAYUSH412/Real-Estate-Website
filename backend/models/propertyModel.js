@@ -13,24 +13,30 @@ const propertySchema = new mongoose.Schema(
     price: {
       type: Number,
       required: true,
+      min: 1,
     },
     // Stored as plain URLs. Admin-panel listings use this directly.
     // User-submitted listings also store URLs here for full compatibility.
     image: {
       type: [String],
       required: true,
+      validate: { validator: value => value.length >= 1 && value.length <= 4, message: 'A listing needs 1 to 4 images' },
     },
+    imageAssets: [{ url: String, fileId: String }],
     beds: {
       type: Number,
       required: true,
+      min: 0,
     },
     baths: {
       type: Number,
       required: true,
+      min: 0,
     },
     sqft: {
       type: Number,
       required: true,
+      min: 1,
     },
     type: {
       type: String,
@@ -45,7 +51,7 @@ const propertySchema = new mongoose.Schema(
       required: true,
     },
     amenities: {
-      type: Array,
+      type: [String],
       required: true,
     },
     phone: {
@@ -94,6 +100,7 @@ const propertySchema = new mongoose.Schema(
   {
     // Adds createdAt and updatedAt fields automatically
     timestamps: true,
+    optimisticConcurrency: true,
   }
 );
 

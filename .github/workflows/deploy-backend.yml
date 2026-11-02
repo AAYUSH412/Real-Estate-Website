@@ -24,6 +24,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Set up Node for verification
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install and verify backend before publishing
+        working-directory: backend
+        run: |
+          npm ci --ignore-scripts
+          npm test
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:

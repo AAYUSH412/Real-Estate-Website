@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar, Clock, User, Home, Check, X, Loader2,
-  Filter, Search, Link as LinkIcon, Send, AlertCircle,
-  ChevronDown,
-} from "lucide-react";
+  Search, Link as LinkIcon, Send, } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "../services/apiClient";
 import { cn, formatDate } from "../lib/utils";

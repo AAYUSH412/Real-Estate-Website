@@ -347,13 +347,15 @@ export function createAIService(
   nvidiaKey = null,
   githubModelsConfig = null,
   nvidiaModelsConfig = null,
+  preferredProvider = 'github',
 ) {
   const providers = [];
 
-  if (githubKey) providers.push(new GitHubModelsProvider(githubKey, githubModelsConfig));
-  if (nvidiaKey) providers.push(new NvidiaNimProvider(nvidiaKey, nvidiaModelsConfig));
+  if (githubKey && (githubModelsConfig === null || githubModelsConfig.length)) providers.push(new GitHubModelsProvider(githubKey, githubModelsConfig));
+  if (nvidiaKey && (nvidiaModelsConfig === null || nvidiaModelsConfig.length)) providers.push(new NvidiaNimProvider(nvidiaKey, nvidiaModelsConfig));
 
-  if (!providers.length) throw new Error('[AIService] At least one AI provider key is required.');
+  if (!providers.length) throw Object.assign(new Error('No enabled AI models are available.'), { statusCode: 503 });
+  if (preferredProvider === 'nvidia') providers.sort((a, b) => (a.name === 'NvidiaNim' ? -1 : 1) - (b.name === 'NvidiaNim' ? -1 : 1));
 
   logger.info('AIService: provider chain', { chain: providers.map(p => p.name).join(' → ') });
   return new AIService(new LLMRouter(providers));

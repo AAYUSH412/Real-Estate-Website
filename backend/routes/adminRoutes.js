@@ -1,3 +1,4 @@
+import { adminListProperties, adminSingleProperty } from '../controller/productController.js';
 import express from 'express';
 import {
   getAdminStats,
@@ -42,6 +43,8 @@ router.put('/appointments/status', updateAppointmentStatus);
 
 // Listing review queue
 router.get('/properties/pending', getPendingListings);
+router.get('/properties', adminListProperties);
+router.get('/properties/:id', adminSingleProperty);
 router.put('/properties/:id/approve', approveListing);
 router.put('/properties/:id/reject', rejectListing);
 

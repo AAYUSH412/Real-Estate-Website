@@ -2,7 +2,7 @@
 
 Release tracking: [RELEASE.md](RELEASE.md).
 
-Implementation date: 2026-11-02. Status: implemented locally; production release and staging browser acceptance remain pending. This document updates the historical findings in `PROJECT_AUDIT.md`; it does not claim a production deployment or a complete accessibility certification.
+Implementation date: 2026-11-02. Status: deployed to Azure and Vercel; full browser/test-inbox acceptance remains pending. This document updates the historical findings in `PROJECT_AUDIT.md`; it does not claim a production deployment or a complete accessibility certification.
 
 ## Implemented journeys
 
@@ -38,7 +38,7 @@ Newsletter tokens use the existing JWT secret with an isolated audience, purpose
 
 ## Data preparation before deployment
 
-This phase did not connect to or modify production MongoDB. User accounts, properties and appointments are untouched by its migration.
+The migration was backed up, rehearsed and applied during the release recorded in RELEASE.md. Full record fingerprints verified user accounts, admin identities, properties and appointments unchanged. The instructions below remain the repeatable rollout procedure.
 
 1. Back up the newsletter/contact collections and indexes, and rehearse restoration and migration against a disposable database.
 2. With the intended connection supplied privately as `MONGODB_URI`, run:

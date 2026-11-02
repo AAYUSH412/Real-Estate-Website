@@ -484,7 +484,7 @@ Done when malformed IDs/input return 400s, concurrent booking/review actions hav
 
 ### Phase 3 — Complete admin and user journeys
 
-Implementation and release checklist: [Phase 3 register](docs/phase3/PHASE_3.md). Implemented locally; staging browser acceptance and deployment pending.
+Implementation and release checklist: [Phase 3 register](docs/phase3/PHASE_3.md). Deployed on 2026-11-02; see the register for release evidence and outstanding browser/test-inbox acceptance.
 
 Connect bulk controls, finish lead/subscriber management, fix amenities/log totals/sitemap/auth state, add newsletter opt-out/verification recovery, and remove misleading placeholders. Introduce a consistent query/cache layer, route splitting, accessible form/dropdown primitives, and meaningful failure states.
 

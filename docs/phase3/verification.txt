@@ -30,8 +30,15 @@ The backend test server and replica set require local socket permissions;
 the test command was run outside the restricted sandbox for that reason.
 The tests do not load production MongoDB configuration or send live emails.
 
-Not executed in this phase:
+Not executed during initial implementation (see RELEASE.md for the subsequent authorized production rollout):
 - Live MongoDB migration/preflight or production data changes.
 - Git push or Azure/Vercel deployment.
 - Deployed staging browser E2E, keyboard/mobile review or live SMTP delivery.
 See PHASE_3.md for the release and acceptance checklist.
+
+Subsequent release verification — 2026-11-02
+56 backend + 9 frontend + 9 admin = 74 passing tests.
+Both production builds passed; admin lint: zero errors/warnings.
+Private full-collection backup, restoration rehearsal and Phase 3 migration passed.
+Azure and both Git-triggered Vercel deployments succeeded for commit 1a2c9e5.
+Production API/client smoke checks passed; details in RELEASE.md.

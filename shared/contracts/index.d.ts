@@ -67,6 +67,29 @@ export interface LeadPage { success: boolean; leads: LeadDTO[]; pagination: Page
 export interface SubscriberPage { success: boolean; subscribers: SubscriberDTO[]; pagination: PageDTO; }
 export interface AppointmentDetail { success: boolean; appointment: AppointmentDTO; }
 export interface LeadDetail { success: boolean; lead: LeadDTO; }
+export type AIProfile = 'text-basic' | 'nemotron-bolt' | 'mistral-large-4' | 'minimax-flash';
+export interface AIModelConfig {
+  maxTokens: number; timeoutMs: number; temperature: number; topP: number;
+  enableThinking?: boolean; reasoningEffort?: 'high'; seed?: number;
+  frequencyPenalty?: number; presencePenalty?: number;
+}
+export interface AIModelTest {
+  passed: boolean; mode: 'application' | 'connection'; configuration: string;
+  testedAt: string; latencyMs: number; code: string;
+  effective: { maxTokens: number; timeoutMs: number };
+}
+export interface AIModelDTO {
+  _id: string; name: string; slug: string; modelId: string; provider: 'nvidia';
+  profile: AIProfile; badge: string; description: string; isActive: boolean;
+  isDefault: boolean; order: number; version: number; configuration: string;
+  config: AIModelConfig; lastTest?: AIModelTest; lastConnectionTest?: AIModelTest;
+}
+export interface AIAnalysisMeta {
+  status: 'generated' | 'partial' | 'unavailable'; requestedModel: string;
+  actualModel: { provider: 'nvidia'; modelId: string; slug: string; version: number;
+    configuration: string; fallback: boolean; effective: { maxTokens: number; timeoutMs: number } } | null;
+  configuration: string; analyzedCount?: number; totalCount?: number; sources: string;
+}
 export interface PropertyDTO {
   _id: string; title: string; location: string; price: number; beds: number; baths: number; sqft: number;
   type: string; purpose: 'sale' | 'rent'; availability: 'sale' | 'rent'; marketStatus: 'available' | 'sold' | 'rented';

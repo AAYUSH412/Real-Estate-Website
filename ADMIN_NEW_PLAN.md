@@ -1,7 +1,7 @@
 # BuildEstate — Backend readiness and `admin_new` redesign plan
 
 Prepared: 3 November 2026
-Status: **Phase 1 implemented and locally verified; Phase 2 not started**
+Status: **Phases 1–2 implemented and locally verified; Phase 3 acceptance gate next**
 Repository baseline: `9b7d946` (Phase 3 release documentation)
 Scope update: 3 November 2026 — prioritize essential features for a demonstration project.
 
@@ -16,9 +16,9 @@ Scope update: 3 November 2026 — prioritize essential features for a demonstrat
 7. Make adding, testing, enabling, disabling, removing and selecting AI models possible through the admin interface.
 8. Keep the original audit's **Phase 4 — Make operations dependable** deferred at your request. Its unresolved items remain documented, rather than marked completed.
 
-**Current delivery:** Phase 1 essential backend fixes are implemented locally, including compatibility updates to the existing clients. Validation: **84 tests passed (65 backend, 10 admin, 9 frontend)**, admin lint, both client production builds and final frontend TypeScript checks. No production database/configuration changes, push, deployment or project server stop was performed. `admin_new/` has not been created. NVIDIA-only behavior remains Phase 2; the runtime still contains GitHub Models support.
+**Current delivery:** Phase 2 NVIDIA-only runtime and model management are implemented locally. **100 tests passed (80 backend, 11 admin, 9 frontend)**; admin lint and both client builds passed. The configured database was inventoried read-only and its model snapshot rehearsed in ephemeral MongoDB. No migration apply, project database write, production deployment or server stop was performed. Live bounded checks passed for Nemotron Bolt; Mistral application JSON and MiniMax checks reached the 30-second deadline. Those candidates remain unverified for activation. `admin_new/` has not been created.
 
-**Next:** Phase 2 (NVIDIA-only), then the backend acceptance gate; Phase 1 completion is recorded in section 10.2. Begin `admin_new/` only after that gate passes. Section 10 is the execution tracker; section 5 remains the source findings register.
+**Next:** Phase 3 backend acceptance gate; Phase 1 evidence is in section 10.2 and Phase 2 evidence is in section 10.3. Begin `admin_new/` only after that gate passes. Section 5 preserves original findings; it is not a claim that fixed runtime paths still behave as they did during review. Phase 1 is backed up in [draft PR #4](https://github.com/AAYUSH412/Real-Estate-Website/pull/4).
 
 ## 2. Recommendation
 
@@ -453,7 +453,7 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | --- | --- | --- | --- | --- |
 | **0 — Plan and scope** | Backend review, design direction, NVIDIA-only requirement and demo-sized scope | **Complete** | Owner review on 3 November 2026 | This document; no implementation claimed |
 | **1 — Essential backend fixes** | Correct and consistent APIs for the existing admin journeys | **Complete (local)** | Phase 0 | 84 tests; admin lint; both client builds; [contract notes](backend/docs/admin-phase1-contracts.md); no deployment |
-| **2 — NVIDIA-only AI** | GitHub inference removed; safe model CRUD/testing/default/fallback behavior | Not started | Phase 1 | NVIDIA-only tests, model migration rehearsal and compatibility results |
+| **2 — NVIDIA-only AI** | GitHub inference removed; safe model CRUD/testing/default/fallback behavior | **Complete (local; live limits recorded)** | Phase 1 | 100 tests; migration rehearsal; bounded live checks; [Phase 2 contract/release notes](backend/docs/admin-phase2-nvidia.md); no migration apply/deployment |
 | **3 — Backend acceptance gate** | Backend verified before building its replacement client | Not started | Phases 1–2 | Checklist in section 12 and explicit remaining limitations |
 | **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Not started | Phase 3 | Working local application and responsive/theme/session checks |
 | **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Not started | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
@@ -503,16 +503,35 @@ Tasks:
 
 Tasks:
 
-- [ ] **P2-01:** Inventory current model records/configuration and prepare a read-only migration report; preserve existing users, listings, bookings and audit history.
-- [ ] **P2-02:** Remove GitHub Models runtime routing/provider code and GitHub-only dependencies/configuration/seeds after checking references. Preserve GitHub repository hosting, CLI and Actions.
-- [ ] **P2-03:** Restrict serving provider to NVIDIA in the backend and current admin during the transition; keep the server API key private.
-- [ ] **P2-04:** Add validated capability/parameter profiles for the three requested NVIDIA model IDs in section 6. Do not implement vision uploads, tool execution or upstream streaming as new product features.
-- [ ] **P2-05:** Add exact-model testing with safe result/latency/timestamp/configuration information and bounded requests. A test must not pass by silently falling back to another model.
-- [ ] **P2-06:** Implement safe enable/disable/default/replacement/removal rules and simple fallback ordering. All-disabled must return an honest unavailable state.
-- [ ] **P2-07:** Make actual-model/fallback information and cache configuration changes truthful (B09); ensure relevant results are invalidated/versioned after catalog changes.
-- [ ] **P2-08:** Update NVIDIA-only tests and old-client compatibility, rehearse the migration and record results. Verify account access/output compatibility separately from routine mocked tests.
+- [x] **P2-01:** Inventory current model records/configuration and prepare a read-only migration report; preserve existing users, listings, bookings and audit history.
+- [x] **P2-02:** Remove GitHub Models runtime routing/provider code and GitHub-only dependencies/configuration/seeds after checking references. Preserve GitHub repository hosting, CLI and Actions.
+- [x] **P2-03:** Restrict serving provider to NVIDIA in the backend and current admin during the transition; keep the server API key private.
+- [x] **P2-04:** Add validated capability/parameter profiles for the three requested NVIDIA model IDs in section 6. Do not implement vision uploads, tool execution or upstream streaming as new product features.
+- [x] **P2-05:** Add exact-model testing with safe result/latency/timestamp/configuration information and bounded requests. A test must not pass by silently falling back to another model.
+- [x] **P2-06:** Implement safe enable/disable/default/replacement/removal rules and simple fallback ordering. All-disabled must return an honest unavailable state.
+- [x] **P2-07:** Make actual-model/fallback information and cache configuration changes truthful (B09); ensure relevant results are invalidated/versioned after catalog changes.
+- [x] **P2-08:** Update NVIDIA-only tests and old-client compatibility, rehearse the migration and record results. Verify account access/output compatibility separately from routine mocked tests.
 
 **Done when:** GitHub inference cannot be selected or called; supported NVIDIA models can be added/tested/enabled/defaulted/disabled/removed using real APIs; stale writes, unsupported options and default removal are handled safely. A new model requiring an unsupported request capability may still need an adapter update.
+
+**Completion evidence — 3 November 2026 (local implementation):**
+
+| Task | Implemented changes / evidence |
+| --- | --- |
+| P2-01 | Read-only configured-database inventory: one NVIDIA model, zero GitHub records, zero migration blockers. Private model-only Extended JSON snapshot retained outside Git. No project data changed. |
+| P2-02 | Removed GitHub inference adapter, OpenAI SDK dependency, provider routing, current env/setup requirements and old seed behavior. Retired migration command cannot reinsert GitHub models. GitHub repository/CLI/Actions are unchanged. |
+| P2-03 | NVIDIA-only model schema/input/resolution and current admin controls; fixed upstream endpoint and server-only key; no arbitrary payload/header/URL overrides. Public requests never seed or restore deleted models. |
+| P2-04 | Validated Bolt/Mistral/MiniMax profiles plus conservative text-basic profile for other NVIDIA-hosted IDs. Payload tests verify only supported reasoning/seed/penalty fields; no unconditional JSON mode, reasoning budget, tools, images or upstream streaming. Saved limits cap effective requests; fallback has a shared 120-second / three-attempt budget. |
+| P2-05 | Admin-protected, rate-limited exact-model connection/application tests; fixed demo input; no fallback; bounded response, token/time limits; safe persisted result/configuration/latency/timestamp; stale in-flight tests rejected. Reasoning-only and truncated answers fail. |
+| P2-06 | Disabled-first creation; application-test evidence required before activation; serialized default changes/replacements/removal/all-off/reorder with displayed versions; audit rollback and concurrent enable tests pass. Current admin exposes real controls and confirmations. |
+| P2-07 | Cross-instance catalog re-read and configuration fingerprint in result keys; trend limit/model included; actual model/fallback/effective limits and generation timestamp returned; public availability/coverage/provenance displayed. Larger property sets no longer silently stop at eight; cached model estimates are labeled unverified. |
+| P2-08 | NVIDIA-only regressions and client checks pass. Actual model snapshot rehearsed in isolated replica set: one normalized model plus three additions, all disabled; unrelated sentinels unchanged; repeat run preserves catalog. Synthetic tests cover GitHub retirement/private backup/audit preservation. Live account checks below are recorded separately from mocks. |
+
+**Checks:** backend `npm test` **80/80**; admin `npm test` **11/11**, lint and production build; frontend `npm test` **9/9** and production build (includes TypeScript); diff and JavaScript syntax checks. The frontend's existing shared static/dynamic API-import warning remains non-blocking. [Contract, migration, rollback and verification notes](backend/docs/admin-phase2-nvidia.md).
+
+**Live profile readiness:** Nemotron connection/application JSON passed (1052/3677 ms). Mistral connection passed (1029 ms), but its application JSON check did not complete within 30 seconds. MiniMax connection and JSON checks did not complete within 30 seconds. These are bounded observations, not throughput/quality guarantees. No saved model record was activated or granted test evidence by this standalone check; test the exact saved post-migration configuration in admin. Keep Mistral/MiniMax disabled until they pass.
+
+**Release boundary:** migration is prepared and rehearsed, **not applied** to the configured database. Existing model configuration, users, listings, appointments and audit records are untouched. The coordinated release must apply the private-backup migration, retire the old default index and test/enable models. Current AI writes now require versions; update the old admin alongside the backend. Full browser acceptance and production migration/deployment remain later work. Phase 2 uses branch `feat/admin-new-phase2-nvidia`, based on the Phase 1 branch so PR #4 remains scoped to Phase 1.
 
 ### 10.4 Phase 3 — Backend acceptance gate
 
@@ -604,12 +623,13 @@ After each implementation session:
 4. A blocked task gets its reason and dependency; do not silently skip it or mark it complete.
 5. Keep release/deployment outcomes separate from local implementation completion.
 
-**Current position:** Phases 0–1 complete locally. **Next: P2-01, read-only inventory and NVIDIA-only migration report.** Phase 2 and `admin_new` implementation have not started. Phase 1 has not been pushed or deployed.
+**Current position:** Phases 0–2 complete locally, with Phase 2 live profile limits and release migration explicitly recorded above. **Next: Phase 3 backend acceptance gate (P3-01–P3-07).** No `admin_new` implementation, project database migration or production deployment has started under this plan.
 
 | Date | Phase/task | Outcome | Validation/evidence | Next |
 | --- | --- | --- | --- | --- |
 | 2026-11-03 | Phase 0 | Owner reviewed the direction; essential demo scope and executable tracker recorded | Documentation update only; no tests rerun or deployment performed | Begin Phase 1 when implementation starts |
 | 2026-11-03 | P1-01–P1-09 | Essential backend fixes and old-client compatibility implemented locally | 84 tests passed; admin lint; client builds and TypeScript; contract notes above; no push/deployment or project database changes | P2-01 inventory/report |
+| 2026-11-03 | P2-01–P2-08 | NVIDIA-only inference, model lifecycle/testing, provenance/cache and current-client controls implemented | 100 tests; client builds/lint; actual-snapshot migration rehearsal; mixed live profile results documented; no project migration/deployment | Phase 3 acceptance gate |
 
 ## 11. Important features only — fixed first-release scope
 
@@ -668,8 +688,8 @@ Keep historical audit findings and release evidence. Add links/status changes; d
 
 ## 15. Where to start now
 
-Phase 1 is implemented and locally verified. Continue with **Phase 2 — NVIDIA-only AI**, beginning with **P2-01: read-only model inventory and migration report**. Complete the NVIDIA-only work and backend acceptance gate before creating `admin_new/`.
+Phases 1–2 are implemented and locally verified. Continue with **Phase 3 — Backend acceptance gate**, using P3-01–P3-07. Keep Mistral/MiniMax disabled until successful application tests. Complete the gate before creating `admin_new/`; apply migration only as a coordinated release step.
 
 The plan is deliberately limited to existing management modules plus the three important additions in section 11. The larger operations Phase 4 and optional product ideas remain deferred.
 
-**Implementation status:** Phase 1 is complete locally with evidence in section 10.2. No deployment or project database changes were made. Continue with Phase 2, beginning with the read-only model inventory; `admin_new` still waits for the backend acceptance gate.
+**Implementation status:** Phases 1–2 have local completion evidence in sections 10.2–10.3. No production deployment or project database mutation was made. Model migration is rehearsed and ready for release review; `admin_new` waits for Phase 3 acceptance.

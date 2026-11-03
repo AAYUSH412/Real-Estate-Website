@@ -1,3 +1,4 @@
+import type { AIAnalysisMeta } from '@buildestate/contracts';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -112,7 +113,7 @@ const AIHubProductionPage: React.FC = () => {
     {
       icon: 'analytics',
       title: 'Market Analysis',
-      description: 'Get GPT-4.1 powered analysis with best value picks and personalized recommendations.',
+      description: 'Get NVIDIA-powered analysis with best value picks and personalized recommendations.',
     },
     {
       icon: 'trending_up',
@@ -157,7 +158,7 @@ const AIHubProductionPage: React.FC = () => {
             <p data-speakable className="font-manrope text-lg text-[#9ca3af] leading-relaxed mb-10 max-w-2xl mx-auto">
               Search for flats, villas, and apartments across India using AI. BuildEstate's AI Property Hub
               scrapes live listings from 99acres, MagicBricks, and Housing.com using Firecrawl, then ranks
-              results with GPT-4 based on your requirements. Available when running the project locally.
+              results with NVIDIA-hosted models based on your requirements. Available when running the project locally.
             </p>
 
             {/* CTA Buttons */}
@@ -271,8 +272,8 @@ const AIHubProductionPage: React.FC = () => {
 
 const AIPropertyHubPage: React.FC = () => {
   useSEO({
-    title: 'AI Property Hub — Search Flats & Houses in India with GPT-4',
-    description: 'Search for flats, villas, and apartments across India using AI. BuildEstate scrapes live listings from 99acres, MagicBricks, and Housing.com, then ranks results with GPT-4.',
+    title: 'AI Property Hub — Search Flats & Houses in India with NVIDIA-hosted models',
+    description: 'Search for flats, villas, and apartments across India using AI. BuildEstate scrapes live listings from 99acres, MagicBricks, and Housing.com, then ranks results with NVIDIA-hosted models.',
     url: 'https://buildestate.vercel.app/ai-hub',
   });
 
@@ -318,6 +319,7 @@ const AIHubDevPage: React.FC = () => {
     category: 'Residential',
   });
 
+  const [analysisMeta, setAnalysisMeta] = useState<(AIAnalysisMeta & { fromCache?: boolean; generatedAt?: string }) | null>(null);
   // Results
   const [properties, setProperties] = useState<ScrapedProperty[]>([]);
   const [analysis, setAnalysis] = useState<PropertyAnalysis | null>(null);
@@ -382,6 +384,7 @@ const AIHubDevPage: React.FC = () => {
     setHasSearched(true);
     setSseStage(null);
     setStatusMessage('');
+    setAnalysisMeta(null);
     setLocations([]);
     setLocationAnalysis(null);
     setHasLoadedTrends(false);
@@ -420,6 +423,7 @@ const AIHubDevPage: React.FC = () => {
         },
         // Cache hit: full payload arrives in one shot
         onResult: (data: Record<string, unknown>) => {
+          setAnalysisMeta(data.analysisMeta ? { ...(data.analysisMeta as AIAnalysisMeta), fromCache: Boolean(data.fromCache), generatedAt: data.generatedAt as string } : null);
           setProperties((data.properties as typeof properties) || []);
           setAnalysis((data.analysis as typeof analysis) || null);
           setSearchLoading(false);
@@ -506,6 +510,11 @@ const AIHubDevPage: React.FC = () => {
               <React.Suspense fallback={null}>
                 <section className="bg-[#FAF8F4] py-14 border-t border-[#E6E0DA]/50">
                   <div className="max-w-7xl mx-auto px-6">
+                    {analysisMeta && <p role="status" className="text-sm text-[#6B7280] mb-4">
+                      {analysisMeta.status === 'unavailable' ? 'AI analysis unavailable; showing source listing details.' : `Analysis: ${analysisMeta.actualModel?.modelId || 'model unavailable'}${analysisMeta.actualModel?.fallback ? ' (fallback)' : ''}${analysisMeta.fromCache ? ' · cached result' : ''}.`}
+                      {analysisMeta.status === 'partial' && ` Analyzed ${analysisMeta.analyzedCount} of ${analysisMeta.totalCount} listings.`}
+                      {' '}Source-reported details and AI estimates are not independently verified.
+                    </p>}
                     <div className="flex flex-col lg:flex-row gap-8 items-start">
                       {/* Left col: property cards */}
                       <div className="w-full lg:flex-1 min-w-0 order-2 lg:order-1">

@@ -6,6 +6,7 @@ import { createServer } from 'node:http';
 
 // Never load server.js or connectdb: this suite owns an ephemeral database.
 process.env.NODE_ENV = 'test';
+process.env.NVIDIA_API_KEY = 'isolated-nvidia-test-key';
 process.env.JWT_SECRET = 'phase1-isolated-test-secret';
 process.env.ADMIN_EMAIL = 'admin@phase1.test';
 process.env.IMAGEKIT_PUBLIC_KEY = 'test-placeholder';
@@ -28,14 +29,15 @@ const { AuthSession, RefreshCredential } = await import('../models/authSessionMo
 const { default: AuditLog } = await import('../models/adminActivityLogModel.js');
 const { default: Property } = await import('../models/propertyModel.js');
 const { default: Appointment } = await import('../models/appointmentModel.js');
-const { default: AIModel } = await import('../models/aiModelModel.js');
+const { default: AIModel, AICatalogState } = await import('../models/aiModelModel.js');
 const { default: imagekit } = await import('../config/imagekit.js');
 const { default: email } = await import('../services/emailService.js');
 const { mountApiRoutes } = await import('../routes/mountApiRoutes.js');
 const { respondError } = await import('../utils/httpErrors.js');
 const { createCircuitBreaker, registry } = await import('../utils/circuitBreaker.js');
 const { LLMRouter } = await import('../services/llm/LLMRouter.js');
-const { GitHubModelsProvider } = await import('../services/llm/GitHubModelsProvider.js');
+const { modelFingerprint, MODEL_SEEDS } = await import('../services/llm/modelProfiles.js');
+const { modelTestRateLimiter } = await import('../routes/adminRoutes.js');
 const { NvidiaNimProvider } = await import('../services/llm/NvidiaNimProvider.js');
 const { createAIService } = await import('../services/aiService.js');
 const { resolveModelsByProvider } = await import('../controller/aiModelController.js');
@@ -78,16 +80,17 @@ before(async () => {
   await mongoose.connect(mongo.getUri());
   passwordHash = await bcrypt.hash(password, 4);
   await Admin.create({ email: process.env.ADMIN_EMAIL, password });
-  await Promise.all([User.init(), Property.init(), Appointment.init(), AuthSession.init(), RefreshCredential.init(), AuditLog.init()]);
+  await Promise.all([User.init(), Property.init(), Appointment.init(), AuthSession.init(), RefreshCredential.init(), AuditLog.init(), AIModel.init(), AICatalogState.init()]);
 }, { timeout: 180000 });
 
 beforeEach(async () => {
   for (const limiter of [loginLimiter, registrationLimiter, passwordResetLimiter, passwordResetVerifyLimiter, emailResendLimiter]) for (const ip of ['::ffff:127.0.0.1', '127.0.0.1', '::1']) await limiter.resetKey(ip);
-  await Promise.all([User.deleteMany({}), Property.deleteMany({}), Appointment.deleteMany({}), AuthSession.deleteMany({}), RefreshCredential.deleteMany({}), AuditLog.deleteMany({})]);
+  await Promise.all([User.deleteMany({}), Property.deleteMany({}), Appointment.deleteMany({}), AuthSession.deleteMany({}), RefreshCredential.deleteMany({}), AuditLog.deleteMany({}), AIModel.deleteMany({}), AICatalogState.deleteMany({})]);
   owner = await User.create({ name: 'Owner', email: 'owner@phase1.test', password: passwordHash, isEmailVerified: true });
   other = await User.create({ name: 'Other', email: 'other@phase1.test', password: passwordHash, isEmailVerified: true });
   for (const user of [owner, other]) tokens.set(user.id, (await createSession(user, 'user')).token);
   adminToken = (await createSession(await Admin.findOne({}), 'admin')).token;
+  await modelTestRateLimiter.reset(`ai-model-test:${(await Admin.findOne({}))._id}`);
   uploads = []; removed = [];
   imagekit.upload = async options => {
     const id = `image-${uploads.length + 1}`;
@@ -281,16 +284,21 @@ test('pagination caps invalid/unbounded sizes and public queries exclude expired
   assert.equal((await request(testServer).get(`/api/admin/properties/${p.id}`).set('Authorization', adminAuth())).status, 200);
 });
 
-test('AI model create/update persists provider and all-disabled models stay disabled', async () => {
-  await AIModel.deleteMany({});
-  const created = await request(testServer).post('/api/admin/ai-models').set('Authorization', adminAuth()).send({ name: 'GitHub test', slug: 'github-test', modelId: 'test-id', provider: 'github' });
-  assert.equal(created.status, 201); assert.equal(created.body.model.provider, 'github');
-  const update = await request(testServer).put(`/api/admin/ai-models/${created.body.model._id}`).set('Authorization', adminAuth()).send({ isActive: false });
-  assert.equal(update.status, 200);
-  assert.deepEqual(await resolveModelsByProvider(), { github: [], nvidia: [] });
-  assert.equal(await AIModel.countDocuments(), 1);
-  await request(testServer).delete(`/api/admin/ai-models/${created.body.model._id}`).set('Authorization', adminAuth());
-  assert.deepEqual(await resolveModelsByProvider(), { github: [], nvidia: [] });
+async function aiFixture(slug = 'fixture-model', overrides = {}) {
+  const model = new AIModel({ name: slug, slug, modelId: 'demo/text-model', profile: 'text-basic', provider: 'nvidia', ...overrides });
+  model.lastTest = { passed: true, mode: 'application', configuration: modelFingerprint(model.toObject()), testedAt: new Date() };
+  await model.save(); return model;
+}
+const appJSON = JSON.stringify({ overview: [{ name: 'Demo Home', price: 'INR 5000000', area: '1000 sqft', location: 'Pune', match_score: 50 }], best_value: { name: 'Demo Home', reason: 'Demo comparison only' }, recommendations: ['Verify source details'] });
+const modelWrite = (row, values) => request(testServer).put(`/api/admin/ai-models/${row.id || row._id}`).set('Authorization', adminAuth()).send({ expectedVersion: row.version ?? row.__v ?? 0, ...values });
+
+test('AI create rejects GitHub, saves NVIDIA disabled and public reads never reseed', async () => {
+  assert.equal((await request(testServer).post('/api/admin/ai-models').set('Authorization', adminAuth()).send({ name: 'Legacy', slug: 'legacy', modelId: 'openai/gpt-4.1', provider: 'github' })).status, 400);
+  const created = await request(testServer).post('/api/admin/ai-models').set('Authorization', adminAuth()).send({ name: 'NVIDIA test', slug: 'nvidia-test', modelId: 'demo/text-model', provider: 'nvidia' });
+  assert.equal(created.status, 201, JSON.stringify(created.body)); assert.equal(created.body.model.isActive, false);
+  assert.deepEqual(await resolveModelsByProvider(), { nvidia: [] });
+  assert.equal((await request(testServer).delete(`/api/admin/ai-models/${created.body.model._id}`).set('Authorization', adminAuth()).send({ expectedVersion: 0 })).status, 200);
+  assert.equal((await request(testServer).get('/api/ai/models')).body.models.length, 0);
   assert.equal(await AIModel.countDocuments(), 0);
 });
 
@@ -302,31 +310,20 @@ test('recovered LLM circuits retry once and prevent parallel recovery probes', a
   const probe = circuit.execute(() => new Promise(resolve => { release = resolve; }));
   await assert.rejects(circuit.execute(async () => 'parallel'), /already running/);
   release('recovered'); assert.equal(await probe, 'recovered'); assert.equal(circuit.isHealthy(), true);
-  const providerCircuit = registry.getBreaker('ghm-phase1-recovery', { failureThreshold: 1, timeout: 1 });
+  const provider = new NvidiaNimProvider('fake-key', [{ slug: 'phase1-recovery', modelId: 'demo/recovery', config: { maxTokens: 256, timeoutMs: 1000 } }]);
+  const providerCircuit = provider.circuits[0]; providerCircuit.failureThreshold = 1;
   await assert.rejects(providerCircuit.execute(async () => { throw new Error('temporary outage'); }));
   providerCircuit.nextAttempt = Date.now() - 1;
-  const provider = new GitHubModelsProvider('fake-key', [{ slug: 'phase1-recovery', modelId: 'test-id', config: { timeoutMs: 1000 } }]);
   provider._call = async () => 'recovered response';
   assert.equal(await new LLMRouter([provider]).generateText('test', 'test'), 'recovered response');
 });
 
-test('selected NVIDIA provider runs first; disabled provider does not reappear as hardcoded fallback', async () => {
-  const originalGitHub = GitHubModelsProvider.prototype.generateText;
-  const originalNvidia = NvidiaNimProvider.prototype.generateText;
-  const calls = [];
-  GitHubModelsProvider.prototype.generateText = async function () { calls.push('github'); return 'github'; };
-  NvidiaNimProvider.prototype.generateText = async function () { calls.push('nvidia'); return 'nvidia'; };
-  const model = [{ slug: 'phase1-priority', modelId: 'test', config: { timeoutMs: 1000 } }];
-  try {
-    const ai = createAIService('fake-github', 'fake-nvidia', model, model, 'nvidia');
-    assert.equal(await ai.generateText('test'), 'nvidia'); assert.deepEqual(calls, ['nvidia']);
-    const only = createAIService('fake-github', 'fake-nvidia', [], model, 'nvidia');
-    assert.deepEqual(only.router.providers.map(p => p.name), ['NvidiaNim']);
-    assert.throws(() => createAIService('fake-github', 'fake-nvidia', [], []), /No enabled/);
-  } finally {
-    GitHubModelsProvider.prototype.generateText = originalGitHub;
-    NvidiaNimProvider.prototype.generateText = originalNvidia;
-  }
+test('NVIDIA factory never restores hardcoded models when catalog is empty', async () => {
+  const model = [{ slug: 'phase1-priority', modelId: 'demo/priority', config: { maxTokens: 256, timeoutMs: 1000 } }];
+  const ai = createAIService('fake-nvidia', model);
+  assert.deepEqual(ai.router.providers.map(provider => provider.name), ['NvidiaNim']);
+  assert.throws(() => createAIService('fake-nvidia', []), /No enabled/);
+  assert.throws(() => new NvidiaNimProvider('fake-nvidia'), /No enabled/);
 });
 
 test('telemetry URL redaction removes raw verification/reset tokens and queries', () => {
@@ -334,39 +331,21 @@ test('telemetry URL redaction removes raw verification/reset tokens and queries'
   assert.equal(redactUrl('/api/users/reset/secret-reset'), '/api/users/reset/[REDACTED]');
 });
 
-test('HTTP search honors the default/selected provider and rejects a disabled model', async () => {
-  const githubKey = process.env.GITHUB_MODELS_API_KEY;
-  const nvidiaKey = process.env.NVIDIA_API_KEY;
-  process.env.GITHUB_MODELS_API_KEY = 'test-only-github';
-  process.env.NVIDIA_API_KEY = 'test-only-nvidia';
-  const firecrawlPrototype = Object.getPrototypeOf(createFirecrawlService('test-only-firecrawl'));
-  const originalSearch = firecrawlPrototype.findProperties;
-  const originalGitHub = GitHubModelsProvider.prototype._call;
-  const originalNvidia = NvidiaNimProvider.prototype._call;
+test('HTTP search honors default/selected NVIDIA models and rejects disabled slugs', async () => {
+  const prototype = Object.getPrototypeOf(createFirecrawlService('test-only-firecrawl'));
+  const originalSearch = prototype.findProperties, originalCall = NvidiaNimProvider.prototype._call;
   const calls = [];
-  const result = JSON.stringify({ overview: [{ name: 'Test result', price: '₹50 L', match_score: 50 }] });
-  firecrawlPrototype.findProperties = async () => ({ properties: [{ building_name: 'Test result', price: '₹50 L', location_address: 'Pune' }] });
-  GitHubModelsProvider.prototype._call = async () => { calls.push('github'); return result; };
-  NvidiaNimProvider.prototype._call = async () => { calls.push('nvidia'); return result; };
+  prototype.findProperties = async () => ({ properties: [{ building_name: 'Demo Home', price: 'INR 5000000', location_address: 'Pune' }] });
+  NvidiaNimProvider.prototype._call = async modelId => { calls.push(modelId); return appJSON; };
   try {
-    const github = await request(testServer).post('/api/admin/ai-models').set('Authorization', adminAuth()).send({ name: 'HTTP GitHub', slug: 'http-github', modelId: 'test', provider: 'github', order: 0 });
-    assert.equal(github.status, 201);
-    const nvidia = await request(testServer).post('/api/admin/ai-models').set('Authorization', adminAuth()).send({ name: 'HTTP NVIDIA', slug: 'http-nvidia', modelId: 'test', provider: 'nvidia', isDefault: true, order: 1 });
-    assert.equal(nvidia.status, 201);
-    const defaultResult = await request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'test-only-firecrawl').send({ city: 'DefaultTest', price: { max: 5000000 } });
-    assert.equal(defaultResult.status, 200); assert.deepEqual(calls, ['nvidia']);
-    const selectedResult = await request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'test-only-firecrawl').send({ city: 'SelectedTest', model: 'http-github', price: { max: 5000000 } });
-    assert.equal(selectedResult.status, 200); assert.deepEqual(calls, ['nvidia', 'github']);
-    await request(testServer).put(`/api/admin/ai-models/${github.body.model._id}`).set('Authorization', adminAuth()).send({ isActive: false });
-    const disabled = await request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'test-only-firecrawl').send({ city: 'DisabledTest', model: 'http-github', price: { max: 5000000 } });
-    assert.equal(disabled.status, 400); assert.equal(calls.length, 2);
-  } finally {
-    firecrawlPrototype.findProperties = originalSearch;
-    GitHubModelsProvider.prototype._call = originalGitHub;
-    NvidiaNimProvider.prototype._call = originalNvidia;
-    if (githubKey === undefined) delete process.env.GITHUB_MODELS_API_KEY; else process.env.GITHUB_MODELS_API_KEY = githubKey;
-    if (nvidiaKey === undefined) delete process.env.NVIDIA_API_KEY; else process.env.NVIDIA_API_KEY = nvidiaKey;
-  }
+    await aiFixture('http-default', { isActive: true, isDefault: true, modelId: 'demo/default' });
+    const second = await aiFixture('http-selected', { isActive: true, modelId: 'demo/selected' });
+    const search = model => request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'test-only-firecrawl').send({ city: 'SelectionTest', ...(model && { model }), price: { max: 5000000 } });
+    const first = await search(); assert.equal(first.status, 200); assert.equal(first.body.analysisMeta.actualModel.modelId, 'demo/default');
+    assert.equal((await search('http-selected')).status, 200); assert.deepEqual(calls, ['demo/default', 'demo/selected']);
+    assert.equal((await modelWrite(second, { isActive: false })).status, 200);
+    assert.equal((await search('http-selected')).status, 400); assert.equal(calls.length, 2);
+  } finally { prototype.findProperties = originalSearch; NvidiaNimProvider.prototype._call = originalCall; }
 });
 
 test('removed assets are deleted after commit, while retained assets remain', async () => {
@@ -977,4 +956,220 @@ test('Brevo transport bounds requests and labels configuration without claiming 
     axios.defaults.adapter = adapter;
     if (key === undefined) delete process.env.BREVO_API_KEY; else process.env.BREVO_API_KEY = key;
   }
+});
+
+test('AI lifecycle requires exact application evidence and rejects stale, unsupported and secret-like options', async () => {
+  const original = NvidiaNimProvider.prototype._call;
+  const calls = [];
+  NvidiaNimProvider.prototype._call = async id => { calls.push(id); return calls.length === 1 ? 'OK' : appJSON; };
+  try {
+    const created = await request(testServer).post('/api/admin/ai-models').set('Authorization', adminAuth()).send(MODEL_SEEDS[0]);
+    assert.equal(created.status, 201, JSON.stringify(created.body)); let row = created.body.model;
+    assert.equal((await modelWrite(row, { isActive: true })).status, 409);
+    const connection = await request(testServer).post(`/api/admin/ai-models/${row._id}/test`).set('Authorization', adminAuth()).send({ expectedVersion: row.version, mode: 'connection' });
+    assert.equal(connection.status, 200); assert.equal(connection.body.result.passed, true); row = connection.body.model;
+    assert.equal((await modelWrite(row, { isActive: true })).status, 409);
+    const application = await request(testServer).post(`/api/admin/ai-models/${row._id}/test`).set('Authorization', adminAuth()).send({ expectedVersion: row.version, mode: 'application' });
+    assert.equal(application.status, 200, JSON.stringify(application.body)); assert.equal(application.body.result.passed, true); row = application.body.model;
+    assert.deepEqual(calls, [row.modelId, row.modelId]);
+    const enabled = await modelWrite(row, { isActive: true }); assert.equal(enabled.status, 200, JSON.stringify(enabled.body)); row = enabled.body.model;
+    assert.equal(row.isDefault, true);
+    assert.equal((await modelWrite({ ...row, version: row.version - 1 }, { badge: 'stale' })).status, 409);
+    assert.equal((await modelWrite(row, { config: { ...row.config, maxTokens: 4096 } })).status, 409);
+    assert.equal((await modelWrite(row, { config: { ...row.config, reasoningBudget: 10 } })).status, 400);
+    assert.equal((await modelWrite(row, { apiKey: 'never-store-keys' })).status, 400);
+    assert.equal((await request(testServer).post(`/api/admin/ai-models/${row._id}/test`).set('Authorization', auth(owner)).send({ expectedVersion: row.version })).status, 403);
+    assert.equal((await request(testServer).get('/api/ai/models')).body.models[0].slug, row.slug);
+    assert.doesNotMatch(JSON.stringify(application.body), /isolated-nvidia-test-key|reasoning_content/);
+    await AIModel.collection.updateOne({ _id: new mongoose.Types.ObjectId(row._id) }, { $set: { apiKey: 'legacy-secret-value', 'lastTest.rawResponse': 'legacy-secret-value' } });
+    const listed = await request(testServer).get('/api/admin/ai-models').set('Authorization', adminAuth());
+    assert.equal(listed.status, 200); assert.doesNotMatch(JSON.stringify(listed.body), /legacy-secret-value/);
+  } finally { NvidiaNimProvider.prototype._call = original; }
+});
+
+test('default replacement, full AI off, removal history and stale bulk reorder are atomic', async () => {
+  let first = await aiFixture('first', { isActive: true, isDefault: true });
+  let second = await aiFixture('second', { isActive: true });
+  assert.equal((await modelWrite(first, { isActive: false })).status, 409);
+  const replaced = await modelWrite(first, { isActive: false, replacementId: second.id, replacementVersion: second.__v });
+  assert.equal(replaced.status, 200, JSON.stringify(replaced.body));
+  second = await AIModel.findById(second.id); assert.equal(second.isDefault, true);
+  first = await AIModel.findById(first.id);
+  const stale = await request(testServer).post('/api/admin/ai-models/reorder').set('Authorization', adminAuth()).send({ modelIds: [second.id, first.id], expectedVersions: { [first.id]: first.__v, [second.id]: 99 } });
+  assert.equal(stale.status, 409); assert.equal((await AIModel.findById(first.id)).order, first.order);
+  const removed = await request(testServer).delete(`/api/admin/ai-models/${second.id}`).set('Authorization', adminAuth()).send({ expectedVersion: second.__v, turnOffAI: true });
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.equal(await AuditLog.countDocuments({ action: 'delete_ai_model', targetId: second._id }), 1);
+  assert.deepEqual(await resolveModelsByProvider(), { nvidia: [] });
+  const off = await request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'fake').send({ city: 'Pune', price: { max: 5000000 } });
+  assert.equal(off.status, 503);
+});
+
+test('model tests never fall back, reject reasoning-only/invalid JSON and detect edits made during a test', async () => {
+  const row = await aiFixture('test-exact'); await aiFixture('not-a-test-fallback', { isActive: true });
+  const original = NvidiaNimProvider.prototype._call;
+  let calls = 0;
+  NvidiaNimProvider.prototype._call = async () => { calls++; return 'not application JSON'; };
+  try {
+    const failed = await request(testServer).post(`/api/admin/ai-models/${row.id}/test`).set('Authorization', adminAuth()).send({ expectedVersion: row.__v });
+    assert.equal(failed.status, 200); assert.equal(failed.body.result.passed, false); assert.equal(calls, 1);
+    const fresh = failed.body.model;
+    NvidiaNimProvider.prototype._call = async () => {
+      await AIModel.updateOne({ _id: row.id }, { $set: { 'config.temperature': 0.8 }, $inc: { __v: 1 } });
+      return appJSON;
+    };
+    const stale = await request(testServer).post(`/api/admin/ai-models/${row.id}/test`).set('Authorization', adminAuth()).send({ expectedVersion: fresh.version });
+    assert.equal(stale.status, 409);
+  } finally { NvidiaNimProvider.prototype._call = original; }
+});
+
+test('NVIDIA parameter profiles omit unsupported fields and preserve saved caps and final-answer boundaries', async () => {
+  const { default: axios } = await import('axios');
+  const adapter = axios.defaults.adapter; const requests = [];
+  axios.defaults.adapter = async config => { requests.push({ body: JSON.parse(config.data), timeout: config.timeout }); return { data: { choices: [{ finish_reason: 'stop', message: { content: appJSON, reasoning_content: 'never disclose this' } }] }, status: 200, statusText: 'OK', headers: {}, config }; };
+  try {
+    for (const seed of MODEL_SEEDS) {
+      const cfg = { ...seed.config, maxTokens: 2048, timeoutMs: 1000, ...(seed.profile === 'nemotron-bolt' && { enableThinking: true, seed: 42 }), ...(seed.profile === 'mistral-large-4' && { reasoningEffort: 'high' }) };
+      const provider = new NvidiaNimProvider('fake-key', [{ ...seed, config: cfg }]);
+      assert.equal(await provider.generateText('demo', 'demo', { exact: true, maxTokens: 6000, timeoutMs: 20000, jsonMode: true }), appJSON);
+    }
+    assert.equal(requests[0].body.chat_template_kwargs.enable_thinking, true); assert.equal(requests[0].body.seed, 42);
+    assert.equal(requests[1].body.reasoning_effort, 'high'); assert.equal(requests[1].body.chat_template_kwargs, undefined);
+    assert.equal(requests[2].body.reasoning_effort, undefined);
+    for (const item of requests) { assert.equal(item.body.response_format, undefined); assert.equal(item.body.reasoning_budget, undefined); assert.equal(item.body.max_tokens, 2048); assert.equal(item.timeout, 1000); assert.equal(item.body.stream, false); }
+    axios.defaults.adapter = async config => ({ data: { choices: [{ message: { reasoning_content: 'private thinking' } }] }, status: 200, statusText: 'OK', headers: {}, config });
+    await assert.rejects(new NvidiaNimProvider('fake', [MODEL_SEEDS[0]]).generateText('demo', 'demo', { exact: true }));
+  } finally { axios.defaults.adapter = adapter; }
+});
+
+test('NVIDIA fallback reports its actual model and invalid JSON advances the chain', async () => {
+  const service = createAIService('fake', [{ ...MODEL_SEEDS[0], slug: 'bad-first' }, { ...MODEL_SEEDS[1], slug: 'good-second' }]);
+  const provider = service.router.providers[0]; const calls = [];
+  provider._call = async modelId => { calls.push(modelId); return calls.length === 1 ? 'invalid JSON' : appJSON; };
+  assert.equal(await service.generateText('demo'), appJSON);
+  assert.equal(service.lastGeneration.fallback, true); assert.equal(service.lastGeneration.modelId, MODEL_SEEDS[1].modelId);
+  assert.equal(calls.length, 2);
+});
+
+test('catalog changes invalidate search and trends caches across service instances, including limits', async () => {
+  const { default: SearchCache } = await import('../models/searchCacheModel.js'); const { default: TrendsCache } = await import('../models/trendsCacheModel.js');
+  await SearchCache.deleteMany({}); await TrendsCache.deleteMany({});
+  const model = await aiFixture('cache-default', { isActive: true, isDefault: true });
+  const prototype = Object.getPrototypeOf(createFirecrawlService('fake'));
+  const search = prototype.findProperties, trends = prototype.getLocationTrends, call = NvidiaNimProvider.prototype._call;
+  let searches = 0, trendCalls = 0;
+  prototype.findProperties = async () => { searches++; return { properties: [{ building_name: 'Demo Home', price: 'INR 5000000' }] }; };
+  prototype.getLocationTrends = async () => { trendCalls++; return { locations: [{ location: 'Pune' }] }; };
+  NvidiaNimProvider.prototype._call = async (modelId, config, prompt) => prompt.includes('localities') ? '{"trends":[]}' : appJSON;
+  const find = () => request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'fake').send({ city: 'CacheCity', price: { max: 5000000 } });
+  const loc = limit => request(testServer).get(`/api/locations/CacheCity/trends?limit=${limit}`).set('X-Firecrawl-Key', 'fake');
+  try {
+    assert.equal((await find()).status, 200); assert.equal((await find()).body.fromCache, true); assert.equal(searches, 1);
+    assert.equal((await loc(1)).status, 200); assert.equal((await loc(2)).status, 200); assert.equal(trendCalls, 2);
+    const changed = await modelWrite(model, { badge: 'New metadata' }); assert.equal(changed.status, 200);
+    assert.equal((await find()).status, 200); assert.equal(searches, 2);
+    await AIModel.updateOne({ _id: model.id }, { $set: { isActive: false }, $inc: { __v: 1 } });
+    assert.equal((await find()).status, 503); assert.equal((await loc(1)).status, 503);
+  } finally { prototype.findProperties = search; prototype.getLocationTrends = trends; NvidiaNimProvider.prototype._call = call; }
+});
+
+test('concurrent enable/default writes preserve one default and model audit failure rolls back mutations', async () => {
+  const first = await aiFixture('concurrent-first'), second = await aiFixture('concurrent-second');
+  const results = await Promise.all([modelWrite(first, { isActive: true }), modelWrite(second, { isActive: true })]);
+  assert.deepEqual(results.map(result => result.status), [200, 200]); assert.equal(await AIModel.countDocuments({ isDefault: true }), 1);
+  const current = await AIModel.findById(first.id); const create = AuditLog.create;
+  AuditLog.create = async () => { throw new Error('audit unavailable'); };
+  try { assert.equal((await modelWrite(current, { badge: 'rolled-back' })).status, 500); assert.notEqual((await AIModel.findById(first.id)).badge, 'rolled-back'); }
+  finally { AuditLog.create = create; }
+});
+
+test('NVIDIA migration dry run and apply preserve unrelated records, backups and retired catalog history', async () => {
+  const { buildNvidiaPlan, applyNvidiaPlan, snapshotHash } = await import('../scripts/nvidia-model-migration.js');
+  const { mkdtemp, readFile, stat } = await import('node:fs/promises');
+  const folder = await mkdtemp(path.join(tmpdir(), 'nvidia-migration-test-'));
+  await AIModel.collection.insertMany([{ name: 'Old provider', slug: 'old-github', modelId: 'openai/gpt-4.1', provider: 'github', isActive: true, isDefault: true, __v: 0 }, { name: 'NVIDIA kept', slug: 'old-nvidia', modelId: 'demo/legacy', provider: 'nvidia', config: { enableThinking: true, reasoningBudget: 1000 }, isActive: true, __v: 0 }]);
+  const beforeUsers = await User.find().lean(), beforeLogs = await AuditLog.find().lean();
+  const rows = await AIModel.collection.find().toArray(); const plan = buildNvidiaPlan(rows);
+  assert.equal(plan.blockers.length, 0); assert.equal(plan.retire.length, 1); assert.equal(plan.normalize.length, 1); assert.equal(plan.insert.length, 3);
+  assert.equal(snapshotHash(await AIModel.collection.find().toArray()), plan.snapshot);
+  await AIModel.collection.createIndex({ isDefault: 1 }, { unique: true, partialFilterExpression: { isDefault: true }, name: 'one_default_ai_model' });
+  const backup = path.join(folder, 'models.ejson'); await applyNvidiaPlan(mongoose.connection, plan, backup);
+  assert.match(await readFile(backup, 'utf8'), /old-github/); assert.equal((await stat(backup)).mode & 0o777, 0o600);
+  assert.equal(await AIModel.countDocuments({ provider: 'github' }), 0); assert.equal(await AIModel.countDocuments(), 4); assert.equal(await AIModel.countDocuments({ isActive: true }), 0);
+  assert.equal(await mongoose.connection.db.collection('ai_model_retirements').countDocuments({ 'original.slug': 'old-github' }), 1);
+  assert.deepEqual(await User.find().lean(), beforeUsers); assert.deepEqual(await AuditLog.find().lean(), beforeLogs);
+  assert.equal((await AIModel.collection.indexes()).some(index => index.name === 'one_default_ai_model'), false);
+});
+
+test('editing saved serving parameters invalidates application evidence before activation', async () => {
+  const row = await aiFixture('needs-retest');
+  const changed = await modelWrite(row, { config: { ...row.config.toObject(), temperature: 0.7 } });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body)); assert.equal(changed.body.model.lastTest, undefined);
+  assert.equal((await modelWrite(changed.body.model, { isActive: true })).status, 409);
+  assert.equal((await modelWrite(changed.body.model, { profile: null })).status, 400);
+  assert.equal((await modelWrite(changed.body.model, { config: null })).status, 400);
+});
+
+test('model test endpoint has a bounded per-admin request budget', async () => {
+  let row = (await aiFixture('rate-test')).toObject();
+  const original = NvidiaNimProvider.prototype._call; NvidiaNimProvider.prototype._call = async () => appJSON;
+  try {
+    for (let i = 0; i < 6; i++) {
+      const result = await request(testServer).post(`/api/admin/ai-models/${row._id}/test`).set('Authorization', adminAuth()).send({ expectedVersion: row.version ?? row.__v ?? 0 });
+      assert.equal(result.status, 200); row = result.body.model;
+    }
+    assert.equal((await request(testServer).post(`/api/admin/ai-models/${row._id}/test`).set('Authorization', adminAuth()).send({ expectedVersion: row.version })).status, 429);
+  } finally { NvidiaNimProvider.prototype._call = original; }
+});
+
+test('search analyzes more than eight listings and labels incomplete coverage without inventing scores', async () => {
+  await aiFixture('larger-results', { isActive: true, isDefault: true });
+  const prototype = Object.getPrototypeOf(createFirecrawlService('fake'));
+  const search = prototype.findProperties, call = NvidiaNimProvider.prototype._call;
+  const items = Array.from({ length: 10 }, (_, index) => ({ building_name: `Home ${index}`, price: 'INR 5000000' }));
+  prototype.findProperties = async () => ({ properties: items });
+  NvidiaNimProvider.prototype._call = async (modelId, config, prompt) => {
+    assert.match(prompt, /Rank these 10/); assert.match(prompt, /Home 9/);
+    return JSON.stringify({ overview: items.slice(0, 9).map(item => ({ name: item.building_name, price: item.price, match_score: 50 })) });
+  };
+  try {
+    const result = await request(testServer).post('/api/ai/search').set('X-Firecrawl-Key', 'fake').send({ city: 'LargerResultCity', limit: 10, price: { max: 5000000 } });
+    assert.equal(result.status, 200); assert.equal(result.body.properties.length, 10);
+    assert.equal(result.body.analysisMeta.status, 'partial'); assert.equal(result.body.analysisMeta.analyzedCount, 9); assert.equal(result.body.analysisMeta.totalCount, 10);
+  } finally { prototype.findProperties = search; NvidiaNimProvider.prototype._call = call; }
+});
+
+test('explicit setup seeds only disabled NVIDIA profiles and cannot silently overwrite a catalog', async () => {
+  const { seedDefaultModels } = await import('../controller/aiModelController.js');
+  await seedDefaultModels();
+  assert.equal(await AIModel.countDocuments(), 3); assert.equal(await AIModel.countDocuments({ isActive: true }), 0);
+  await assert.rejects(seedDefaultModels(), /not empty/);
+  assert.equal((await request(testServer).get('/api/ai/models')).body.available, false);
+});
+
+test('making a tested model default and saving a full fallback order updates all affected versions', async () => {
+  const first = await aiFixture('ordered-first', { isActive: true, isDefault: true });
+  let second = await aiFixture('ordered-second', { isActive: true });
+  const selected = await modelWrite(second, { isDefault: true }); assert.equal(selected.status, 200, JSON.stringify(selected.body));
+  assert.equal(await AIModel.countDocuments({ isDefault: true }), 1); assert.equal((await AIModel.findById(first.id)).isDefault, false);
+  const oldFirst = await AIModel.findById(first.id); second = await AIModel.findById(second.id);
+  const order = { modelIds: [second.id, first.id], expectedVersions: { [first.id]: oldFirst.__v, [second.id]: second.__v } };
+  const saved = await request(testServer).post('/api/admin/ai-models/reorder').set('Authorization', adminAuth()).send(order);
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual((await AIModel.find().sort('order')).map(row => row.slug), ['ordered-second', 'ordered-first']);
+  assert.equal((await request(testServer).post('/api/admin/ai-models/reorder').set('Authorization', adminAuth()).send(order)).status, 409);
+});
+
+test('NVIDIA timeout diagnostics use safe codes without leaking upstream configuration', async () => {
+  const { default: axios } = await import('axios'); const original = axios.defaults.adapter;
+  axios.defaults.adapter = async () => { throw Object.assign(new Error('sensitive upstream detail'), { code: 'ECONNABORTED' }); };
+  try { await assert.rejects(new NvidiaNimProvider('private-test-key', [MODEL_SEEDS[0]]).generateText('demo', 'demo', { exact: true }), error => error.code === 'NVIDIA_TIMEOUT' && !error.message.includes('sensitive')); }
+  finally { axios.defaults.adapter = original; }
+});
+
+test('NVIDIA fallback bounds quota use to three actual attempts', async () => {
+  const models = Array.from({ length: 5 }, (_, index) => ({ slug: `budget-${index}`, modelId: `demo/budget-${index}`, profile: 'text-basic', config: { maxTokens: 256, timeoutMs: 1000 } }));
+  const provider = new NvidiaNimProvider('fake', models); let attempts = 0;
+  provider._call = async () => { attempts++; throw new Error('upstream failure'); };
+  await assert.rejects(provider.generateText('demo', 'demo')); assert.equal(attempts, 3);
 });

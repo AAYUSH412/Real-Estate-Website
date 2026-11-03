@@ -4,7 +4,7 @@ dotenv.config({ path: './.env.local' });
 export const config = {
     port: process.env.PORT || 3000,
     firecrawlApiKey: process.env.FIRECRAWL_API_KEY,
-    githubApiKey: process.env.GITHUB_MODELS_API_KEY,
+    nvidiaApiKey: process.env.NVIDIA_API_KEY,
 };
 
 

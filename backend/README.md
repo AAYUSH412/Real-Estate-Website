@@ -20,7 +20,7 @@ _The core REST API server driving the BuildEstate real estate platform._
 - **Property Management (CRUD)** — Robust operations to add, query, update, and remove properties with multiplexed image management (up to 4 images).
 - **Scalable Image Upload** — Multer memory-buffer integration piping seamlessly into ImageKit CDN pipelines.
 - **Appointment Architecture** — Guest and authenticated bookings coupled with autonomous email dispatch routing.
-- **AI Property Processing** — Live listing scraping via Firecrawl (user-supplied key) analyzed by a multi-model AI chain: NVIDIA NIM (GLM, Nemotron & more, admin-configurable) with GitHub Models (GPT-4.1) as fallback. Search results stream to the client over SSE.
+- **AI Property Processing** — Live listing scraping via Firecrawl (user-supplied key) analyzed by an NVIDIA-only catalog with tested models and ordered fallback. Search results stream to the client over SSE.
 - **Location Analytics** — Locality-level price trends, rental yields, and appreciation outlook for top Indian cities, with MongoDB response caching.
 - **Administrative Utilities** — Dashboard analytics handling aggregate counts across properties, users, and transactions.
 - **Infrastructure Security** — `express-rate-limit` DDoS prevention, deep Helmet.js header shielding, and integrated CORS validation.
@@ -39,7 +39,7 @@ _The core REST API server driving the BuildEstate real estate platform._
 | **Authentication**       | JWT + Bcrypt             | Cryptographically verified tokens and keys          |
 | **Storage Architecture** | Multer + ImageKit        | Multipart transmission yielding CDN delivery        |
 | **Communications**       | Axios + Brevo REST       | Specialized template execution and delivery routing |
-| **AI Inference**         | NVIDIA NIM + GPT-4.1     | Multi-model property ranking with automatic fallback |
+| **AI Inference**         | NVIDIA NIM     | Multi-model property ranking with automatic fallback |
 | **Web Scraping**         | Firecrawl                | Live listing extraction (user-supplied API key)      |
 | **Cybersecurity**        | Helmet, CORS, Rate-limit | Middleware-injected traffic policing                |
 
@@ -96,7 +96,6 @@ IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
 # Scraping key is supplied BY THE USER via the X-Firecrawl-Key header;
 # these server-side keys power the AI analysis step only.
 NVIDIA_API_KEY=your_nvidia_nim_api_key
-GITHUB_MODELS_API_KEY=your_github_pat_token
 ```
 
 </details>
@@ -233,4 +232,4 @@ Listing uploads retain the four-image and 5 MB per-file limits. Sharp validates 
 
 Email health reports configuration only, not verified delivery. Notifications are best-effort attempts after committed writes; there is no durable retry queue or delivery guarantee.
 
-See [the Phase 1 contract notes](docs/admin-phase1-contracts.md) for dashboard definitions, detail endpoints, pagination aliases and compatible version checks. NVIDIA-only inference is the next planned phase; the current runtime still includes GitHub Models.
+See [the Phase 1 contract notes](docs/admin-phase1-contracts.md) for dashboard definitions, detail endpoints, pagination aliases and compatible version checks. See [Phase 2 NVIDIA setup and migration](docs/admin-phase2-nvidia.md). NVIDIA is the only runtime inference provider.

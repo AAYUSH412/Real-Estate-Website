@@ -65,6 +65,8 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
   // AI model selector
   const [availableModels, setAvailableModels] = useState<AIModelOption[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [modelState, setModelState] = useState<'loading' | 'available' | 'unavailable' | 'error'>('loading');
+  const [modelRevision, setModelRevision] = useState(0);
 
   // City autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -84,17 +86,17 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [keysReady,    setKeysReady]   = useState(apiKeyStorage.hasKeys());
 
-  // Load available AI models once
   useEffect(() => {
+    let cancelled = false; setModelState('loading');
     aiAPI.getModels().then((res: { data: { models: AIModelOption[] } }) => {
-      const models: AIModelOption[] = res.data?.models || [];
+      if (cancelled) return;
+      const models = res.data?.models || [];
       setAvailableModels(models);
-      const def = models.find(m => m.isDefault);
-      if (def) setSelectedModel(def.slug);
-    }).catch(() => {
-      // non-fatal — backend will use default model anyway
-    });
-  }, []);
+      setSelectedModel((models.find(model => model.isDefault) || models[0])?.slug || null);
+      setModelState(models.length ? 'available' : 'unavailable');
+    }).catch(() => { if (!cancelled) setModelState('error'); });
+    return () => { cancelled = true; };
+  }, [modelRevision]);
 
   // P1-1: open modal when parent signals 403 error
   useEffect(() => {
@@ -249,7 +251,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!city.trim()) return;
+    if (!city.trim() || modelState !== 'available') return;
 
     // Guard: require API keys before firing any request
     if (!keysReady) {
@@ -347,6 +349,11 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
 
       {/* ── Light form area ──────────────────────── */}
       <div className="bg-[#FAF8F4] px-6 pt-10 pb-24">
+
+        {modelState !== 'available' && <div role="status" className="max-w-[900px] mx-auto mb-4 text-sm text-[#6B7280]">
+          {modelState === 'loading' ? 'Checking AI availability…' : modelState === 'unavailable' ? 'AI search is temporarily unavailable. No tested model is enabled.' : 'Unable to check AI availability.'}
+          {modelState !== 'loading' && <button type="button" onClick={() => setModelRevision(value => value + 1)} className="underline ml-2">Check again</button>}
+        </div>}
 
         {/* ── AI Model Selector ───────────────────── */}
         {availableModels.length > 0 && (
@@ -641,7 +648,7 @@ const AIHeroSection: React.FC<AIHeroSectionProps> = ({ onSearch, loading, sseSta
             <div className="relative group mt-2">
               <button
                 type="submit"
-                disabled={loading || !city.trim() || !keysReady}
+                disabled={loading || !city.trim() || !keysReady || modelState !== 'available'}
                 className="w-full bg-[#D4755B] hover:bg-[#C05621] disabled:opacity-50 disabled:cursor-not-allowed text-white font-manrope font-semibold text-lg py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#D4755B]/20 hover:shadow-xl hover:shadow-[#D4755B]/30"
               >
                 {loading ? (

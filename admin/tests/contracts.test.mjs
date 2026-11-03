@@ -78,3 +78,19 @@ test('reactive refresh outage after a protected 401 preserves credentials and pe
     assert.equal(storage.get('token'), freshToken);
   } finally { axios.defaults.adapter = previous; }
 });
+
+const modelAPISource = (await readFile(new URL('../src/services/aiModelsAPI.js', import.meta.url), 'utf8')).replace("from './apiClient.js'", `from '${clientURL}'`);
+const { aiModelsAPI } = await import(`data:text/javascript;base64,${Buffer.from(modelAPISource).toString('base64')}`);
+test('model controls send NVIDIA-only creation, exact saved-version tests and atomic replacement commands', async () => {
+  storage.set('token', freshToken);
+  const model = { _id: 'a'.repeat(24), version: 4 }, replacement = { _id: 'b'.repeat(24), version: 2 };
+  await aiModelsAPI.create({ name: 'Demo', provider: 'github' });
+  await aiModelsAPI.test(model);
+  await aiModelsAPI.remove(model, { replacementId: replacement._id, replacementVersion: replacement.version });
+  await aiModelsAPI.reorder([replacement, model]);
+  assert.equal(JSON.parse(requests[0].data).provider, 'nvidia');
+  assert.deepEqual(JSON.parse(requests[1].data), { expectedVersion: 4, mode: 'application' });
+  assert.match(requests[1].url, /\/test$/);
+  assert.deepEqual(JSON.parse(requests[2].data), { expectedVersion: 4, replacementId: replacement._id, replacementVersion: 2 });
+  assert.deepEqual(JSON.parse(requests[3].data), { modelIds: [replacement._id, model._id], expectedVersions: { [replacement._id]: 2, [model._id]: 4 } });
+});

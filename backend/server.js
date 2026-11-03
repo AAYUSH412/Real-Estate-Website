@@ -140,7 +140,7 @@ app.use(cors({
   credentials: true,
   exposedHeaders: ['X-Export-Limit', 'X-Export-Total', 'X-Export-Truncated'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Github-Key', 'X-Firecrawl-Key', 'X-Nvidia-Key']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Firecrawl-Key']
 }));
 
 // Database connection

@@ -361,8 +361,9 @@ const refresh = kind => async (req, res) => {
     res.cookie(cookie, issued.raw, { ...options, maxAge: issued.maxAge });
     return res.json({ success: true, token: issued.token });
   } catch (error) {
-    res.clearCookie(cookie, options);
-    return res.status(error.statusCode || 500).json({ success: false, code: error.code || 'INTERNAL_ERROR', message: error.statusCode ? error.message : 'Session service unavailable' });
+    // A database/provider outage does not invalidate the browser's credential.
+    if ([401, 403].includes(error.statusCode)) res.clearCookie(cookie, options);
+    return respondError(res, Object.assign(error, { statusCode: error.statusCode || 503 }));
   }
 };
 const signOut = kind => async (req, res) => {

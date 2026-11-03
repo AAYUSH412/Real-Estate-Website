@@ -69,7 +69,7 @@ router.get('/ready', async (req, res) => {
   } catch (err) {
     health.checks.database = {
       status: 'unhealthy',
-      error: err.message,
+      error: 'Database readiness check failed',
     };
     health.status = 'degraded';
     httpStatus = 503;

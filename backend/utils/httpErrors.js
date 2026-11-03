@@ -11,6 +11,6 @@ export function respondError(res, error) {
   if (error.name === 'VersionError') { status = 409; code = 'STATE_CONFLICT'; message = 'This record changed. Refresh and try again.'; }
   if (['ValidationError', 'CastError', 'MulterError'].includes(error.name)) { status = 400; code = 'INVALID_INPUT'; }
   status ||= 500;
-  return res.status(status).json({ success: false, code: String(code), message: status < 500 ? message : 'Service unavailable. Please try again.', ...(error.fields && { fields: error.fields }) });
+  return res.status(status).json({ success: false, code: String(code), message: status < 500 ? message : 'Service unavailable. Please try again.', ...(status < 500 && error.fields && { fields: error.fields }) });
 }
 export const handler = fn => async (req, res, next) => { try { await fn(req, res); } catch (error) { respondError(res, error); } };

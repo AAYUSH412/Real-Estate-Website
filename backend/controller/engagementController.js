@@ -21,6 +21,11 @@ const list = (Model, statuses, field) => handler(async (req, res) => {
   res.json({ success: true, [field]: rows.map(row => ({ ...row, status: row.status || statuses[0], version: row.__v || 0 })), pagination: pageDTO(total, page, limit) });
 });
 export const listLeads = list(Form, ['new', 'in_progress', 'resolved'], 'leads');
+export const getLeadDetails = handler(async (req, res) => {
+  const lead = await Form.findById(req.params.id).select('name email phone message status adminNote createdAt updatedAt __v').lean();
+  if (!lead) throw missing('Inquiry not found');
+  res.json({ success: true, lead: { ...lead, status: lead.status || 'new', version: lead.__v || 0 } });
+});
 export const listSubscribers = list(News, ['pending', 'confirmed', 'unsubscribed'], 'subscribers');
 export const updateLead = handler(async (req, res) => {
   keys(req.body, ['status', 'adminNote', 'expectedVersion']);

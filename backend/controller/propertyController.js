@@ -84,7 +84,7 @@ export async function getCacheStats() {
         };
     } catch (err) {
         logger.warn('Cache stats error', { error: err.message });
-        return { error: err.message };
+        throw err;
     }
 }
 

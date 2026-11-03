@@ -31,13 +31,8 @@ const { default: Appointment } = await import('../models/appointmentModel.js');
 const { default: AIModel } = await import('../models/aiModelModel.js');
 const { default: imagekit } = await import('../config/imagekit.js');
 const { default: email } = await import('../services/emailService.js');
-const { default: formRoutes } = await import('../routes/formRoutes.js');
-const { default: newsRoutes } = await import('../routes/newsRoutes.js');
-const { default: userRoutes } = await import('../routes/userRoutes.js');
-const { default: productRoutes } = await import('../routes/productRoutes.js');
-const { default: propertyRoutes } = await import('../routes/propertyRoutes.js');
-const { default: adminRoutes } = await import('../routes/adminRoutes.js');
-const { default: appointmentRoutes } = await import('../routes/appointmentRoutes.js');
+const { mountApiRoutes } = await import('../routes/mountApiRoutes.js');
+const { respondError } = await import('../utils/httpErrors.js');
 const { createCircuitBreaker, registry } = await import('../utils/circuitBreaker.js');
 const { LLMRouter } = await import('../services/llm/LLMRouter.js');
 const { GitHubModelsProvider } = await import('../services/llm/GitHubModelsProvider.js');
@@ -55,16 +50,8 @@ for (const method of Object.getOwnPropertyNames(Object.getPrototypeOf(email))) {
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-app.use('/api/form', formRoutes);
-app.use('/api/news', newsRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api', propertyRoutes);
-app.use((error, req, res, next) => {
-  res.status(error.status || error.statusCode || (error.name === 'MulterError' ? 400 : 500)).json({ success: false, message: error.message });
-});
+mountApiRoutes(app);
+app.use((error, req, res, next) => respondError(res, error));
 
 const testServer = createServer(app);
 let mongo, owner, other, adminToken, passwordHash;
@@ -74,7 +61,7 @@ const tokens = new Map();
 const auth = user => `Bearer ${tokens.get(user.id)}`;
 const futureDay = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
 const adminAuth = () => `Bearer ${adminToken}`;
-const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5qkAAAAASUVORK5CYII=', 'base64');
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADklEQVQImWP4DwYMEAoAU7oL9W/sIDEAAAAASUVORK5CYII=', 'base64');
 const fields = { title: 'Phase 1 home', location: 'Pune', price: 5000000, beds: 2, baths: 2, sqft: 1000,
   type: 'Flat', availability: 'For Sale', description: 'Test listing', phone: '+919999999999', amenities: ['Parking', 'Gym'] };
 const property = overrides => Property.create({ ...fields, image: ['https://example.com/old.jpg'], ...overrides });
@@ -580,7 +567,7 @@ test('expiry is consistent in owner DTOs, status totals and admin filters before
 });
 
 test('contact, newsletter and AI boundaries reject malformed values before downstream services', async () => {
-  assert.equal((await request(testServer).post('/api/form/submit').send({ name: {}, email: 'a@b.test', message: 'hello' })).status, 400);
+  assert.equal((await request(testServer).post('/api/forms/submit').send({ name: {}, email: 'a@b.test', message: 'hello' })).status, 400);
   assert.equal((await request(testServer).post('/api/news/newsdata').send({ email: ['a@b.test'] })).status, 400);
   assert.equal((await request(testServer).post('/api/ai/search').send({ city: {}, price: { max: 1000 } })).status, 400);
   assert.equal((await request(testServer).post('/api/ai/search').send({ city: 'Pune', price: { min: 100, max: 1 } })).status, 400);
@@ -688,7 +675,7 @@ test('newsletter dispatch failure is retryable and never grants marketing consen
 test('contact inbox enforces admin access, pagination, versioned edits and audit rollback', async () => {
   const { default: Form } = await import('../models/formModel.js');
   await Form.deleteMany({});
-  assert.equal((await request(testServer).post('/api/form/submit').send({ name: 'Contact', email: 'contact@example.com', message: 'Please call me' })).status, 200);
+  assert.equal((await request(testServer).post('/api/forms/submit').send({ name: 'Contact', email: 'contact@example.com', message: 'Please call me' })).status, 200);
   assert.equal((await request(testServer).get('/api/admin/leads').set('Authorization', auth(owner))).status, 403);
   let page = await request(testServer).get('/api/admin/leads?limit=1').set('Authorization', adminAuth());
   assert.equal(page.status, 200); assert.equal(page.body.pagination.total, 1);
@@ -829,4 +816,165 @@ test('admin catalog accepts the empty search and all-type filters sent by the ad
   const response = await request(testServer).get('/api/admin/properties?page=1&search=&type=all&sort=newest&status=all').set('Authorization', adminAuth());
   assert.equal(response.status, 200, JSON.stringify(response.body));
   assert.equal(response.body.property.length, 1);
+});
+
+test('dashboard reconciles visible listings, current accounts, guest history and honest request charts', async () => {
+  const { default: Stats } = await import('../models/statsModel.js');
+  await Stats.deleteMany({});
+  const visible = await property();
+  await property({ expiresAt: new Date(Date.now() - 1000) });
+  await property({ hiddenByModeration: true });
+  await property({ status: 'archived', archivedAt: new Date() });
+  await User.updateOne({ _id: other._id }, { status: 'deleted', deletedAt: new Date() });
+  await Appointment.create({ propertyId: visible.id, guestInfo: { name: 'Guest history', email: 'guest@example.com' }, propertySnapshot: { title: 'Historical title' }, date: futureDay, time: '10:00' });
+  await Stats.create([{ endpoint: `/api/products/single/${visible.id}`, method: 'GET', statusCode: 200, responseTime: 2 }, { endpoint: `/api/products/single/${visible.id}`, method: 'GET', statusCode: 404, responseTime: 2 }]);
+  const res = await request(testServer).get('/api/admin/stats').set('Authorization', adminAuth());
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.stats.totalProperties, 4); assert.equal(res.body.stats.activeListings, 1); assert.equal(res.body.stats.totalUsers, 1);
+  const list = await request(testServer).get('/api/admin/properties?status=active').set('Authorization', adminAuth());
+  assert.equal(list.body.pagination.total, res.body.stats.activeListings);
+  assert.match(JSON.stringify(res.body.stats.recentActivity), /Guest history.*Historical title/);
+  assert.equal(res.body.stats.viewsData.labels.length, 30);
+  assert.equal(res.body.stats.viewsData.datasets[0].data.reduce((a, b) => a + b, 0), 1);
+  assert.match(res.body.stats.viewsData.datasets[0].label, /API requests/);
+  for (const endpoint of ['overview', 'users', 'properties']) assert.equal((await request(testServer).get(`/api/admin/stats/${endpoint}`).set('Authorization', adminAuth())).status, 200);
+  const count = Property.countDocuments;
+  Property.countDocuments = () => Promise.reject(new Error('private database failure'));
+  try {
+    for (const route of ['stats', 'stats/overview', 'stats/properties']) {
+      const failed = await request(testServer).get(`/api/admin/${route}`).set('Authorization', adminAuth());
+      assert.equal(failed.status, 500); assert.equal(failed.body.success, false); assert.doesNotMatch(JSON.stringify(failed.body), /private database/);
+    }
+  } finally { Property.countDocuments = count; }
+});
+
+test('refresh outages preserve both cookies; invalid credentials still clear them', async () => {
+  const old = await session();
+  const find = RefreshCredential.findOne;
+  RefreshCredential.findOne = () => { throw new Error('temporary database outage'); };
+  try {
+    for (const [route, cookie] of [['refresh', old.cookie], ['admin/refresh', 'admin_refresh=' + 'a'.repeat(96)]]) {
+      const failed = await request(testServer).post(`/api/users/${route}`).set('Cookie', cookie);
+      assert.equal(failed.status, 503); assert.equal(failed.headers['set-cookie'], undefined); assert.doesNotMatch(JSON.stringify(failed.body), /database outage/);
+    }
+  } finally { RefreshCredential.findOne = find; }
+  assert.equal((await request(testServer).post('/api/users/refresh').set('Cookie', old.cookie)).status, 200);
+  const invalid = await request(testServer).post('/api/users/refresh').set('Cookie', 'user_refresh=invalid');
+  assert.equal(invalid.status, 401); assert.match(invalid.headers['set-cookie'][0], /Expires=Thu, 01 Jan 1970/);
+});
+
+test('record details and entity audit filters require admin access and safe bounded contracts', async () => {
+  const { default: Form } = await import('../models/formModel.js');
+  const lead = await Form.create({ name: 'Lead', email: 'lead@example.com', message: 'Details' });
+  const p = await property({ postedBy: owner._id });
+  const a = await Appointment.create({ propertyId: p.id, userId: owner.id, date: futureDay, time: '10:00' });
+  for (const route of [`appointments/${a.id}`, `leads/${lead.id}`]) {
+    assert.equal((await request(testServer).get(`/api/admin/${route}`).set('Authorization', auth(owner))).status, 403);
+    const result = await request(testServer).get(`/api/admin/${route}`).set('Authorization', adminAuth());
+    assert.equal(result.status, 200); assert.doesNotMatch(JSON.stringify(result.body), /password|sessionFence/);
+  }
+  assert.equal((await request(testServer).get('/api/admin/appointments/not-an-id').set('Authorization', adminAuth())).status, 400);
+  assert.equal((await request(testServer).get(`/api/admin/appointments/${new mongoose.Types.ObjectId()}`).set('Authorization', adminAuth())).status, 404);
+  await AuditLog.create({ adminEmail: 'system', actorType: 'system', action: 'test_detail', targetType: 'appointment', targetId: a._id });
+  const logs = await request(testServer).get(`/api/admin/activity-logs?targetType=appointment&targetId=${a.id}&actorType=system&limit=1`).set('Authorization', adminAuth());
+  assert.equal(logs.status, 200); assert.equal(logs.body.pagination.total, 1); assert.equal(logs.body.logs[0].actorEmail, 'system');
+  assert.equal((await request(testServer).get(`/api/admin/activity-logs?targetId=${a.id}`).set('Authorization', adminAuth())).status, 400);
+  const users = await request(testServer).get('/api/admin/users?search=').set('Authorization', adminAuth());
+  assert.equal(users.status, 200); assert.equal(users.body.pagination.total, 2);
+  const catalog = await request(testServer).get(`/api/admin/properties/${p.id}`).set('Authorization', adminAuth());
+  assert.deepEqual(catalog.body.property.owner, { _id: owner.id, name: owner.name, email: owner.email });
+});
+
+test('stale archives and bulk moderation fail without partially changing records', async () => {
+  const p = await property();
+  await Property.updateOne({ _id: p.id }, { $inc: { __v: 1 } });
+  assert.equal((await request(testServer).post('/api/products/remove').set('Authorization', adminAuth()).send({ id: p.id, expectedVersion: 0 })).status, 409);
+  assert.equal((await Property.findById(p.id)).status, 'active');
+  const bulk = await request(testServer).post('/api/admin/users/bulk-ban').set('Authorization', adminAuth()).send({ userIds: [owner.id, other.id], expectedVersions: { [owner.id]: 0, [other.id]: 1 }, reason: 'stale bulk' });
+  assert.equal(bulk.status, 409); assert.equal(await User.countDocuments({ status: 'banned' }), 0);
+});
+
+test('cancellation notifications run after commit and never after an audit rollback', async () => {
+  const p = await property();
+  await Appointment.create({ propertyId: p.id, guestInfo: { email: 'guest@example.com' }, propertySnapshot: { title: 'Snapshot home' }, date: futureDay, time: '10:00' });
+  const originalSend = email.sendAppointmentStatusUpdate, create = AuditLog.create;
+  const attempts = [];
+  email.sendAppointmentStatusUpdate = async (recipient, appointment, status) => {
+    assert.equal((await Appointment.findById(appointment._id)).status, 'cancelled');
+    attempts.push({ recipient, status });
+    throw new Error('simulated mail failure after commit');
+  };
+  try {
+    AuditLog.create = async () => { throw new Error('audit failure'); };
+    assert.equal((await request(testServer).post('/api/products/remove').set('Authorization', adminAuth()).send({ id: p.id })).status, 500);
+    assert.equal(attempts.length, 0);
+    AuditLog.create = create;
+    assert.equal((await request(testServer).post('/api/products/remove').set('Authorization', adminAuth()).send({ id: p.id })).status, 200);
+    assert.deepEqual(attempts, [{ recipient: 'guest@example.com', status: 'cancelled' }]);
+  } finally { AuditLog.create = create; email.sendAppointmentStatusUpdate = originalSend; }
+});
+
+test('image validation rejects truncated decoding, excessive dimensions and animated frames before CDN upload', async () => {
+  const { validateImage } = await import('../services/listingService.js');
+  const { default: sharp } = await import('sharp');
+  await validateImage({ buffer: png, mimetype: 'image/png' });
+  await assert.rejects(validateImage({ buffer: png.subarray(0, 45), mimetype: 'image/png' }));
+  const huge = await sharp({ create: { width: 8001, height: 1, channels: 3, background: '#ffffff' } }).png().toBuffer();
+  await assert.rejects(validateImage({ buffer: huge, mimetype: 'image/png' }));
+  const pixels = Buffer.alloc(2 * 4 * 3, 255);
+  pixels.fill(0, 2 * 2 * 3);
+  const animated = await sharp(pixels, { raw: { width: 2, height: 4, channels: 3, pageHeight: 2 } }).gif().toBuffer();
+  await assert.rejects(validateImage({ buffer: animated, mimetype: 'image/gif' }));
+  assert.equal(uploads.length, 0);
+});
+
+test('notification templates escape inputs, use historical snapshots and reflect the actual meeting state', async () => {
+  const templates = await import('../email.js');
+  const historical = { propertyId: null, propertySnapshot: { title: '<img src=x onerror=alert(1)>' }, date: futureDay, time: '10:00', status: 'pending', notes: '<script>bad</script>' };
+  const meeting = templates.getMeetingLinkTemplate(historical, 'https://example.com/meet?a=1&b=2');
+  assert.match(meeting, /Pending/); assert.doesNotMatch(meeting, /has been confirmed|<img src=x/);
+  assert.match(meeting, /&lt;img/); assert.match(templates.getUserReactivatedTemplate('User'), /\/signin/);
+  const original = email.sendEmail;
+  let html, subject;
+  email.sendEmail = async (recipient, title, body) => { html = body; subject = title; };
+  try {
+    const methods = Object.getPrototypeOf(email);
+    await methods.sendAppointmentNotificationToAdmin.call(email, historical, { name: '<svg onload=bad>', email: 'guest@example.com', phone: '<b>phone</b>' });
+    assert.doesNotMatch(html, /<svg|<script>|<b>phone/); assert.match(html, /&lt;script&gt;/);
+    await methods.sendAppointmentStatusUpdate.call(email, 'guest@example.com', historical, 'cancelled');
+    assert.match(subject, /Appointment Cancelled/); assert.match(html, /&lt;img/);
+  } finally { email.sendEmail = original; }
+});
+
+test('CSV exports disclose their cap and diagnostic failures never expose internal messages', async () => {
+  const csv = await request(testServer).get('/api/admin/activity-logs/export').set('Authorization', adminAuth());
+  assert.equal(csv.headers['x-export-limit'], '10000'); assert.equal(csv.headers['x-export-truncated'], 'false'); assert.match(csv.text, /Actor Email,Actor Type/);
+  const { default: SearchCache } = await import('../models/searchCacheModel.js');
+  const count = SearchCache.countDocuments;
+  SearchCache.countDocuments = () => { throw new Error('private cache connection'); };
+  try {
+    const failed = await request(testServer).get('/api/cache/stats').set('Authorization', adminAuth());
+    assert.equal(failed.status, 500); assert.equal(failed.body.success, false); assert.doesNotMatch(JSON.stringify(failed.body), /private cache/);
+  } finally { SearchCache.countDocuments = count; }
+});
+
+test('Brevo transport bounds requests and labels configuration without claiming verified delivery', async () => {
+  const { default: axios } = await import('axios');
+  const { sendEmail, checkEmailHealth } = await import('../config/nodemailer.js');
+  const adapter = axios.defaults.adapter, key = process.env.BREVO_API_KEY;
+  process.env.BREVO_API_KEY = 'isolated-test-key';
+  let calls = 0;
+  axios.defaults.adapter = async config => {
+    calls++;
+    assert.equal(config.timeout, 10000); assert.equal(config.url, 'https://api.brevo.com/v3/smtp/email');
+    return { data: { messageId: 'isolated-test-message' }, status: 201, statusText: 'Created', headers: {}, config };
+  };
+  try {
+    await sendEmail({ from: 'sender@example.com', to: 'guest@example.com', subject: 'Test', html: '<p>Test</p>' });
+    assert.equal(calls, 1);
+    const health = await checkEmailHealth(); assert.equal(health.status, 'configured'); assert.match(health.message, /not been verified/);
+  } finally {
+    axios.defaults.adapter = adapter;
+    if (key === undefined) delete process.env.BREVO_API_KEY; else process.env.BREVO_API_KEY = key;
+  }
 });

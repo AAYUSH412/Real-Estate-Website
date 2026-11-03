@@ -32,12 +32,48 @@ export function appointmentDTO(source: any): AppointmentDTO;
 
 export type ListingStatus = 'pending' | 'active' | 'rejected' | 'expired' | 'archived';
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
+export interface OwnerSummary { _id: string; name: string; email: string; }
+export interface PageQuery { page?: number; limit?: number; search?: string; }
+export interface PropertyQuery extends PageQuery {
+  status?: ListingStatus | 'all'; type?: string; location?: string;
+  sort?: 'featured' | 'newest' | 'price-low' | 'price-high' | 'beds';
+}
+export interface UserQuery extends PageQuery {
+  status?: 'active' | 'suspended' | 'banned' | 'all';
+  sortBy?: 'createdAt' | 'name'; sortOrder?: 'asc' | 'desc';
+}
+export interface UserDTO extends OwnerSummary {
+  status: 'active' | 'suspended' | 'banned' | 'deleted'; version: number;
+  isEmailVerified: boolean; createdAt: string; updatedAt: string;
+  propertyCount?: number; appointmentCount?: number; suspendedUntil?: string | null;
+}
+export interface LeadDTO extends OwnerSummary {
+  phone?: string; message: string; status: 'new' | 'in_progress' | 'resolved';
+  adminNote?: string; version: number; createdAt: string; updatedAt?: string;
+}
+export interface SubscriberDTO {
+  _id: string; email: string; status: 'pending' | 'confirmed' | 'unsubscribed';
+  version: number; createdAt: string; confirmedAt?: string; unsubscribedAt?: string;
+}
+export interface EntityVersionCommand { expectedVersion: number; }
+export interface BulkVersionCommand { expectedVersions: Record<string, number>; }
+export interface AuditQuery extends PageQuery {
+  action?: string; targetType?: 'user' | 'property' | 'appointment' | 'aiModel' | 'session' | 'lead' | 'subscriber';
+  targetId?: string; actorType?: 'admin' | 'user' | 'system'; actorEmail?: string;
+  adminEmail?: string; startDate?: string; endDate?: string;
+}
+export interface UserPage { success: boolean; users: UserDTO[]; pagination: PageDTO & { totalUsers: number }; }
+export interface LeadPage { success: boolean; leads: LeadDTO[]; pagination: PageDTO; }
+export interface SubscriberPage { success: boolean; subscribers: SubscriberDTO[]; pagination: PageDTO; }
+export interface AppointmentDetail { success: boolean; appointment: AppointmentDTO; }
+export interface LeadDetail { success: boolean; lead: LeadDTO; }
 export interface PropertyDTO {
   _id: string; title: string; location: string; price: number; beds: number; baths: number; sqft: number;
   type: string; purpose: 'sale' | 'rent'; availability: 'sale' | 'rent'; marketStatus: 'available' | 'sold' | 'rented';
   description: string; phone: string; image: string[]; amenities: string[]; googleMapLink: string;
   status: ListingStatus; version: number; expiresAt: string | null; createdAt: string; updatedAt: string;
-  postedBy?: string; rejectionReason?: string; archivedAt?: string;
+  owner?: OwnerSummary | null; ownerId?: string | null;
+  postedBy?: string | OwnerSummary | null; rejectionReason?: string; archivedAt?: string;
 }
 export interface AppointmentDTO {
   _id: string; propertyId: Pick<PropertyDTO, '_id' | 'title' | 'location' | 'image'> | null;
@@ -50,7 +86,7 @@ export interface AppointmentDTO {
   version: number; createdAt: string; updatedAt: string;
 }
 export interface AppointmentPage { success: boolean; appointments: AppointmentDTO[]; pagination: PageDTO; statusCounts: Partial<Record<BookingStatus, number>>; upcomingCount: number; }
-export interface PropertyPage { success: boolean; properties: PropertyDTO[]; pagination: PageDTO & { totalProperties: number }; statusCounts?: Partial<Record<ListingStatus, number>>; }
+export interface PropertyPage { success: boolean; properties: PropertyDTO[]; property?: PropertyDTO[]; pagination: PageDTO & { totalProperties: number }; statusCounts?: Partial<Record<ListingStatus, number>>; }
 export function reviewCommand(record: {version: number}, reason?: string): { expectedVersion: number; reason?: string };
 
 export function createQueryCache(options?: { maxEntries?: number; ttl?: number }): {

@@ -1,3 +1,5 @@
+import { mountApiRoutes } from './routes/mountApiRoutes.js';
+import { respondError } from './utils/httpErrors.js';
 import { redactUrl } from './utils/redactUrl.js';
 import express from 'express';
 import dotenv from 'dotenv';
@@ -11,13 +13,6 @@ import connectdb from './config/mongodb.js';
 import { trackAPIStats } from './middleware/statsMiddleware.js';
 import { requestIdMiddleware } from './middleware/requestIdMiddleware.js';
 import logger from './utils/logger.js';
-import propertyrouter from './routes/productRoutes.js';
-import userrouter from './routes/userRoutes.js';
-import formrouter from './routes/formRoutes.js';
-import newsrouter from './routes/newsRoutes.js';
-import appointmentRouter from './routes/appointmentRoutes.js';
-import adminRouter from './routes/adminRoutes.js';
-import propertyRoutes from './routes/propertyRoutes.js';
 import healthRouter from './routes/healthRoutes.js';
 import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
@@ -143,6 +138,7 @@ app.use(cors({
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
+  exposedHeaders: ['X-Export-Limit', 'X-Export-Total', 'X-Export-Truncated'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Github-Key', 'X-Firecrawl-Key', 'X-Nvidia-Key']
 }));
@@ -184,13 +180,7 @@ connectdb().then(() => {
 app.use('/health', healthRouter);
 
 // API Routes
-app.use('/api/products', propertyrouter);
-app.use('/api/users', userrouter);
-app.use('/api/forms', formrouter);
-app.use('/api/news', newsrouter);
-app.use('/api/appointments', appointmentRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api', propertyRoutes);
+mountApiRoutes(app);
 
 
 app.use((err, req, res, next) => {
@@ -201,15 +191,7 @@ app.use((err, req, res, next) => {
     path: redactUrl(req.path),
     method: req.method,
   });
-  const statusCode = err.status || err.statusCode || (err.name === 'MulterError' ? 400 : 500);
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    statusCode,
-    requestId: req.requestId,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    timestamp: new Date().toISOString()
-  });
+  respondError(res, err);
 });
 
 
@@ -287,7 +269,7 @@ app.get('/', (req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`,
+    message: 'Route not found',
     statusCode: 404,
     timestamp: new Date().toISOString()
   });

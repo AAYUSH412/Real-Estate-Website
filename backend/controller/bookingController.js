@@ -1,4 +1,4 @@
-import { handler } from '../utils/httpErrors.js';
+import { handler, missing } from '../utils/httpErrors.js';
 import { schedule, changeBooking, populatedBooking } from '../services/domain/bookings.js';
 import { pagination, pageMetadata, escapeRegex } from '../utils/pagination.js';
 import { BOOKING_STATUSES, choice, text, keys, appointmentDTO } from '@buildestate/contracts';
@@ -48,6 +48,11 @@ export const listBookings = (admin = false) => handler(async (req, res) => {
   res.json({ success: true, appointments: appointments.map(appointmentDTO), pagination: { ...pageMetadata(total, page, limit), totalAppointments: total }, upcomingCount, statusCounts: Object.fromEntries(grouped.map(r => [r._id, r.count])) });
 });
 export const getAllAppointments = listBookings(true);
+export const getAppointmentDetails = handler(async (req, res) => {
+  const appointment = await Appointment.findById(req.params.id).populate('propertyId', 'title location image').populate('userId', 'name email');
+  if (!appointment) throw missing('Appointment not found');
+  res.json({ success: true, appointment: appointmentDTO(appointment) });
+});
 export const getAppointmentsByUser = listBookings(false);
 export const getUpcomingAppointments = handler(async (req, res) => {
   const appointments = await Appointment.find({ userId: req.user._id, startsAt: { $gt: new Date() }, status: { $in: ['pending', 'confirmed'] } }).populate('propertyId', 'title location image').sort({ startsAt: 1 }).limit(5);

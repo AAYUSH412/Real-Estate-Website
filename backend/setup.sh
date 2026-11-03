@@ -52,20 +52,20 @@ echo ""
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
-    print_error "Node.js is not installed. Please install Node.js (v18+) from https://nodejs.org/"
+    print_error "Node.js is not installed. Please install Node.js (v22+) from https://nodejs.org/"
     echo ""
     print_info "Installation options:"
     echo "  • macOS: brew install node"
-    echo "  • Ubuntu/Debian: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt-get install -y nodejs"
+    echo "  • Ubuntu/Debian: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs"
     echo "  • Windows: Download from https://nodejs.org/"
     exit 1
 fi
 
 # Check Node.js version
 NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    print_error "Node.js version 18 or higher is required. Current version: $(node --version)"
-    print_info "Please update Node.js to version 18 or higher"
+if [ "$NODE_VERSION" -lt 22 ]; then
+    print_error "Node.js version 22 or higher is required. Current version: $(node --version)"
+    print_info "Please update Node.js to version 22 or higher"
     exit 1
 fi
 
@@ -129,25 +129,25 @@ if [ ! -f ".env.local" ]; then
         print_warning "IMPORTANT: Please edit .env.local and add your actual configuration values:"
         echo "   - MongoDB connection string (MONGO_URI)"
         echo "   - JWT secret (JWT_SECRET)"
-        echo "   - Email configuration (SMTP_USER, SMTP_PASS)"
-        echo "   - AI service API keys (AZURE_AI_KEY, FIRECRAWL_API_KEY)"
+        echo "   - Email configuration (BREVO_API_KEY, EMAIL_USER)"
+        echo "   - AI service API keys (NVIDIA_API_KEY; Firecrawl keys are supplied by users)"
         echo "   - Other API keys as needed"
         echo ""
     else
         print_warning ".env.example not found. Creating basic .env.local template..."
         cat > .env.local << EOF
 # MongoDB Configuration
-MONGO_URI=mongodb://localhost:27017/buildestate
+MONGO_URI=mongodb://localhost:27017/buildestate?replicaSet=rs0
 
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-here
 
 # Email Configuration (Brevo/Sendinblue)
-SMTP_USER=your-smtp-user
-SMTP_PASS=your-smtp-password
+BREVO_API_KEY=your-brevo-api-key
+EMAIL_USER=your-verified-sender@example.com
 
 # AI Services (Optional)
-AZURE_AI_KEY=your-azure-ai-key
+NVIDIA_API_KEY=your-nvidia-api-key
 FIRECRAWL_API_KEY=your-firecrawl-api-key
 
 # Environment
@@ -205,7 +205,7 @@ echo ""
 
 print_header "📋 Next steps:"
 echo "   1. Edit .env.local with your configuration"
-echo "   2. Ensure MongoDB is running (local or Atlas)"
+echo "   2. Ensure MongoDB is a replica set (local rs0 or Atlas)"
 echo "   3. Run 'npm run dev' to start the development server"
 echo "   4. Server will be available at http://localhost:4000"
 echo ""
@@ -214,7 +214,7 @@ print_header "🔧 Available commands:"
 echo "   npm run dev      - Start development server with auto-reload"
 echo "   npm start        - Start production server"
 echo "   npm run build    - Build for production"
-echo "   npm test         - Run tests (if available)"
+echo "   npm test         - Run isolated regression tests"
 echo ""
 
 print_header "� Health Check URLs:"
@@ -245,7 +245,7 @@ elif command -v docker &> /dev/null; then
     if docker ps | grep -q mongo; then
         print_status "MongoDB is running in Docker"
     else
-        print_info "Consider using Docker for MongoDB: docker run -d -p 27017:27017 mongo"
+        print_info "Use MongoDB Atlas or a local MongoDB replica set (standalone MongoDB is unsupported)"
     fi
 fi
 

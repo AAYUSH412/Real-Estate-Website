@@ -67,3 +67,14 @@ test('temporary refresh failure preserves the stored session for retry', async (
     assert.equal(storage.get('token'), expired); assert.equal(requests.length, 0);
   } finally { axios.defaults.adapter = previous; }
 });
+
+test('reactive refresh outage after a protected 401 preserves credentials and permits retry', async () => {
+  storage.set('token', freshToken);
+  const previous = axios.defaults.adapter;
+  client.defaults.adapter = async config => { throw { config, response: { status: 401 } }; };
+  axios.defaults.adapter = async config => { throw { config, response: { status: 503 } }; };
+  try {
+    await assert.rejects(client.get('/api/admin/session'), error => error.response.status === 503);
+    assert.equal(storage.get('token'), freshToken);
+  } finally { axios.defaults.adapter = previous; }
+});

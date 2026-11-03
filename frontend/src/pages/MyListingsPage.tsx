@@ -21,6 +21,7 @@ import {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Listing {
+  version: number;
   _id: string;
   title: string;
   location: string;
@@ -134,7 +135,7 @@ const MyListingsPage: React.FC = () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await userListingsAPI.delete(deleteTarget._id);
+      await userListingsAPI.delete(deleteTarget._id, deleteTarget.version);
       await fetchListings();
       toast.success('Listing archived. Open viewings have been cancelled.');
     } catch (err: any) {

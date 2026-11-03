@@ -73,7 +73,6 @@ router.get('/rate-limit/stats', adminProtect, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch rate limit statistics',
-            error: error.message
         });
     }
 });
@@ -92,7 +91,6 @@ router.get('/cache/stats', adminProtect, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch cache statistics',
-            error: error.message
         });
     }
 });

@@ -31,9 +31,10 @@ async function list(req, res, admin = false) {
     const query = catalogQuery(req.query, base);
     const [total, property] = await Promise.all([
       Property.countDocuments(query),
-      Property.find(query).sort(catalogSort(req.query.sort)).limit(limit).skip(skip),
+      Property.find(query).populate(admin ? { path: 'postedBy', select: 'name email' } : []).sort(catalogSort(req.query.sort)).limit(limit).skip(skip),
     ]);
-    res.json({ success: true, property: property.map(p => propertyDTO(p, admin)), pagination: pageMetadata(total, page, limit) });
+    const properties = property.map(p => propertyDTO(p, admin));
+    res.json({ success: true, property: properties, properties, pagination: pageMetadata(total, page, limit) });
   } catch (error) { return listingError(res, error); }
 }
 export const listproperty = (req, res) => list(req, res);
@@ -42,7 +43,7 @@ export const adminListProperties = (req, res) => list(req, res, true);
 async function detail(req, res, admin = false) {
   try {
     if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid property ID' });
-    const property = await Property.findOne({ _id: req.params.id, ...(admin ? {} : publicListingQuery()) });
+    const property = await Property.findOne({ _id: req.params.id, ...(admin ? {} : publicListingQuery()) }).populate(admin ? { path: 'postedBy', select: 'name email' } : []);
     if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
     res.json({ property: propertyDTO(property, admin), success: true });
   } catch (error) { return listingError(res, error); }

@@ -15,7 +15,7 @@ const BRAND = {
 };
 
 // HTML-escape user-controlled strings to prevent XSS injection in email clients
-const escHtml = (s) => String(s ?? '')
+export const escHtml = (s) => String(s ?? '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
@@ -66,7 +66,7 @@ const row = (label, value) =>
 // Reusable CTA button
 const btn = (href, text) =>
   `<div style="text-align:center;margin:28px 0;">
-    <a href="${href}" style="display:inline-block;padding:14px 32px;background:${BRAND.color};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">${text}</a>
+    <a href="${escHtml(href)}" style="display:inline-block;padding:14px 32px;background:${BRAND.color};color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">${text}</a>
   </div>`;
 
 // Status badge
@@ -77,7 +77,7 @@ const badge = (status) => {
     pending:   { bg: '#fef3c7', text: '#854d0e' },
   };
   const c = colors[status] || colors.pending;
-  return `<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:${c.bg};color:${c.text};">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+  return `<span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:13px;font-weight:600;background:${c.bg};color:${c.text};">${escHtml(status.charAt(0).toUpperCase() + status.slice(1))}</span>`;
 };
 
 // ─── 1. Scheduling Confirmation ──────────────────────────
@@ -88,7 +88,7 @@ export const getSchedulingEmailTemplate = (appointment, date, time, notes) => wr
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Property', escHtml(appointment.propertyId.title))}
+      ${row('Property', escHtml((appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing')))}
       ${row('Date', new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}
       ${row('Time', escHtml(time))}
       ${notes ? row('Notes', escHtml(notes)) : ''}
@@ -102,12 +102,12 @@ export const getSchedulingEmailTemplate = (appointment, date, time, notes) => wr
 // ─── 2. Appointment Status Update ────────────────────────
 
 export const getEmailTemplate = (appointment, status) => wrap(
-  `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+  `Appointment ${escHtml(status.charAt(0).toUpperCase() + status.slice(1))}`,
   `<p style="margin:0 0 20px;font-size:15px;">Your appointment status has been updated.</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Property', escHtml(appointment.propertyId.title))}
+      ${row('Property', escHtml((appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing')))}
       ${row('Date', new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}
       ${row('Time', escHtml(appointment.time))}
       ${row('Status', badge(status))}
@@ -337,7 +337,7 @@ export const getUserReactivatedTemplate = (userName) => wrap(
 
   <p style="margin:20px 0;font-size:15px;">We're glad to have you back! You can now log in and resume using BuildEstate.</p>
 
-  ${btn(BRAND.site + '/login', 'Log In to Your Account')}
+  ${btn(BRAND.site + '/signin', 'Log In to Your Account')}
 
   <p style="font-size:13px;color:${BRAND.muted};margin:0;">Thank you for being part of the BuildEstate community.</p>`
 );
@@ -346,14 +346,14 @@ export const getUserReactivatedTemplate = (userName) => wrap(
 
 export const getMeetingLinkTemplate = (appointment, meetingLink) => wrap(
   'Your Virtual Meeting Link is Ready',
-  `<p style="margin:0 0 20px;font-size:15px;">Your property viewing has been confirmed and a virtual meeting link has been added.</p>
+  `<p style="margin:0 0 20px;font-size:15px;">A virtual meeting link has been added to your property viewing. The current appointment status is shown below.</p>
 
   <div style="background:#ffffff;border:1px solid ${BRAND.border};border-radius:8px;padding:20px;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
-      ${row('Property', escHtml(appointment.propertyId.title))}
+      ${row('Property', escHtml((appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing')))}
       ${row('Date', new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}
       ${row('Time', escHtml(appointment.time))}
-      ${row('Status', badge('confirmed'))}
+      ${row('Status', badge(appointment.status || 'pending'))}
     </table>
   </div>
 

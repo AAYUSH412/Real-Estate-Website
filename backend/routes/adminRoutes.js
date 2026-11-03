@@ -1,4 +1,5 @@
-import { listLeads, updateLead, listSubscribers, suppressSubscriber } from '../controller/engagementController.js';
+import { listLeads, getLeadDetails, updateLead, listSubscribers, suppressSubscriber } from '../controller/engagementController.js';
+import { getAppointmentDetails } from '../controller/bookingController.js';
 import { validId, validatePage } from '../middleware/contracts.js';
 import { adminListProperties, adminSingleProperty } from '../controller/productController.js';
 import express from 'express';
@@ -43,12 +44,14 @@ router.use(adminProtect);
 
 router.get('/session', (req, res) => res.json({ success: true, user: { email: req.admin.email, id: String(req.admin._id), role: 'admin' } }));
 router.get('/leads', listLeads);
+router.get('/leads/:id', getLeadDetails);
 router.put('/leads/:id', updateLead);
 router.get('/subscribers', listSubscribers);
 router.put('/subscribers/:id/suppress', suppressSubscriber);
 
 router.get('/stats', getAdminStats);
 router.get('/appointments', getAllAppointments);
+router.get('/appointments/:id', getAppointmentDetails);
 router.put('/appointments/status', updateAppointmentStatus);
 
 // Listing review queue
@@ -104,7 +107,6 @@ router.get('/circuit-breakers', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch circuit breaker status',
-      error: error.message
     });
   }
 });

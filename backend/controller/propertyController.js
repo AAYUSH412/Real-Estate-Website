@@ -190,11 +190,13 @@ export const searchProperties = async (req, res) => {
 
     // Helper: write one SSE event. Silently ignores write errors (client disconnected).
     function writeSSE(event, data) {
+        if (res.destroyed || res.writableEnded) return;
         try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
     }
 
     // Helper: finalize response — handles both SSE and JSON paths.
     function sendResult(data) {
+        if (res.destroyed || res.writableEnded) return;
         if (sseWrite) {
             sseWrite('result', data);
             sseWrite('done', {});
@@ -206,6 +208,7 @@ export const searchProperties = async (req, res) => {
 
     // Helper: send error — uses SSE error event if headers already flushed, else JSON.
     function sendError(status, body) {
+        if (res.destroyed || res.writableEnded) return;
         if (sseWrite) {
             sseWrite('error', body);
             res.end();
@@ -258,11 +261,9 @@ export const searchProperties = async (req, res) => {
             res.flushHeaders();
             sseWrite = writeSSE;
 
-            // Clean up subscriber when client disconnects early
-            req.on('close', () => {
-                sseUnregister?.();
-                if (!res.writableEnded) res.end();
-            });
+            // IncomingMessage.close also occurs when the request body finishes.
+            // Only the response lifecycle tells us that SSE delivery has closed.
+            res.once('close', () => { sseUnregister?.(); });
         }
 
         // ── Cache check ──────────────────────────────────────────────────────────
@@ -273,6 +274,8 @@ export const searchProperties = async (req, res) => {
         }
 
         logger.info('Property search', { city, locality, bhk, maxPrice, propertyType, possession });
+
+        if (res.destroyed || res.writableEnded) return;
 
         // ── Register SSE subscriber BEFORE entering coalescer ────────────────────
         // This ensures even coalesced (secondary) requests receive broadcast events
@@ -420,15 +423,9 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        // SSE phased flow: properties + analysis already sent via broadcastProgress.
-        // Only exception: fromCoalesce = inner cache hit where no phases were broadcast.
-        // JSON mode always uses sendResult (full payload in one response).
-        if (isSSE && !result.fromCoalesce) {
-            sseWrite?.('done', {});
-            if (!res.writableEnded) res.end();
-        } else {
-            sendResult({ success: true, ...result });
-        }
+        // Every client needs the final complete payload, including provenance.
+        // Progress events may have occurred before a coalesced client subscribed.
+        sendResult({ success: true, ...result });
 
     } catch (error) {
         logger.error('Error searching properties', { error: error.message, stack: error.stack });

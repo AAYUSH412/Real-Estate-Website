@@ -18,6 +18,8 @@ process.env.MONGOMS_DOWNLOAD_DIR ||= path.join(tmpdir(), 'buildestate-mongo-bina
 const { MongoMemoryReplSet } = await import('mongodb-memory-server');
 const { default: mongoose } = await import('mongoose');
 const { default: express } = await import('express');
+const { default: cors } = await import('cors');
+const { corsOptions } = await import('../config/corsPolicy.js');
 const { default: cookieParser } = await import('cookie-parser');
 const { default: request } = await import('supertest');
 const { default: jwt } = await import('jsonwebtoken');
@@ -50,6 +52,7 @@ for (const method of Object.getOwnPropertyNames(Object.getPrototypeOf(email))) {
   if (method.startsWith('send')) email[method] = async () => ({ success: true });
 }
 const app = express();
+app.use(cors(corsOptions({ NODE_ENV: 'test' })));
 app.use(express.json());
 app.use(cookieParser());
 mountApiRoutes(app);
@@ -1172,4 +1175,166 @@ test('NVIDIA fallback bounds quota use to three actual attempts', async () => {
   const provider = new NvidiaNimProvider('fake', models); let attempts = 0;
   provider._call = async () => { attempts++; throw new Error('upstream failure'); };
   await assert.rejects(provider.generateText('demo', 'demo')); assert.equal(attempts, 3);
+});
+
+test('acceptance P3-02: admin login, cross-origin session, temporary refresh recovery and logout', async () => {
+  const origin = 'http://localhost:5174';
+  const login = await request(testServer).post('/api/users/admin').set('Origin', origin).send({ email: process.env.ADMIN_EMAIL, password });
+  assert.equal(login.status, 200, JSON.stringify(login.body));
+  assert.equal(login.headers['access-control-allow-origin'], origin); assert.equal(login.headers['access-control-allow-credentials'], 'true');
+  const refreshHeader = login.headers['set-cookie'].find(value => value.startsWith('admin_refresh='));
+  assert.match(refreshHeader, /HttpOnly/); assert.match(refreshHeader, /SameSite=Lax/);
+  let cookie = refreshHeader.split(';')[0], token = `Bearer ${login.body.token}`;
+  assert.equal((await request(testServer).get('/api/admin/session').set('Origin', origin).set('Authorization', token)).status, 200);
+  const find = RefreshCredential.findOne;
+  RefreshCredential.findOne = () => { throw new Error('isolated transient outage'); };
+  try {
+    const unavailable = await request(testServer).post('/api/users/admin/refresh').set('Origin', origin).set('Cookie', cookie);
+    assert.equal(unavailable.status, 503); assert.equal(unavailable.headers['set-cookie'], undefined);
+  } finally { RefreshCredential.findOne = find; }
+  const refreshed = await request(testServer).post('/api/users/admin/refresh').set('Origin', origin).set('Cookie', cookie);
+  assert.equal(refreshed.status, 200); token = `Bearer ${refreshed.body.token}`; cookie = refreshed.headers['set-cookie'].find(value => value.startsWith('admin_refresh=')).split(';')[0];
+  assert.equal((await request(testServer).get('/api/admin/session').set('Authorization', token)).status, 200);
+  const logout = await request(testServer).post('/api/users/admin/logout').set('Cookie', cookie);
+  assert.equal(logout.status, 200); assert.match(logout.headers['set-cookie'][0], /Expires=Thu, 01 Jan 1970/);
+  assert.equal((await request(testServer).get('/api/admin/session').set('Authorization', token)).status, 401);
+  assert.equal((await request(testServer).post('/api/users/admin/refresh').set('Cookie', cookie)).status, 401);
+});
+
+test('acceptance P3-02: production origin allowlist, preflight/export headers and secure refresh cookies', async () => {
+  const origin = 'https://admin.acceptance.test';
+  const production = express();
+  production.use(cors(corsOptions({ NODE_ENV: 'production', ADMIN_URL: origin, EXTRA_ALLOWED_ORIGINS: ' https://preview.acceptance.test ' })));
+  production.get('/probe', (req, res) => res.json({ success: true }));
+  production.use((error, req, res, next) => respondError(res, error));
+  const server = createServer(production);
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  try {
+    const preflight = await request(server).options('/probe').set('Origin', origin).set('Access-Control-Request-Method', 'GET').set('Access-Control-Request-Headers', 'authorization');
+    assert.equal(preflight.status, 204); assert.equal(preflight.headers['access-control-allow-credentials'], 'true');
+    const allowed = await request(server).get('/probe').set('Origin', origin);
+    assert.equal(allowed.status, 200); assert.match(allowed.headers['access-control-expose-headers'], /X-Export-Truncated/);
+    assert.equal((await request(server).get('/probe').set('Origin', 'https://preview.acceptance.test')).status, 200);
+    const blocked = await request(server).get('/probe').set('Origin', 'http://localhost:5174');
+    assert.equal(blocked.status, 500); assert.equal(blocked.headers['access-control-allow-origin'], undefined); assert.doesNotMatch(JSON.stringify(blocked.body), /CORS blocked/);
+    assert.equal((await request(server).get('/probe')).status, 200);
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+  const environment = process.env.NODE_ENV; process.env.NODE_ENV = 'production';
+  try {
+    const login = await request(testServer).post('/api/users/admin').send({ email: process.env.ADMIN_EMAIL, password });
+    assert.equal(login.status, 200); assert.match(login.headers['set-cookie'][0], /Secure/); assert.match(login.headers['set-cookie'][0], /SameSite=None/);
+  } finally { process.env.NODE_ENV = environment; }
+});
+
+test('acceptance P3-03/P3-04: retained-image revision, stale review and historical bookings survive mail failure', async () => {
+  let submission = request(testServer).post('/api/user/properties').set('Authorization', auth(owner));
+  for (const [key, value] of Object.entries(fields)) submission = submission.field(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+  const created = await submission.attach('images', png, 'acceptance.png'); assert.equal(created.status, 201, JSON.stringify(created.body));
+  let listing = created.body.property; const originalImages = [...listing.image];
+  const approved = await request(testServer).put(`/api/admin/properties/${listing._id}/approve`).set('Authorization', adminAuth()).send({ expectedVersion: listing.version });
+  assert.equal(approved.status, 200); listing = approved.body.property;
+  const revision = await request(testServer).put(`/api/user/properties/${listing._id}`).set('Authorization', auth(owner)).field('title', 'Acceptance correction').field('retainedImages', JSON.stringify(originalImages)).field('expectedVersion', String(listing.version));
+  assert.equal(revision.status, 200); assert.deepEqual(revision.body.property.image, originalImages);
+  assert.equal(uploads.length, 1); assert.equal(removed.length, 0);
+  assert.equal((await request(testServer).get(`/api/products/single/${listing._id}`)).status, 404);
+  assert.equal((await request(testServer).put(`/api/admin/properties/${listing._id}/approve`).set('Authorization', adminAuth()).send({ expectedVersion: listing.version })).status, 409);
+  const rereview = await request(testServer).put(`/api/admin/properties/${listing._id}/approve`).set('Authorization', adminAuth()).send({ expectedVersion: revision.body.property.version });
+  assert.equal(rereview.status, 200); listing = rereview.body.property;
+  assert.equal((await request(testServer).get(`/api/products/single/${listing._id}`)).status, 200);
+  const original = email.sendAppointmentStatusUpdate; const attempts = [];
+  email.sendAppointmentStatusUpdate = async (recipient, appointment, status) => {
+    assert.equal((await Appointment.findById(appointment._id)).status, status);
+    attempts.push({ recipient, status }); throw new Error('isolated mail outage');
+  };
+  try {
+    for (const [guest, time] of [[true, '10:00'], [false, '11:00']]) {
+      let call = request(testServer).post(`/api/appointments/schedule${guest ? '' : '/auth'}`);
+      if (!guest) call = call.set('Authorization', auth(other));
+      const booked = await call.send({ propertyId: listing._id, date: futureDay, time, ...(guest ? { name: 'Acceptance guest', email: 'acceptance-guest@example.com', phone: fields.phone } : {}) });
+      assert.equal(booked.status, 201); let appointment = booked.body.appointment;
+      const confirmed = await request(testServer).put('/api/appointments/status').set('Authorization', adminAuth()).send({ appointmentId: appointment._id, expectedVersion: appointment.version, status: 'confirmed' });
+      assert.equal(confirmed.status, 200); appointment = confirmed.body.appointment;
+      assert.equal((await request(testServer).get(`/api/admin/appointments/${appointment._id}`).set('Authorization', adminAuth())).body.appointment.status, 'confirmed');
+    }
+    const archived = await request(testServer).post('/api/products/remove').set('Authorization', adminAuth()).send({ id: listing._id, expectedVersion: listing.version });
+    assert.equal(archived.status, 200, JSON.stringify(archived.body));
+    const history = await request(testServer).get('/api/admin/appointments').set('Authorization', adminAuth());
+    assert.equal(history.body.appointments.length, 2);
+    for (const item of history.body.appointments) { assert.equal(item.status, 'cancelled'); assert.equal(item.propertySnapshot.title, 'Acceptance correction'); assert.deepEqual(item.propertySnapshot.image, originalImages); }
+    assert.deepEqual(attempts.map(value => value.status), ['confirmed', 'confirmed', 'cancelled', 'cancelled']);
+    assert.deepEqual(new Set(attempts.map(value => value.recipient)), new Set(['acceptance-guest@example.com', other.email]));
+    assert.equal(removed.length, 0);
+    assert.equal((await request(testServer).get('/api/appointments/user').set('Authorization', auth(other))).body.appointments.length, 1);
+  } finally { email.sendAppointmentStatusUpdate = original; }
+});
+
+test('acceptance P3-05: inquiry resolution and recipient confirmation/suppression retain version and consent boundaries', async () => {
+  const { default: Form } = await import('../models/formModel.js'); const { default: News } = await import('../models/newsModel.js');
+  await Form.deleteMany({}); await News.deleteMany({});
+  const posted = await request(testServer).post('/api/forms/submit').send({ name: 'Acceptance contact', email: 'contact-acceptance@example.com', message: 'Please contact me' });
+  assert.equal(posted.status, 200);
+  const inbox = await request(testServer).get('/api/admin/leads').set('Authorization', adminAuth()); let lead = inbox.body.leads[0];
+  for (const status of ['in_progress', 'resolved']) {
+    const changed = await request(testServer).put(`/api/admin/leads/${lead._id}`).set('Authorization', adminAuth()).send({ expectedVersion: lead.version, status, adminNote: 'Acceptance follow-up' });
+    assert.equal(changed.status, 200); lead = changed.body.lead;
+  }
+  assert.equal((await request(testServer).get(`/api/admin/leads/${lead._id}`).set('Authorization', adminAuth())).body.lead.status, 'resolved');
+  let confirmationToken;
+  const send = email.sendEmail;
+  email.sendEmail = async (recipient, subject, html) => { confirmationToken = html.match(/\/newsletter\/confirm\?token=([^"&]+)/)?.[1]; return { success: true }; };
+  try { assert.equal((await request(testServer).post('/api/news/newsdata').send({ email: 'consent-acceptance@example.com' })).status, 200); }
+  finally { email.sendEmail = send; }
+  assert.ok(confirmationToken, 'Confirmation link should be dispatched to the recipient');
+  let subscriber = await News.findOne({ email: 'consent-acceptance@example.com' }); assert.equal(subscriber.status, 'pending');
+  assert.equal((await request(testServer).post('/api/news/confirm').send({ token: decodeURIComponent(confirmationToken) })).status, 200);
+  const list = await request(testServer).get('/api/admin/subscribers?status=confirmed').set('Authorization', adminAuth());
+  assert.equal(list.body.pagination.total, 1); assert.doesNotMatch(JSON.stringify(list.body), /tokenHash|confirmationToken/);
+  assert.equal((await request(testServer).put(`/api/admin/subscribers/${subscriber.id}/suppress`).set('Authorization', adminAuth()).send({})).status, 200);
+  assert.equal((await request(testServer).post('/api/news/confirm').send({ token: decodeURIComponent(confirmationToken) })).status, 404);
+  subscriber = await News.findById(subscriber.id); assert.equal(subscriber.status, 'unsubscribed');
+});
+
+test('acceptance P3-06: public SSE returns actual NVIDIA provenance and cache metadata', async () => {
+  await aiFixture('acceptance-stream', { isActive: true, isDefault: true });
+  const prototype = Object.getPrototypeOf(createFirecrawlService('fake'));
+  const find = prototype.findProperties, call = NvidiaNimProvider.prototype._call;
+  prototype.findProperties = async () => ({ properties: [{ building_name: 'Demo Home', price: 'INR 5000000', location_address: 'Pune' }] });
+  NvidiaNimProvider.prototype._call = async () => appJSON;
+  try {
+    for (const cached of [false, true]) {
+      const stream = await request(testServer).post('/api/ai/search').set('Accept', 'text/event-stream').set('X-Firecrawl-Key', 'fake').send({ city: 'AcceptanceStreamCity', price: { max: 5000000 } }).timeout({ response: 3000, deadline: 5000 });
+      assert.equal(stream.status, 200); assert.match(stream.headers['content-type'], /text\/event-stream/);
+      const events = stream.text.split('\n\n').filter(Boolean).map(event => { const [name, payload] = event.split('\n'); return { name: name.slice(7), data: JSON.parse(payload.slice(6)) }; });
+      const result = events.find(event => event.name === 'result'); assert.ok(result, stream.text);
+      assert.equal(result.data.success, true); assert.equal(result.data.analysisMeta.actualModel.provider, 'nvidia'); assert.equal(result.data.analysisMeta.actualModel.slug, 'acceptance-stream');
+      assert.equal(Boolean(result.data.fromCache), cached); assert.equal(events.at(-1).name, 'done');
+    }
+  } finally { prototype.findProperties = find; NvidiaNimProvider.prototype._call = call; }
+});
+
+test('acceptance P3-06: a late coalesced SSE client receives the complete shared result', async () => {
+  await aiFixture('acceptance-shared-stream', { isActive: true, isDefault: true });
+  const prototype = Object.getPrototypeOf(createFirecrawlService('fake'));
+  const find = prototype.findProperties, call = NvidiaNimProvider.prototype._call;
+  let sourceCalls = 0, inferenceCalls = 0, release;
+  let started; const analyzing = new Promise(resolve => { started = resolve; });
+  prototype.findProperties = async () => { sourceCalls++; return { properties: [{ building_name: 'Demo Home', price: 'INR 5000000' }] }; };
+  NvidiaNimProvider.prototype._call = async () => { inferenceCalls++; started(); return new Promise(resolve => { release = () => resolve(appJSON); }); };
+  const search = () => request(testServer).post('/api/ai/search').set('Accept', 'text/event-stream').set('X-Firecrawl-Key', 'fake').send({ city: 'AcceptanceSharedStreamCity', price: { max: 5000000 } }).timeout({ response: 3000, deadline: 5000 });
+  let first;
+  try {
+    first = search().then(response => response);
+    await analyzing;
+    const second = search().buffer(true).parse((incoming, done) => {
+      let body = ''; incoming.setEncoding('utf8');
+      incoming.on('data', chunk => { body += chunk; if (body.includes('"stage":"searching"')) release(); });
+      incoming.on('end', () => done(null, body)); incoming.on('error', done);
+    });
+    const both = await Promise.all([first, second]);
+    assert.equal(sourceCalls, 1); assert.equal(inferenceCalls, 1);
+    for (const response of both) {
+      const text = response.text || response.body;
+      assert.match(text, /event: result\n/); assert.match(text, /"properties":\[/); assert.match(text, /"actualModel":\{/); assert.match(text, /event: done\n/);
+    }
+  } finally { release?.(); if (first) await first.catch(() => {}); prototype.findProperties = find; NvidiaNimProvider.prototype._call = call; }
 });

@@ -233,3 +233,7 @@ Listing uploads retain the four-image and 5 MB per-file limits. Sharp validates 
 Email health reports configuration only, not verified delivery. Notifications are best-effort attempts after committed writes; there is no durable retry queue or delivery guarantee.
 
 See [the Phase 1 contract notes](docs/admin-phase1-contracts.md) for dashboard definitions, detail endpoints, pagination aliases and compatible version checks. See [Phase 2 NVIDIA setup and migration](docs/admin-phase2-nvidia.md). NVIDIA is the only runtime inference provider.
+
+## Replacement admin readiness
+
+The local Phase 3 backend gate passed with 106 tests across the API and existing clients. Start with the [accepted API contract index](docs/admin-api-contracts.md) and [acceptance evidence and release limits](docs/admin-phase3-acceptance.md) before building `admin_new`. Production migration/deployment and the original operations Phase 4 remain separate.

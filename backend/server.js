@@ -1,3 +1,4 @@
+import { allowedOrigins, corsOptions } from './config/corsPolicy.js';
 import { mountApiRoutes } from './routes/mountApiRoutes.js';
 import { respondError } from './utils/httpErrors.js';
 import { redactUrl } from './utils/redactUrl.js';
@@ -91,33 +92,8 @@ app.use(mongoSanitize({
 }));
 
 
-// CORS Configuration
-const parseCsv = (value = '') =>
-  value
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean);
-
-const envOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.ADMIN_URL,
-  process.env.WEBSITE_URL,
-  ...parseCsv(process.env.LOCAL_URLS || ''),
-  ...parseCsv(process.env.EXTRA_ALLOWED_ORIGINS || ''),
-].filter(Boolean);
-
-const defaultDevOrigins = [
-  'http://localhost:4000',
-  'http://localhost:5173',
-  'http://localhost:5174',
-];
-
-const allowedOrigins = [
-  ...(process.env.NODE_ENV === 'production' ? [] : defaultDevOrigins),
-  ...envOrigins,
-];
-
-const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+// CORS policy is shared with isolated HTTP acceptance tests.
+const uniqueAllowedOrigins = allowedOrigins();
 if (process.env.NODE_ENV === 'production') {
   logger.info('Server starting', {
     environment: process.env.NODE_ENV,
@@ -126,22 +102,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow same-origin or non-browser requests (curl/postman/server-to-server)
-    if (!origin) return callback(null, true);
-
-    if (uniqueAllowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true,
-  exposedHeaders: ['X-Export-Limit', 'X-Export-Total', 'X-Export-Truncated'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Firecrawl-Key']
-}));
+app.use(cors(corsOptions()));
 
 // Database connection
 connectdb().then(() => {

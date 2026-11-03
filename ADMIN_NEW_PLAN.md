@@ -1,7 +1,7 @@
 # BuildEstate — Backend readiness and `admin_new` redesign plan
 
 Prepared: 3 November 2026
-Status: **Phases 1–2 implemented and locally verified; Phase 3 acceptance gate next**
+Status: **Phases 1–3 complete locally; backend acceptance gate passed; `admin_new` foundation next**
 Repository baseline: `9b7d946` (Phase 3 release documentation)
 Scope update: 3 November 2026 — prioritize essential features for a demonstration project.
 
@@ -16,9 +16,9 @@ Scope update: 3 November 2026 — prioritize essential features for a demonstrat
 7. Make adding, testing, enabling, disabling, removing and selecting AI models possible through the admin interface.
 8. Keep the original audit's **Phase 4 — Make operations dependable** deferred at your request. Its unresolved items remain documented, rather than marked completed.
 
-**Current delivery:** Phase 2 NVIDIA-only runtime and model management are implemented locally. **100 tests passed (80 backend, 11 admin, 9 frontend)**; admin lint and both client builds passed. The configured database was inventoried read-only and its model snapshot rehearsed in ephemeral MongoDB. No migration apply, project database write, production deployment or server stop was performed. Live bounded checks passed for Nemotron Bolt; Mistral application JSON and MiniMax checks reached the 30-second deadline. Those candidates remain unverified for activation. `admin_new/` has not been created.
+**Current delivery:** Phase 3 backend acceptance passed locally with **106 tests (86 backend, 11 admin, 9 frontend)**, admin lint, both client builds and backend syntax checks. Connected workflows verify session outage recovery/logout, shared CORS/cookie policy, retained-image revisions, booking history during mail failure, inquiry resolution and newsletter consent. A fresh-stream provenance gap found by acceptance was fixed: fresh/cached/late-coalesced SSE now receive the complete final result. No project database mutation, model migration apply, production deployment or project server stop occurred. `admin_new/` has not been created.
 
-**Next:** Phase 3 backend acceptance gate; Phase 1 evidence is in section 10.2 and Phase 2 evidence is in section 10.3. Begin `admin_new/` only after that gate passes. Section 5 preserves original findings; it is not a claim that fixed runtime paths still behave as they did during review. Phase 1 is backed up in [draft PR #4](https://github.com/AAYUSH412/Real-Estate-Website/pull/4).
+**Next:** Phase 4 — `admin_new` foundation (P4-01–P4-06), using the [accepted API contracts](backend/docs/admin-api-contracts.md) and [Phase 3 acceptance evidence/release limits](backend/docs/admin-phase3-acceptance.md). Mistral/MiniMax readiness limits from Phase 2 remain; keep unverified configurations disabled. The original operations Phase 4 remains deferred. Earlier work is backed up in [Phase 1 PR #4](https://github.com/AAYUSH412/Real-Estate-Website/pull/4) and [Phase 2 PR #5](https://github.com/AAYUSH412/Real-Estate-Website/pull/5).
 
 ## 2. Recommendation
 
@@ -441,7 +441,7 @@ Do not include Settings, Notifications, Billing or Team pages until their backen
 
 ## 10. Approved delivery sequence and progress tracker
 
-**Recommended starting point: Phase 1 — Essential backend fixes.** Complete the backend and NVIDIA-only work before starting the replacement admin. Treat the findings in section 5 as evidence; the tasks below define the actual first-release scope.
+**Execution sequence:** backend fixes, NVIDIA-only management and the backend acceptance gate precede the replacement admin. Phases 1–3 are now accepted locally; the next phase is the `admin_new` foundation. Treat the findings in section 5 as original evidence; this tracker and the linked acceptance records define current status.
 
 The original audit's deferred Phase 4 is a separate workstream. “Phase 4” in the tracker below means the **new-admin foundation**, not reopening the operations project.
 
@@ -454,7 +454,7 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | **0 — Plan and scope** | Backend review, design direction, NVIDIA-only requirement and demo-sized scope | **Complete** | Owner review on 3 November 2026 | This document; no implementation claimed |
 | **1 — Essential backend fixes** | Correct and consistent APIs for the existing admin journeys | **Complete (local)** | Phase 0 | 84 tests; admin lint; both client builds; [contract notes](backend/docs/admin-phase1-contracts.md); no deployment |
 | **2 — NVIDIA-only AI** | GitHub inference removed; safe model CRUD/testing/default/fallback behavior | **Complete (local; live limits recorded)** | Phase 1 | 100 tests; migration rehearsal; bounded live checks; [Phase 2 contract/release notes](backend/docs/admin-phase2-nvidia.md); no migration apply/deployment |
-| **3 — Backend acceptance gate** | Backend verified before building its replacement client | Not started | Phases 1–2 | Checklist in section 12 and explicit remaining limitations |
+| **3 — Backend acceptance gate** | Backend verified before building its replacement client | **Complete (local gate passed)** | Phases 1–2 | 106 tests, client builds/lint, shared CORS checks, connected journeys and SSE fix; [acceptance report](backend/docs/admin-phase3-acceptance.md) |
 | **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Not started | Phase 3 | Working local application and responsive/theme/session checks |
 | **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Not started | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
 | **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Not started | Phase 5 design checkpoint | Each module works with actual backend contracts |
@@ -537,15 +537,29 @@ Tasks:
 
 Tasks:
 
-- [ ] **P3-01:** Run backend tests and both existing client contract/build checks; record actual results rather than carrying forward the historical 74-test total.
-- [ ] **P3-02:** Verify admin login → current session → refresh → logout, including a transient refresh failure and recovery.
-- [ ] **P3-03:** Verify owner listing submission → admin review → publication → owner correction → rereview, retaining images and enforcing conflicts.
-- [ ] **P3-04:** Verify guest/authenticated booking → admin confirmation/cancellation, preserved history and notification-attempt outcomes.
-- [ ] **P3-05:** Verify contact status/note changes and newsletter confirmation/suppression without expanding into CRM or campaigns.
-- [ ] **P3-06:** Verify the NVIDIA model lifecycle, cache behavior, invalid/disabled model handling and removal of GitHub inference.
-- [ ] **P3-07:** Record the finalized API contracts, safe migration steps and unresolved deferred limitations. Link the active plan from `PROJECT_AUDIT.md` and mark the original operations Phase 4 deferred.
+- [x] **P3-01:** Run backend tests and both existing client contract/build checks; record actual results rather than carrying forward the historical 74-test total.
+- [x] **P3-02:** Verify admin login → current session → refresh → logout, including a transient refresh failure and recovery.
+- [x] **P3-03:** Verify owner listing submission → admin review → publication → owner correction → rereview, retaining images and enforcing conflicts.
+- [x] **P3-04:** Verify guest/authenticated booking → admin confirmation/cancellation, preserved history and notification-attempt outcomes.
+- [x] **P3-05:** Verify contact status/note changes and newsletter confirmation/suppression without expanding into CRM or campaigns.
+- [x] **P3-06:** Verify the NVIDIA model lifecycle, cache behavior, invalid/disabled model handling and removal of GitHub inference.
+- [x] **P3-07:** Record the finalized API contracts, safe migration steps and unresolved deferred limitations. Link the active plan from `PROJECT_AUDIT.md` and mark the original operations Phase 4 deferred.
 
 **Gate:** start `admin_new` only when required backend checks pass. Production deployment is not required merely to begin local client development; use a verified local/test backend initially. Deploy compatible backend changes before preview/production clients depend on them, as part of the release plan. No automatic server stop is part of this gate.
+
+**Completion evidence — 3 November 2026 (local acceptance):**
+
+| Task | Verification / result |
+| --- | --- |
+| P3-01 | Fresh backend run **86/86**, admin **11/11** plus lint/build, frontend **9/9** plus TypeScript/build; **106 total**. Diff and changed backend JavaScript syntax checks passed. |
+| P3-02 | Connected admin login/session → temporary refresh-store 503 → same-cookie recovery → rotated token → logout → access/refresh rejection. Shared production CORS policy, credentialed preflight, CSV exposed headers and Secure/SameSite=None cookies verified through HTTP. Client credential preservation tests rerun. |
+| P3-03 | Multipart owner submit/review/publish → explicit retained-image correction → public exclusion → stale review 409 → rereview/publication. No extra upload or retained-image deletion. Existing concurrent review/audit rollback checks pass. |
+| P3-04 | Guest/auth booking → admin confirmation → listing archive/cascade cancellation with mocked mail failures. Notifications see committed states; snapshots/history and account booking visibility survive. Existing manual cancellation, slot and completion checks rerun. |
+| P3-05 | Public contact submission → versioned in-progress/resolved admin notes/detail; dispatched recipient-confirmation link → confirmed subscriber list → admin suppression → old confirmation rejected. No CRM/campaign scope added. |
+| P3-06 | Full NVIDIA lifecycle/cache/profile suite rerun. New fresh/cache/late-coalesced SSE checks found and fixed missing final `result` metadata; response-close cleanup and closed-response guards included. Shared requests make one source lookup/inference. No additional live quota consumed. |
+| P3-07 | [Accepted API contract index](backend/docs/admin-api-contracts.md) and [gate report](backend/docs/admin-phase3-acceptance.md) record contracts, migration/release steps and remaining limits. `PROJECT_AUDIT.md` now links the active plan and explicitly marks its original operations Phase 4 deferred. |
+
+**Gate decision: PASS for local `admin_new` development.** The new client can use the real protected routes and shared types; it must handle actual unavailable states. Production readiness is separate: apply/review the model migration during coordinated release, test exact saved configurations, verify browser/host origins/cookies and complete later panel/cutover checks. Mistral/MiniMax live timeouts, best-effort notification delivery, filesystem quota limits and deferred operations work are not marked resolved. The original admin remains available. Phase 3 uses branch `test/admin-new-phase3-acceptance` based on Phase 2; this work does not merge or deploy `main`.
 
 ### 10.5 Phase 4 — Create `admin_new` and its design system
 
@@ -623,13 +637,14 @@ After each implementation session:
 4. A blocked task gets its reason and dependency; do not silently skip it or mark it complete.
 5. Keep release/deployment outcomes separate from local implementation completion.
 
-**Current position:** Phases 0–2 complete locally, with Phase 2 live profile limits and release migration explicitly recorded above. **Next: Phase 3 backend acceptance gate (P3-01–P3-07).** No `admin_new` implementation, project database migration or production deployment has started under this plan.
+**Current position:** Phases 0–3 complete locally. **Next: Phase 4 — `admin_new` foundation (P4-01–P4-06).** Required local backend contracts/checks are accepted; no `admin_new` implementation, project database migration apply or production cutover has started.
 
 | Date | Phase/task | Outcome | Validation/evidence | Next |
 | --- | --- | --- | --- | --- |
 | 2026-11-03 | Phase 0 | Owner reviewed the direction; essential demo scope and executable tracker recorded | Documentation update only; no tests rerun or deployment performed | Begin Phase 1 when implementation starts |
 | 2026-11-03 | P1-01–P1-09 | Essential backend fixes and old-client compatibility implemented locally | 84 tests passed; admin lint; client builds and TypeScript; contract notes above; no push/deployment or project database changes | P2-01 inventory/report |
 | 2026-11-03 | P2-01–P2-08 | NVIDIA-only inference, model lifecycle/testing, provenance/cache and current-client controls implemented | 100 tests; client builds/lint; actual-snapshot migration rehearsal; mixed live profile results documented; no project migration/deployment | Phase 3 acceptance gate |
+| 2026-11-03 | P3-01–P3-07 | Local backend gate passed; connected acceptance journeys and complete final SSE results verified | 106 tests; client builds/lint; shared production CORS/cookie checks; accepted contract index and gate report; original operations Phase 4 deferred | Phase 4 `admin_new` foundation |
 
 ## 11. Important features only — fixed first-release scope
 
@@ -650,17 +665,17 @@ Those remain useful reference ideas from sections 6–9, not commitments. Existi
 ## 12. Acceptance checklist before starting `admin_new`
 
 - [x] First-release scope recorded after owner review: preserve existing modules and add only the three improvements in section 11; further additions require a scope change.
-- [ ] Dashboard definitions reconcile with actual catalog/account rules and failure tests.
-- [ ] Refresh outages preserve valid credentials; invalid/replayed sessions remain rejected.
-- [ ] Email HTML escaping, snapshot rendering, links and cascade notification attempts verified.
-- [ ] Image decode/resource limits and existing upload/edit behavior verified.
-- [ ] Typed entity/page/query contracts recorded and compatible with existing clients.
-- [ ] Required appointment/inquiry detail reads and bounded entity-history filters exist; no calendar/date-window agenda or subscriber detail page is promised.
-- [ ] Stale writes and atomic bulk outcomes are deterministic.
-- [ ] GitHub Models runtime/config/seed paths removed; NVIDIA-only catalog migration rehearsed.
-- [ ] Model test/default/removal/fallback/capability and cache-change behavior verified.
-- [ ] Actual route mounts, old admin and public frontend pass regression checks.
-- [ ] Required backend changes are verified locally and the contracts accepted before `admin_new` begins; production/preview deployment is tracked separately in Phase 8.
+- [x] Dashboard definitions reconcile with actual catalog/account rules and failure tests.
+- [x] Refresh outages preserve valid credentials; invalid/replayed sessions remain rejected.
+- [x] Email HTML escaping, snapshot rendering, links and cascade notification attempts verified.
+- [x] Image decode/resource limits and existing upload/edit behavior verified.
+- [x] Typed entity/page/query contracts recorded and compatible with existing clients.
+- [x] Required appointment/inquiry detail reads and bounded entity-history filters exist; no calendar/date-window agenda or subscriber detail page is promised.
+- [x] Stale writes and atomic bulk outcomes are deterministic.
+- [x] GitHub Models runtime/config/seed paths removed; NVIDIA-only catalog migration rehearsed.
+- [x] Model test/default/removal/fallback/capability and cache-change behavior verified.
+- [x] Actual route mounts, old admin and public frontend pass regression checks.
+- [x] Required backend changes are verified locally and the contracts accepted before `admin_new` begins; production/preview deployment is tracked separately in Phase 8.
 
 ## 13. Deferred operations work and document updates
 
@@ -668,7 +683,7 @@ The original **Phase 4 — Make operations dependable** remains deferred. This p
 
 If a first-release screen depends on one of those capabilities, either narrow/omit that feature or explicitly revise scope. Finite API timeouts, truthful metrics and safe errors in section 5 are specific prerequisites for the proposed workflows; they are not a claim that Phase 4 has been completed.
 
-The owner has approved the direction. The audit-status update to apply during Phase 3 is:
+The owner has approved the direction. Phase 3 applied the audit-status link/update in `PROJECT_AUDIT.md`:
 
 > Phase 4 — Make operations dependable: Deferred at the owner's request. Active workstream: backend readiness for a NVIDIA-only AI service, followed by a replacement admin in `admin_new/`, governed by `ADMIN_NEW_PLAN.md`.
 
@@ -688,8 +703,8 @@ Keep historical audit findings and release evidence. Add links/status changes; d
 
 ## 15. Where to start now
 
-Phases 1–2 are implemented and locally verified. Continue with **Phase 3 — Backend acceptance gate**, using P3-01–P3-07. Keep Mistral/MiniMax disabled until successful application tests. Complete the gate before creating `admin_new/`; apply migration only as a coordinated release step.
+The local backend gate has passed. Continue with **Phase 4 — Create `admin_new` and its design system**, using P4-01–P4-06 and the accepted API contract index. Keep the existing admin available, use a configured local/test origin and real authentication, and handle unavailable AI models honestly. Apply model migration only as a coordinated release step.
 
 The plan is deliberately limited to existing management modules plus the three important additions in section 11. The larger operations Phase 4 and optional product ideas remain deferred.
 
-**Implementation status:** Phases 1–2 have local completion evidence in sections 10.2–10.3. No production deployment or project database mutation was made. Model migration is rehearsed and ready for release review; `admin_new` waits for Phase 3 acceptance.
+**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation is the next authorized phase when implementation is requested.

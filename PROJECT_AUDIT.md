@@ -4,6 +4,10 @@
 >
 > **Phase 2 implementation:** Shared contracts, domain transactions, device sessions and verification are documented in [docs/phase2/PHASE_2.md](docs/phase2/PHASE_2.md). Deployment and legacy-data migration remain explicit rollout steps.
 
+> **Active admin-rebuild plan:** [ADMIN_NEW_PLAN.md](ADMIN_NEW_PLAN.md) tracks the separate backend-readiness and `admin_new` work. Its Phase 3 acceptance gate passed locally on 3 November 2026; see [acceptance evidence](backend/docs/admin-phase3-acceptance.md) and [accepted API contracts](backend/docs/admin-api-contracts.md). These current records supersede fixed behavior in the original snapshot below; original finding/advisory totals are not a new scan.
+>
+> **Owner decision:** the original **Phase 4 — Make operations dependable** remains **deferred**. The new plan's Phase 4 means the replacement-admin foundation, not completion of operations work.
+
 Audit date: **2 November 2026**. Scope: the local working tree of `backend/`, `admin/`, `frontend/`, `shared/`, application manifests/lockfiles, and checked-in deployment configuration. This is an audit and improvement plan; application behavior was not changed.
 
 ## 1. Overall assessment
@@ -491,6 +495,8 @@ Connect bulk controls, finish lead/subscriber management, fix amenities/log tota
 Done when staging end-to-end tests cover registration → verification → login → listing submission → admin review → publication → owner update/review, and guest/authenticated booking → admin confirmation → notification → cancellation.
 
 ### Phase 4 — Make operations dependable
+
+**Status: Deferred at the owner’s request.** This workstream is not reopened by the admin redesign. Outstanding operations risks remain recorded; individual fixes in later admin-readiness work do not mark this phase complete.
 
 Centralize config/bootstrap, implement shared atomic quotas and durable workers/outbox, complete CI gates and a tested production deployment path, add redacted observability/retention, configure alerts, and exercise backup restoration and graceful shutdown.
 

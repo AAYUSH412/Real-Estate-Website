@@ -1,485 +1,109 @@
-import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Cpu, Plus, Pencil, Trash2, Star, ToggleLeft, ToggleRight,
-  RefreshCw, AlertCircle, Check, X, ChevronDown, ChevronUp,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, RefreshCw, Cpu } from 'lucide-react';
 import { toast } from 'sonner';
-import apiClient from '../services/apiClient';
-import { cn } from '../lib/utils';
+import AccessibleDialog from '../components/AccessibleDialog';
+import { aiModelsAPI } from '../services/aiModelsAPI';
 
-const EMPTY_FORM = {
-  name: '',
-  slug: '',
-  modelId: '',
-  provider: 'github',
-  badge: '',
-  description: '',
-  isActive: true,
-  isDefault: false,
-  order: 0,
-  config: {
-    maxTokens: 6000,
-    timeoutMs: 90000,
-    temperature: 0.3,
-    topP: 1,
-    enableThinking: false,
-    reasoningBudget: null,
-  },
-};
-
-const AIModels = () => {
-  const [models, setModels] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [expandedConfig, setExpandedConfig] = useState(null);
-
-  const fetchModels = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const { data } = await apiClient.get('/api/admin/ai-models');
-      setModels(data.models || []);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load AI models');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchModels(); }, [fetchModels]);
-
-  function openCreate() {
-    setForm({ ...EMPTY_FORM, config: { ...EMPTY_FORM.config } });
-    setEditingId(null);
-    setShowForm(true);
+const defaults = { maxTokens: 8192, timeoutMs: 60000, temperature: 0.5, topP: 1 };
+const emptyForm = () => ({ name: '', slug: '', modelId: '', profile: 'text-basic', badge: '', description: '', config: { ...defaults } });
+const button = 'border rounded-lg px-3 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-stone-50';
+const inputClass = 'block w-full border rounded-lg px-3 py-2 mt-1 disabled:bg-stone-100';
+const tested = model => model.lastTest?.passed && model.lastTest.configuration === model.configuration;
+export default function AIModels() {
+  const [models, setModels] = useState([]), [profiles, setProfiles] = useState({});
+  const [loading, setLoading] = useState(true), [error, setError] = useState('');
+  const [busy, setBusy] = useState(false), [revision, setRevision] = useState(0);
+  const [form, setForm] = useState(null), [editing, setEditing] = useState(null);
+  const [pending, setPending] = useState(null), [replacement, setReplacement] = useState('');
+  const [migrationRequired, setMigrationRequired] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController(); setLoading(true); setError('');
+    aiModelsAPI.list(controller.signal).then(({ data }) => {
+      if (!controller.signal.aborted) { setModels(data.models); setProfiles(data.profiles || {}); setMigrationRequired(data.migrationRequired); }
+    }).catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.message || 'Unable to load AI models.'); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [revision]);
+  const reload = () => setRevision(value => value + 1);
+  async function run(work, message) {
+    if (busy) return; setBusy(true);
+    try { const response = await work(); if (message) toast.success(message); reload(); return response; }
+    catch (err) { toast.error(err.response?.data?.message || 'Action failed. Refresh and retry.'); reload(); }
+    finally { setBusy(false); }
   }
-
-  function openEdit(model) {
-    setForm({
-      name: model.name,
-      slug: model.slug,
-      modelId: model.modelId,
-      provider: model.provider,
-      badge: model.badge || '',
-      description: model.description || '',
-      isActive: model.isActive,
-      isDefault: model.isDefault,
-      order: model.order,
-      config: { ...EMPTY_FORM.config, ...model.config },
-    });
-    setEditingId(model._id);
-    setShowForm(true);
+  function openForm(model = null) {
+    setEditing(model); setForm(model ? { name: model.name, slug: model.slug, modelId: model.modelId, profile: model.profile, badge: model.badge, description: model.description, config: { ...model.config } } : emptyForm());
   }
-
-  function closeForm() {
-    setShowForm(false);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
+  function setProfile(value) {
+    const spec = profiles[value];
+    setForm(current => ({ ...current, profile: value, modelId: spec.modelId || current.modelId, config: { ...defaults } }));
   }
-
-  function setField(path, value) {
-    setForm(prev => {
-      const next = { ...prev };
-      if (path.startsWith('config.')) {
-        const key = path.slice(7);
-        next.config = { ...prev.config, [key]: value };
-      } else {
-        next[path] = value;
-      }
-      return next;
-    });
+  async function save(event) {
+    event.preventDefault();
+    const response = await run(() => editing ? aiModelsAPI.update(editing, form) : aiModelsAPI.create(form), editing ? 'Model saved. Retest changed configurations before enabling.' : 'Saved disabled. Run the application test next.');
+    if (response) { setForm(null); setEditing(null); }
   }
-
-  async function handleSave() {
-    if (!form.name || !form.slug || !form.modelId) {
-      toast.error('Name, slug, and model ID are required');
-      return;
-    }
-    try {
-      setSaving(true);
-      if (editingId) {
-        await apiClient.put(`/api/admin/ai-models/${editingId}`, form);
-        toast.success('Model updated');
-      } else {
-        await apiClient.post('/api/admin/ai-models', form);
-        toast.success('Model created');
-      }
-      closeForm();
-      fetchModels();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Save failed');
-    } finally {
-      setSaving(false);
+  async function test(model, mode) {
+    const response = await run(() => aiModelsAPI.test(model, mode));
+    if (response) {
+      const result = response.data.result;
+      if (result.passed) toast.success(`${mode === 'application' ? 'Application JSON' : 'Connection'} test passed in ${result.latencyMs} ms`);
+      else toast.error(`Test failed: ${result.code}. No fallback model was used.`);
     }
   }
-
-  async function handleDelete(id) {
-    try {
-      await apiClient.delete(`/api/admin/ai-models/${id}`);
-      toast.success('Model deleted');
-      setDeleteConfirm(null);
-      fetchModels();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Delete failed');
+  function destructive(model, action) { setPending({ model, action }); setReplacement(''); }
+  async function confirmAction(event) {
+    event.preventDefault();
+    const { model, action } = pending;
+    let options = {};
+    if (model.isDefault) {
+      if (!replacement) return;
+      if (replacement === 'off') options = { turnOffAI: true };
+      else { const next = models.find(row => row._id === replacement); options = { replacementId: next._id, replacementVersion: next.version }; }
     }
+    const response = await run(() => action === 'remove' ? aiModelsAPI.remove(model, options) : aiModelsAPI.update(model, { ...options, isActive: false }), action === 'remove' ? 'Model removed. History retained.' : 'Model disabled.');
+    if (response) setPending(null);
   }
-
-  async function toggleActive(model) {
-    try {
-      await apiClient.put(`/api/admin/ai-models/${model._id}`, { isActive: !model.isActive });
-      toast.success(model.isActive ? 'Model deactivated' : 'Model activated');
-      fetchModels();
-    } catch {
-      toast.error('Failed to update model');
-    }
+  async function move(index, direction) {
+    const ordered = [...models]; [ordered[index], ordered[index + direction]] = [ordered[index + direction], ordered[index]];
+    await run(() => aiModelsAPI.reorder(ordered), 'Fallback order updated');
   }
-
-  async function setDefault(model) {
-    try {
-      await apiClient.put(`/api/admin/ai-models/${model._id}`, { isDefault: true });
-      toast.success(`${model.name} set as default`);
-      fetchModels();
-    } catch {
-      toast.error('Failed to update default');
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-[#FAF8F4] p-6">
-      {/* Header */}
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-[#D4755B] rounded-xl flex items-center justify-center">
-              <Cpu className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-[#1C1B1A]">AI Models</h1>
-              <p className="text-sm text-[#6B7280]">Manage NVIDIA NIM models available to users</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={fetchModels}
-              className="p-2 text-[#6B7280] hover:text-[#1C1B1A] hover:bg-white rounded-lg transition-colors"
-            >
-              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            </button>
-            <button
-              onClick={openCreate}
-              className="flex items-center gap-2 bg-[#D4755B] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#C05E44] transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Add Model
-            </button>
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
-          </div>
-        )}
-
-        {/* Model Cards */}
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-24 bg-white rounded-xl animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {models.map(model => (
-              <div key={model._id} className="bg-white rounded-xl border border-[#E5E0D8] overflow-hidden">
-                <div className="flex items-center gap-4 p-4">
-                  {/* Status indicator */}
-                  <div className={cn(
-                    'h-2.5 w-2.5 rounded-full flex-shrink-0',
-                    model.isActive ? 'bg-green-500' : 'bg-[#D1D5DB]'
-                  )} />
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-[#1C1B1A]">{model.name}</span>
-                      {model.isDefault && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-[#D4755B]/10 text-[#D4755B] px-2 py-0.5 rounded-full font-medium">
-                          <Star className="h-3 w-3" /> Default
-                        </span>
-                      )}
-                      {model.badge && (
-                        <span className="text-xs bg-[#F3F0EB] text-[#6B7280] px-2 py-0.5 rounded-full">
-                          {model.badge}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-[#9CA3AF] font-mono mt-0.5 truncate">{model.modelId}</div>
-                    {model.description && (
-                      <div className="text-sm text-[#6B7280] mt-1">{model.description}</div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => setExpandedConfig(expandedConfig === model._id ? null : model._id)}
-                      className="p-2 text-[#9CA3AF] hover:text-[#1C1B1A] hover:bg-[#F3F0EB] rounded-lg transition-colors"
-                      title="Toggle config"
-                    >
-                      {expandedConfig === model._id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
-                    {!model.isDefault && (
-                      <button
-                        onClick={() => setDefault(model)}
-                        className="p-2 text-[#9CA3AF] hover:text-[#D4755B] hover:bg-[#D4755B]/10 rounded-lg transition-colors"
-                        title="Set as default"
-                      >
-                        <Star className="h-4 w-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => toggleActive(model)}
-                      className={cn(
-                        'p-2 rounded-lg transition-colors',
-                        model.isActive
-                          ? 'text-green-600 hover:bg-green-50'
-                          : 'text-[#9CA3AF] hover:bg-[#F3F0EB]'
-                      )}
-                      title={model.isActive ? 'Deactivate' : 'Activate'}
-                    >
-                      {model.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                    </button>
-                    <button
-                      onClick={() => openEdit(model)}
-                      className="p-2 text-[#9CA3AF] hover:text-[#1C1B1A] hover:bg-[#F3F0EB] rounded-lg transition-colors"
-                      title="Edit"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(model._id)}
-                      className="p-2 text-[#9CA3AF] hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Config expanded */}
-                <AnimatePresence>
-                  {expandedConfig === model._id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="border-t border-[#E5E0D8] px-4 py-3 bg-[#FAF8F4] grid grid-cols-3 gap-3 text-xs">
-                        {[
-                          ['maxTokens', model.config?.maxTokens],
-                          ['timeoutMs', model.config?.timeoutMs],
-                          ['temperature', model.config?.temperature],
-                          ['topP', model.config?.topP],
-                          ['enableThinking', String(model.config?.enableThinking)],
-                          ['reasoningBudget', model.config?.reasoningBudget ?? 'none'],
-                        ].map(([k, v]) => (
-                          <div key={k}>
-                            <div className="text-[#9CA3AF] uppercase tracking-wide font-medium">{k}</div>
-                            <div className="font-mono text-[#1C1B1A] mt-0.5">{String(v)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Delete confirm */}
-                <AnimatePresence>
-                  {deleteConfirm === model._id && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="border-t border-red-100 bg-red-50 px-4 py-3 flex items-center justify-between">
-                        <span className="text-sm text-red-700">Delete <strong>{model.name}</strong>? This cannot be undone.</span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#1C1B1A] px-3 py-1.5 rounded-lg hover:bg-white transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5" /> Cancel
-                          </button>
-                          <button
-                            onClick={() => handleDelete(model._id)}
-                            className="flex items-center gap-1 text-sm text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            <Check className="h-3.5 w-3.5" /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-            {!models.length && !loading && (
-              <div className="text-center py-16 text-[#9CA3AF]">
-                <Cpu className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No AI models configured. Add one to get started.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Create / Edit Form Modal */}
-        <AnimatePresence>
-          {showForm && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-              onClick={(e) => e.target === e.currentTarget && closeForm()}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-              >
-                <div className="flex items-center justify-between p-5 border-b border-[#E5E0D8]">
-                  <h2 className="font-bold text-lg text-[#1C1B1A]">
-                    {editingId ? 'Edit Model' : 'Add AI Model'}
-                  </h2>
-                  <button onClick={closeForm} className="p-1.5 text-[#9CA3AF] hover:text-[#1C1B1A] rounded-lg hover:bg-[#F3F0EB] transition-colors">
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="p-5 space-y-4">
-                  {/* Basic fields */}
-                  <label className="block text-sm font-medium text-[#1C1B1A]">
-                    Provider
-                    <select value={form.provider} onChange={e => setField('provider', e.target.value)} className="mt-1 block w-full border rounded-lg px-3 py-2">
-                      <option value="github">GitHub Models</option>
-                      <option value="nvidia">NVIDIA NIM</option>
-                    </select>
-                  </label>
-                  {[
-                    { label: 'Name', field: 'name', placeholder: 'Nemotron Nano' },
-                    { label: 'Slug', field: 'slug', placeholder: 'nemotron-nano' },
-                    { label: 'Model ID', field: 'modelId', placeholder: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning' },
-                    { label: 'Badge', field: 'badge', placeholder: 'Fast · Reasoning' },
-                    { label: 'Description', field: 'description', placeholder: 'Short description shown to users' },
-                  ].map(({ label, field, placeholder }) => (
-                    <div key={field}>
-                      <label className="block text-sm font-semibold text-[#1C1B1A] mb-1">{label}</label>
-                      <input
-                        className="w-full border border-[#E5E0D8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4755B]/30 focus:border-[#D4755B]"
-                        value={form[field]}
-                        onChange={e => setField(field, e.target.value)}
-                        placeholder={placeholder}
-                      />
-                    </div>
-                  ))}
-
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <label className="block text-sm font-semibold text-[#1C1B1A] mb-1">Order</label>
-                      <input
-                        type="number"
-                        className="w-full border border-[#E5E0D8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4755B]/30 focus:border-[#D4755B]"
-                        value={form.order}
-                        onChange={e => setField('order', Number(e.target.value))}
-                      />
-                    </div>
-                    <div className="flex-1 flex flex-col justify-end gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" checked={form.isActive} onChange={e => setField('isActive', e.target.checked)} className="rounded" />
-                        <span className="text-sm font-semibold text-[#1C1B1A]">Active</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" checked={form.isDefault} onChange={e => setField('isDefault', e.target.checked)} className="rounded" />
-                        <span className="text-sm font-semibold text-[#1C1B1A]">Default model</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Config section */}
-                  <div className="border-t border-[#E5E0D8] pt-4">
-                    <h3 className="text-sm font-bold text-[#1C1B1A] mb-3">Model Config</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { label: 'Max Tokens', field: 'config.maxTokens', type: 'number' },
-                        { label: 'Timeout (ms)', field: 'config.timeoutMs', type: 'number' },
-                        { label: 'Temperature', field: 'config.temperature', type: 'number', step: '0.1' },
-                        { label: 'Top P', field: 'config.topP', type: 'number', step: '0.05' },
-                        { label: 'Reasoning Budget', field: 'config.reasoningBudget', type: 'number' },
-                      ].map(({ label, field, type, step }) => (
-                        <div key={field}>
-                          <label className="block text-xs font-semibold text-[#6B7280] mb-1">{label}</label>
-                          <input
-                            type={type}
-                            step={step}
-                            className="w-full border border-[#E5E0D8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4755B]/30 focus:border-[#D4755B]"
-                            value={form.config[field.split('.')[1]] ?? ''}
-                            onChange={e => {
-                              const raw = e.target.value;
-                              const val = raw === '' ? null : Number(raw);
-                              setField(field, val);
-                            }}
-                          />
-                        </div>
-                      ))}
-                      <div className="flex items-end pb-2">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={!!form.config.enableThinking}
-                            onChange={e => setField('config.enableThinking', e.target.checked)}
-                            className="rounded"
-                          />
-                          <span className="text-xs font-semibold text-[#6B7280]">Enable Thinking</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#E5E0D8]">
-                  <button
-                    onClick={closeForm}
-                    className="px-4 py-2 text-sm text-[#6B7280] hover:text-[#1C1B1A] rounded-lg hover:bg-[#F3F0EB] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-[#D4755B] hover:bg-[#C05E44] rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Model'}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+  return <main className="min-h-screen bg-[#FAF8F4] p-6 lg:p-10 space-y-6">
+    <div className="flex flex-wrap gap-4 justify-between items-center">
+      <div><h1 className="flex items-center gap-2 text-2xl font-bold"><Cpu aria-hidden="true" />AI models</h1><p className="text-stone-600 mt-2">NVIDIA NIM · Save disabled, test, then enable. The default runs first; other enabled models follow the order below (up to three attempts within 120 seconds).</p></div>
+      <div className="flex gap-2"><button className={button} disabled={busy} onClick={reload}><RefreshCw className="inline h-4 w-4 mr-2" />Refresh</button><button className={button} disabled={busy || migrationRequired || loading} onClick={() => openForm()}><Plus className="inline h-4 w-4 mr-2" />Add model</button></div>
     </div>
-  );
-};
-
-export default AIModels;
+    <p className="text-sm text-stone-600">Tests send a small demo request to NVIDIA and use account quota. API keys stay on the server. A connection test alone does not enable a model.</p>
+    {migrationRequired && <div role="alert" className="border border-amber-300 bg-amber-50 p-4 rounded-lg">Legacy configurations need migration before management. Follow backend/docs/admin-phase2-nvidia.md; existing user and property records are preserved.</div>}
+    {error && <p role="alert" className="text-red-700">{error} <button className="underline" onClick={reload}>Retry</button></p>}
+    {loading ? <p role="status">Loading models…</p> : !error && <>
+      {!models.length && !migrationRequired && <p className="bg-white border rounded-xl p-6">No models configured. Add a NVIDIA model to begin. AI search is unavailable until a tested model is enabled.</p>}
+      {models.map((model, index) => <article key={model._id} className="bg-white border rounded-xl p-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-lg">{model.name}{model.isDefault ? ' · Default' : ''}</h2><p className="text-sm break-all text-stone-600">{model.modelId}</p><p className="mt-1 text-sm">{model.isActive ? 'Enabled' : 'Disabled'} · {profiles[model.profile]?.label || model.profile} · Order {index + 1}</p>{model.description && <p className="text-sm mt-2">{model.description}</p>}</div><span className="border rounded-full px-3 py-1 text-xs">{tested(model) ? 'Application test passed' : 'Application test required'}</span></div>
+        {model.lastTest && <p className="text-sm" role="status">Last application test: {model.lastTest.passed ? 'passed' : `failed (${model.lastTest.code})`} · {model.lastTest.latencyMs} ms · {new Date(model.lastTest.testedAt).toLocaleString()}</p>}
+        {model.lastConnectionTest && <p className="text-sm">Connection test: {model.lastConnectionTest.passed ? 'passed' : 'failed'} · {new Date(model.lastConnectionTest.testedAt).toLocaleString()}</p>}
+        <div className="flex flex-wrap gap-2">
+          <button disabled={busy || migrationRequired} className={button} onClick={() => test(model, 'connection')}>Test connection</button>
+          <button disabled={busy || migrationRequired} className={button} onClick={() => test(model, 'application')}>Test application JSON</button>
+          <button disabled={busy || migrationRequired || (!model.isActive && !tested(model))} className={button} onClick={() => model.isActive ? destructive(model, 'disable') : run(() => aiModelsAPI.update(model, { isActive: true }), 'Model enabled')}>{model.isActive ? 'Disable' : 'Enable'}</button>
+          {!model.isDefault && <button disabled={busy || migrationRequired || !model.isActive || !tested(model)} className={button} onClick={() => run(() => aiModelsAPI.update(model, { isDefault: true }), 'Default updated')}>Make default</button>}
+          <button disabled={busy || migrationRequired} className={button} onClick={() => openForm(model)}>Edit</button>
+          <button disabled={busy || migrationRequired} className={button} onClick={() => destructive(model, 'remove')}>Remove</button>
+          <button aria-label={`Move ${model.name} earlier`} disabled={busy || migrationRequired || index === 0} className={button} onClick={() => move(index, -1)}>Move up</button>
+          <button aria-label={`Move ${model.name} later`} disabled={busy || migrationRequired || index === models.length - 1} className={button} onClick={() => move(index, 1)}>Move down</button>
+        </div>
+        <details className="text-sm"><summary className="cursor-pointer">Saved parameters and test limits</summary><dl className="grid grid-cols-2 gap-2 mt-3">{Object.entries(model.config).map(([key, value]) => <div key={key}><dt className="text-stone-500">{key}</dt><dd>{String(value)}</dd></div>)}</dl><p className="mt-2 text-stone-600">Application tests use at most 1024 output tokens and 30 seconds, bounded by the saved limits. Search uses saved limits. Configuration: {model.configuration.slice(0, 12)}</p></details>
+      </article>)}
+    </>}
+    {form && <AccessibleDialog label={editing ? 'Edit NVIDIA model' : 'Add NVIDIA model'} busy={busy} onClose={() => setForm(null)}><form onSubmit={save} className="w-[min(90vw,36rem)] p-6 space-y-4"><h2 className="font-bold text-xl">{editing ? 'Edit model' : 'Add model'}</h2><p>NVIDIA API key and endpoint are configured on the server.</p>{editing?.isActive && <p className="text-amber-800">Disable this model before changing its ID, profile or parameters.</p>}
+      <label className="block">Parameter profile<select className={inputClass} disabled={busy || editing?.isActive} value={form.profile} onChange={event => setProfile(event.target.value)}>{Object.entries(profiles).map(([key, spec]) => <option value={key} key={key}>{spec.label}</option>)}</select></label>
+      {['name', 'slug', 'modelId', 'badge', 'description'].map(field => <label className="block" key={field}>{({ name: 'Name', slug: 'Unique slug', modelId: 'Exact NVIDIA model ID', badge: 'Badge', description: 'Description' })[field]}<input className={inputClass} required={['name', 'slug', 'modelId'].includes(field)} maxLength={field === 'description' ? 2000 : 200} disabled={busy || (field === 'modelId' && editing?.isActive)} value={form[field]} onChange={event => setForm(current => ({ ...current, [field]: event.target.value }))} /></label>)}
+      <fieldset disabled={busy || editing?.isActive} className="grid grid-cols-2 gap-3"><legend className="font-semibold mb-2">Parameters</legend>{Object.keys(defaults).map(field => <label key={field}>{field}<input className={inputClass} type="number" required step={['temperature', 'topP'].includes(field) ? '0.01' : '1'} value={form.config[field]} onChange={event => setForm(current => ({ ...current, config: { ...current.config, [field]: event.target.value === '' ? '' : Number(event.target.value) } }))} /></label>)}
+        {profiles[form.profile]?.options.includes('enableThinking') && <label className="col-span-2"><input type="checkbox" checked={form.config.enableThinking || false} onChange={event => setForm(current => ({ ...current, config: { ...current.config, enableThinking: event.target.checked } }))} /> Enable thinking</label>}
+        {profiles[form.profile]?.options.includes('reasoningEffort') && <label>Reasoning effort<select className={inputClass} value={form.config.reasoningEffort || ''} onChange={event => setForm(current => { const config = { ...current.config }; if (event.target.value) config.reasoningEffort = event.target.value; else delete config.reasoningEffort; return { ...current, config }; })}><option value="">Provider default</option><option value="high">High</option></select></label>}
+        {(profiles[form.profile]?.options || []).filter(key => !['enableThinking', 'reasoningEffort'].includes(key)).map(field => <label key={field}>{field} (optional)<input className={inputClass} type="number" step={field === 'seed' ? '1' : '0.1'} value={form.config[field] ?? ''} onChange={event => setForm(current => { const config = { ...current.config }; if (event.target.value !== '') config[field] = Number(event.target.value); else delete config[field]; return { ...current, config }; })} /></label>)}
+      </fieldset><div className="flex justify-end gap-2"><button type="button" disabled={busy} className={button} onClick={() => setForm(null)}>Cancel</button><button disabled={busy} className={button}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Save disabled'}</button></div>
+    </form></AccessibleDialog>}
+    {pending && <AccessibleDialog label={`${pending.action} model`} busy={busy} onClose={() => setPending(null)}><form className="w-[min(90vw,32rem)] p-6 space-y-4" onSubmit={confirmAction}><h2 className="font-semibold text-xl">{pending.action === 'remove' ? 'Remove' : 'Disable'} {pending.model.name}?</h2><p>Future requests will no longer use this model. Existing audit history stays available.</p>{pending.model.isDefault && <label className="block">Replace the default or turn off AI<select required className={inputClass} value={replacement} onChange={event => setReplacement(event.target.value)}><option value="">Choose an action</option>{models.filter(row => row._id !== pending.model._id && row.isActive && tested(row)).map(row => <option key={row._id} value={row._id}>Use {row.name}</option>)}<option value="off">Turn off all AI search models</option></select></label>}<div className="flex justify-end gap-2"><button type="button" disabled={busy} className={button} onClick={() => setPending(null)}>Cancel</button><button disabled={busy || (pending.model.isDefault && !replacement)} className={button}>Confirm {pending.action}</button></div></form></AccessibleDialog>}
+  </main>;
+}

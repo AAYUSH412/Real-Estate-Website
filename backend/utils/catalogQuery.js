@@ -42,7 +42,7 @@ export function catalogSort(sort = 'newest') {
 
 export const effectiveListingStatus = (now = new Date()) => ({ $cond: [{ $and: [{ $eq: ['$status', 'active'] }, { $ne: [{ $ifNull: ['$expiresAt', null] }, null] }, { $lte: ['$expiresAt', now] }] }, 'expired', { $ifNull: ['$status', 'active'] }] });
 export function listingStatusQuery(status) {
-  if (status === 'active') return { status: 'active', $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] };
+  if (status === 'active') return publicListingQuery();
   if (status === 'expired') return { $or: [{ status: 'expired' }, { status: 'active', expiresAt: { $ne: null, $lte: new Date() } }] };
   return { status };
 }

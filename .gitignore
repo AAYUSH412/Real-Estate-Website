@@ -189,3 +189,6 @@ docker-compose.override.yml
 # Large demo videos — upload to GitHub via web editor instead of committing
 Image/new images and video/
 *.mov
+
+# TypeScript incremental build cache
+*.tsbuildinfo

@@ -1,0 +1,4 @@
+interface:
+  display_name: "BuildEstate Phase Delivery"
+  short_description: "Maintain phase evidence and reviewable handoffs"
+  default_prompt: "Use $buildestate-phase-delivery to complete the requested BuildEstate work using the current plan and implementation."

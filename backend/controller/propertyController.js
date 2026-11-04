@@ -5,7 +5,7 @@ import { saveListing, listingError } from '../services/listingService.js';
 import { pagination, pageMetadata } from '../utils/pagination.js';
 import { createFirecrawlService } from '../services/firecrawlService.js';
 import { createAIService } from '../services/aiService.js';
-import { resolveModelsByProvider } from './aiModelController.js';
+import { resolveCatalog } from './aiModelController.js';
 import { validateAndFixPropertyAnalysis, validateAndFixLocationAnalysis } from '../utils/validateAIResponse.js';
 import Property from '../models/propertyModel.js';
 import SearchCache from '../models/searchCacheModel.js';
@@ -84,7 +84,7 @@ export async function getCacheStats() {
         };
     } catch (err) {
         logger.warn('Cache stats error', { error: err.message });
-        return { error: err.message };
+        throw err;
     }
 }
 
@@ -142,48 +142,19 @@ export async function getLocalitySuggestions(req, res) {
 
 // ── Key validation ────────────────────────────────────────────────────────────
 
-/**
- * Gate: Firecrawl key comes from the user (request header).
- * AI keys (GitHub Models / NVIDIA NIM) are server-side only — loaded from env vars.
- * Users only need to supply their own Firecrawl key.
- * Reads active model list from DB (5-min in-memory cache via aiModelController).
- * User can request a specific model via req.body.model (slug); it is placed first.
- */
-async function resolveServices(req) {
-    const firecrawlKey    = req.headers['x-firecrawl-key']?.trim() || null;
-    const serverGithubKey = process.env.GITHUB_MODELS_API_KEY?.trim() || null;
-    const serverNvidiaKey = process.env.NVIDIA_API_KEY?.trim()      || null;
-
-    if (!firecrawlKey) {
-        const err = new Error('Firecrawl API key is required for property search.');
-        err.statusCode = 403;
-        err.code = 'KEYS_REQUIRED';
-        throw err;
-    }
-
-    if (!serverGithubKey && !serverNvidiaKey) {
-        const err = new Error('AI service temporarily unavailable — please try again later.');
-        err.statusCode = 503;
-        err.code = 'SERVER_AI_UNAVAILABLE';
-        throw err;
-    }
-
-    let configured;
-    try { configured = await resolveModelsByProvider(); }
-    catch { throw Object.assign(new Error('AI model configuration is temporarily unavailable.'), { statusCode: 503, code: 'SERVER_AI_UNAVAILABLE' }); }
-    const { github, nvidia } = configured;
-    const models = [...github, ...nvidia];
-    const requestedSlug = req.body?.model || req.query?.model;
-    const selected = requestedSlug ? models.find(m => m.slug === requestedSlug) : models.find(m => m.isDefault) || models[0];
-    if (!selected) throw Object.assign(new Error(requestedSlug ? 'Selected model is unavailable.' : 'No enabled AI models are available.'), { statusCode: requestedSlug ? 400 : 503, code: 'MODEL_UNAVAILABLE' });
-    if (!(selected.provider === 'github' ? serverGithubKey : serverNvidiaKey)) {
-        throw Object.assign(new Error('Selected AI provider is not configured.'), { statusCode: 503, code: 'SERVER_AI_UNAVAILABLE' });
-    }
-    const prioritise = list => [...list].sort((a, b) => Number(b.slug === selected.slug) - Number(a.slug === selected.slug));
-    return {
-        aiService: createAIService(serverGithubKey, serverNvidiaKey, prioritise(github), prioritise(nvidia), selected.provider),
-        firecrawlService: createFirecrawlService(firecrawlKey),
-    };
+/** Fixed NVIDIA inference with caller-supplied Firecrawl discovery credentials. */
+export async function resolveServices(req) {
+    const firecrawlKey = req.headers['x-firecrawl-key']?.trim();
+    if (!firecrawlKey) throw Object.assign(new Error('Firecrawl API key is required for property search.'), { statusCode: 403, code: 'KEYS_REQUIRED' });
+    const nvidiaKey = process.env.NVIDIA_API_KEY?.trim();
+    if (!nvidiaKey) throw Object.assign(new Error('NVIDIA service is not configured.'), { statusCode: 503, code: 'SERVER_AI_UNAVAILABLE' });
+    const { models, configuration } = await resolveCatalog();
+    if (!models.length) throw Object.assign(new Error('No enabled AI models are available.'), { statusCode: 503, code: 'MODEL_UNAVAILABLE' });
+    const requested = req.body?.model || req.query?.model;
+    const selected = requested ? models.find(model => model.slug === requested) : models.find(model => model.isDefault) || models[0];
+    if (!selected) throw Object.assign(new Error('Selected model is unavailable.'), { statusCode: 400, code: 'MODEL_UNAVAILABLE' });
+    const ordered = [selected, ...models.filter(model => model.slug !== selected.slug)];
+    return { aiService: createAIService(nvidiaKey, ordered), firecrawlService: createFirecrawlService(firecrawlKey), configuration, selected: selected.slug };
 }
 
 function isUnauthorizedError(err) {
@@ -219,11 +190,13 @@ export const searchProperties = async (req, res) => {
 
     // Helper: write one SSE event. Silently ignores write errors (client disconnected).
     function writeSSE(event, data) {
+        if (res.destroyed || res.writableEnded) return;
         try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
     }
 
     // Helper: finalize response — handles both SSE and JSON paths.
     function sendResult(data) {
+        if (res.destroyed || res.writableEnded) return;
         if (sseWrite) {
             sseWrite('result', data);
             sseWrite('done', {});
@@ -235,6 +208,7 @@ export const searchProperties = async (req, res) => {
 
     // Helper: send error — uses SSE error event if headers already flushed, else JSON.
     function sendError(status, body) {
+        if (res.destroyed || res.writableEnded) return;
         if (sseWrite) {
             sseWrite('error', body);
             res.end();
@@ -272,10 +246,10 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        const { firecrawlService, aiService } = services;
+        const { firecrawlService, aiService, configuration, selected } = services;
 
         // Cache key includes all search dimensions including model choice
-        const modelSlug = req.body.model || 'default';
+        const modelSlug = `${selected}:${configuration}`;
         const cacheKey = `search:${city}:${locality}:${bhk}:${minPrice}:${maxPrice}:${propertyCategory}:${propertyType}:${possession}:limit${limit}:m${modelSlug}`;
 
         // ── Flush SSE headers now (after early validation, before slow work) ──────
@@ -287,11 +261,9 @@ export const searchProperties = async (req, res) => {
             res.flushHeaders();
             sseWrite = writeSSE;
 
-            // Clean up subscriber when client disconnects early
-            req.on('close', () => {
-                sseUnregister?.();
-                if (!res.writableEnded) res.end();
-            });
+            // IncomingMessage.close also occurs when the request body finishes.
+            // Only the response lifecycle tells us that SSE delivery has closed.
+            res.once('close', () => { sseUnregister?.(); });
         }
 
         // ── Cache check ──────────────────────────────────────────────────────────
@@ -302,6 +274,8 @@ export const searchProperties = async (req, res) => {
         }
 
         logger.info('Property search', { city, locality, bhk, maxPrice, propertyType, possession });
+
+        if (res.destroyed || res.writableEnded) return;
 
         // ── Register SSE subscriber BEFORE entering coalescer ────────────────────
         // This ensures even coalesced (secondary) requests receive broadcast events
@@ -359,7 +333,7 @@ export const searchProperties = async (req, res) => {
                 });
 
                 // Look up city benchmarks from cached trends (zero extra Firecrawl calls)
-                const trendsCacheData = await getCached(`trends:${city}`);
+                const trendsCacheData = await getCached(`trends:${city}:limit5:m${selected}:${configuration}`);
                 const cityBenchmarks  = trendsCacheData?.analysis?.trends || null;
                 if (cityBenchmarks) {
                     logger.debug('City benchmarks loaded from trends cache', { city, count: cityBenchmarks.length });
@@ -402,8 +376,10 @@ export const searchProperties = async (req, res) => {
                 // already-rendered cards with match scores, red flags, and insights.
                 broadcastProgress(cacheKey, 'analysis', { analysis });
 
-                const payload = { properties: propertiesData.properties, analysis };
-                await setCache(cacheKey, payload);
+                const covered = new Set((analysis.overview || []).filter(item => Number.isFinite(item.match_score)).map(item => item.name));
+                const analyzedCount = propertiesData.properties.filter(item => covered.has(item.building_name)).length;
+                const payload = { properties: propertiesData.properties, analysis, generatedAt: new Date().toISOString(), analysisMeta: { status: analysis.error ? 'unavailable' : analyzedCount < propertiesData.properties.length ? 'partial' : 'generated', requestedModel: selected, actualModel: aiService.lastGeneration, configuration, analyzedCount, totalCount: propertiesData.properties.length, sources: 'Source-reported listings and model-derived estimates; independently unverified' } };
+                if (!analysis.error) await setCache(cacheKey, payload);
                 logger.info('Cache SET', { key: cacheKey.substring(0, 50) });
                 return payload;
             });
@@ -447,15 +423,9 @@ export const searchProperties = async (req, res) => {
             });
         }
 
-        // SSE phased flow: properties + analysis already sent via broadcastProgress.
-        // Only exception: fromCoalesce = inner cache hit where no phases were broadcast.
-        // JSON mode always uses sendResult (full payload in one response).
-        if (isSSE && !result.fromCoalesce) {
-            sseWrite?.('done', {});
-            if (!res.writableEnded) res.end();
-        } else {
-            sendResult({ success: true, ...result });
-        }
+        // Every client needs the final complete payload, including provenance.
+        // Progress events may have occurred before a coalesced client subscribed.
+        sendResult({ success: true, ...result });
 
     } catch (error) {
         logger.error('Error searching properties', { error: error.message, stack: error.stack });
@@ -490,8 +460,8 @@ export const getLocationTrends = async (req, res) => {
             });
         }
 
-        const { firecrawlService, aiService } = services;
-        const cacheKey = `trends:${city}`;
+        const { firecrawlService, aiService, configuration, selected } = services;
+        const cacheKey = `trends:${city}:limit${Math.min(Number(limit), 5)}:m${selected}:${configuration}`;
 
         // Check persistent MongoDB cache first
         const cached = await getCached(cacheKey);
@@ -538,8 +508,8 @@ export const getLocationTrends = async (req, res) => {
                     };
                 }
 
-                const payload = { locations: locationsData.locations, analysis };
-                await setCache(cacheKey, payload);
+                const payload = { locations: locationsData.locations, analysis, generatedAt: new Date().toISOString(), analysisMeta: { status: analysis.error ? 'unavailable' : (analysis.trends || []).length < locationsData.locations.length ? 'partial' : 'generated', requestedModel: selected, actualModel: aiService.lastGeneration, configuration, analyzedCount: (analysis.trends || []).length, totalCount: locationsData.locations.length, sources: 'Source-reported data and model-derived estimates; independently unverified' } };
+                if (!analysis.error) await setCache(cacheKey, payload);
                 logger.info('Cache SET', { key: cacheKey });
                 return payload;
             });

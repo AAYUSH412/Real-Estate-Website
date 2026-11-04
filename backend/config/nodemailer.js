@@ -1,13 +1,11 @@
+import './environment.js';
 import axios from 'axios';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // Create a pseudo-transporter that uses Brevo's REST API instead of SMTP
 // This bypasses free-tier Render's strict block on outbound port 587 traffic.
 const createTransporter = () => {
   if (!process.env.BREVO_API_KEY) {
-    console.warn('⚠️  Email API configuration incomplete. Missing BREVO_API_KEY environment variable. Emails will fail silently.');
+    console.warn('⚠️  Email API configuration incomplete. Missing BREVO_API_KEY environment variable. Email attempts will fail.');
   }
 
   return {
@@ -15,6 +13,8 @@ const createTransporter = () => {
       if (!process.env.BREVO_API_KEY) {
         throw new Error('Missing BREVO_API_KEY. Cannot send email.');
       }
+
+      if (!mailOptions.from?.trim()) throw new Error('Missing EMAIL_USER. Configure a Brevo-verified sender.');
 
       try {
         const payload = {
@@ -25,6 +25,7 @@ const createTransporter = () => {
         };
 
         const response = await axios.post('https://api.brevo.com/v3/smtp/email', payload, {
+          timeout: 10000,
           headers: {
             'api-key': process.env.BREVO_API_KEY,
             'accept': 'application/json',
@@ -32,7 +33,7 @@ const createTransporter = () => {
           }
         });
 
-        console.log('✅ Email sent successfully via REST API:', response.data.messageId);
+        console.log('Email accepted by Brevo REST API (delivery not verified):', response.data.messageId);
         return response.data;
       } catch (error) {
         console.error('❌ Failed to send email via REST API:', error.response?.data || error.message);
@@ -43,7 +44,7 @@ const createTransporter = () => {
        if (!process.env.BREVO_API_KEY) {
           throw new Error('Transporter not configured with BREVO_API_KEY');
        }
-       return true; // We can assume it is verified if the key exists during boot
+       return true; // Configuration check only; no provider or delivery verification.
     }
   };
 };
@@ -60,7 +61,7 @@ export const checkEmailHealth = async () => {
   if (!process.env.BREVO_API_KEY) {
     return { status: 'error', message: 'BREVO_API_KEY not configured' };
   }
-  return { status: 'healthy', message: 'Email service is operational via Brevo REST API' };
+  return { status: 'configured', message: 'Brevo API key present; delivery has not been verified' };
 };
 
 export default transporter;

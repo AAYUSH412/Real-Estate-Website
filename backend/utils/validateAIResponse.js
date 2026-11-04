@@ -172,7 +172,7 @@ export function validateAndFixPropertyAnalysis(rawResponse, properties = []) {
               price_trend_context: item.price_trend_context || '',
             };
           })
-      : properties.slice(0, 8).map(p => ({
+      : properties.map(p => ({
           name:             p.building_name || 'Unknown',
           price:            p.price         || 'Contact for price',
           area:             p.area_sqft     || 'N/A',
@@ -225,7 +225,7 @@ export function validateAndFixPropertyAnalysis(rawResponse, properties = []) {
     console.error('[Validation] Property analysis parse failed:', error.message);
     return {
       error: 'Analysis format issue',
-      overview: properties.slice(0, 8).map(p => ({
+      overview: properties.map(p => ({
         name:             p.building_name || 'Unknown',
         price:            p.price         || 'Contact for price',
         area:             p.area_sqft     || 'N/A',

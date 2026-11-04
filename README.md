@@ -19,7 +19,6 @@
 [![Node.js](https://img.shields.io/badge/Node.js_18+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
-[![GPT-4.1](https://img.shields.io/badge/GPT--4.1-412991?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/marketplace/models)
 [![Firecrawl](https://img.shields.io/badge/Firecrawl-FF6600?style=for-the-badge&logo=fire&logoColor=white)](https://firecrawl.dev)
 
 <br/>
@@ -145,7 +144,7 @@ sequenceDiagram
     participant Backend as Express<br/>Backend
     participant Firecrawl as Firecrawl API
     participant Sources as 99acres<br/>MagicBricks<br/>Housing.com
-    participant AI as GitHub Models<br/>(GPT-4.1)
+    participant AI as NVIDIA NIM
     
     User->>Backend: POST /api/ai/search<br/>(city, locality, bhk, budget, possession)
     Backend->>Backend: Build 3 search queries
@@ -230,7 +229,7 @@ The redesigned form captures buyer intent more precisely:
 
 ### 🔑 Bring Your Own Firecrawl Key
 
-Users provide their **own free Firecrawl key** in the browser — it lives in localStorage only, never on the server. AI analysis runs **server-side** through a multi-model fallback chain (**NVIDIA NIM → GitHub Models**), and users pick the model (GLM-5.2, Nemotron Nano/Ultra, Mistral…) right in the search form.
+Users provide their **own free Firecrawl key** in the browser — it is kept in browser localStorage and passed transiently for discovery requests. AI analysis runs **server-side** through a multi-model fallback chain (**NVIDIA NIM models only**), and users pick the model (enabled, tested models from the admin catalog) right in the search form.
 
 ```
 User's browser (localStorage)
@@ -361,7 +360,7 @@ graph TD
     F -->|Structured JSON| G["Backend<br/>Processing"]
     
     G -->|Deduplicate<br/>by address| H["Code-side Filter<br/>Reject rentals/PG"]
-    H -->|Clean properties| I["GitHub Models<br/>GPT-4.1"]
+    H -->|Clean properties| I["NVIDIA NIM"]
     
     I -->|Ranked + Insights| J["Response<br/>to Frontend"]
     
@@ -394,7 +393,7 @@ flowchart LR
         DB[("MongoDB Atlas<br/>Database")]
         IK["ImageKit CDN<br/>Images"]
         FC["Firecrawl API<br/>Web Scraping<br/>Multi-source"]
-        AI["AI Models<br/>NVIDIA NIM + GPT-4.1<br/>Ranking & Insights"]
+        AI["AI Models<br/>NVIDIA NIM<br/>Ranking & Insights"]
         EMAIL["Brevo SMTP<br/>Email Service"]
     end
     
@@ -435,7 +434,6 @@ flowchart LR
 [![Nodemailer](https://img.shields.io/badge/Nodemailer-0F9DCE?style=for-the-badge&logo=gmail&logoColor=white)](https://nodemailer.com)
 
 ### AI & Infrastructure
-[![GPT-4.1](https://img.shields.io/badge/GPT--4.1-412991?style=for-the-badge&logo=openai&logoColor=white)](https://github.com/marketplace/models)
 [![Firecrawl](https://img.shields.io/badge/Firecrawl-FF6600?style=for-the-badge&logo=fire&logoColor=white)](https://firecrawl.dev)
 [![ImageKit](https://img.shields.io/badge/ImageKit_CDN-FF6F00?style=for-the-badge&logoColor=white)](https://imagekit.io)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
@@ -508,7 +506,6 @@ IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_imagekit_id
 # Optional: AI Services (for AI Property Hub)
 # Users can provide their own keys via frontend, these are server fallbacks
 # FIRECRAWL_API_KEY=fc-your_firecrawl_api_key
-# GITHUB_MODELS_API_KEY=github_pat_your_github_token
 ```
 
 ```bash
@@ -520,7 +517,6 @@ npm run dev   # Starts backend on http://localhost:4000
 - **ImageKit**: [imagekit.io](https://imagekit.io) - Free 10GB + CDN
 - **Brevo SMTP**: [brevo.com](https://brevo.com) - Free 300 emails/day
 - **Firecrawl**: [firecrawl.dev](https://firecrawl.dev) - Free 500 pages/month
-- **GitHub Models**: [github.com/marketplace/models](https://github.com/marketplace/models) - Free with GitHub account
 
 </details>
 
@@ -758,7 +754,6 @@ npm run dev   # Starts admin panel on http://localhost:5174
 
 **Optional (for AI features):**
 - [ ] **Firecrawl** API key (500 free pages/month)
-- [ ] **GitHub Models** token (free with GitHub account)
 
 </details>
 
@@ -814,7 +809,7 @@ Real-Estate-Website/
 ├── routes/         → Express route definitions
 ├── services/
 │   ├── firecrawlService.js  → Smart 99acres scraping (30+ cities, URL construction, retry logic)
-│   └── aiService.js         → GPT-4.1 property analysis + location trends
+│   └── aiService.js         → NVIDIA property analysis + location trends
 ├── utils/          → AI response validation & safe parsing
 └── server.js       → Entry point (Helmet, CORS, rate limiting)
 ```

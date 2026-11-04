@@ -1,6 +1,9 @@
+import './config/environment.js';
+import { allowedOrigins, corsOptions } from './config/corsPolicy.js';
+import { mountApiRoutes } from './routes/mountApiRoutes.js';
+import { respondError } from './utils/httpErrors.js';
 import { redactUrl } from './utils/redactUrl.js';
 import express from 'express';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
@@ -11,23 +14,11 @@ import connectdb from './config/mongodb.js';
 import { trackAPIStats } from './middleware/statsMiddleware.js';
 import { requestIdMiddleware } from './middleware/requestIdMiddleware.js';
 import logger from './utils/logger.js';
-import propertyrouter from './routes/productRoutes.js';
-import userrouter from './routes/userRoutes.js';
-import formrouter from './routes/formRoutes.js';
-import newsrouter from './routes/newsRoutes.js';
-import appointmentRouter from './routes/appointmentRoutes.js';
-import adminRouter from './routes/adminRoutes.js';
-import propertyRoutes from './routes/propertyRoutes.js';
 import healthRouter from './routes/healthRoutes.js';
 import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
 import { startAutoUnsuspendJob } from './utils/autoUnsuspend.js';
 import { printBanner } from './utils/banner.js';
-
-if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: './.env.local' });
-}
-dotenv.config(); // .env fallback / Render uses process-level env vars
 
 const app = express();
 
@@ -95,34 +86,8 @@ app.use(mongoSanitize({
   }
 }));
 
-
-// CORS Configuration
-const parseCsv = (value = '') =>
-  value
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean);
-
-const envOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.ADMIN_URL,
-  process.env.WEBSITE_URL,
-  ...parseCsv(process.env.LOCAL_URLS || ''),
-  ...parseCsv(process.env.EXTRA_ALLOWED_ORIGINS || ''),
-].filter(Boolean);
-
-const defaultDevOrigins = [
-  'http://localhost:4000',
-  'http://localhost:5173',
-  'http://localhost:5174',
-];
-
-const allowedOrigins = [
-  ...(process.env.NODE_ENV === 'production' ? [] : defaultDevOrigins),
-  ...envOrigins,
-];
-
-const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+// CORS policy is shared with isolated HTTP acceptance tests.
+const uniqueAllowedOrigins = allowedOrigins();
 if (process.env.NODE_ENV === 'production') {
   logger.info('Server starting', {
     environment: process.env.NODE_ENV,
@@ -131,21 +96,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow same-origin or non-browser requests (curl/postman/server-to-server)
-    if (!origin) return callback(null, true);
-
-    if (uniqueAllowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Github-Key', 'X-Firecrawl-Key', 'X-Nvidia-Key']
-}));
+app.use(cors(corsOptions()));
 
 // Database connection
 connectdb().then(() => {
@@ -179,19 +130,11 @@ connectdb().then(() => {
   }
 });
 
-
 // Health check routes (mounted early for reliability)
 app.use('/health', healthRouter);
 
 // API Routes
-app.use('/api/products', propertyrouter);
-app.use('/api/users', userrouter);
-app.use('/api/forms', formrouter);
-app.use('/api/news', newsrouter);
-app.use('/api/appointments', appointmentRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api', propertyRoutes);
-
+mountApiRoutes(app);
 
 app.use((err, req, res, next) => {
   logger.error('Request error', {
@@ -201,17 +144,8 @@ app.use((err, req, res, next) => {
     path: redactUrl(req.path),
     method: req.method,
   });
-  const statusCode = err.status || err.statusCode || (err.name === 'MulterError' ? 400 : 500);
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    statusCode,
-    requestId: req.requestId,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    timestamp: new Date().toISOString()
-  });
+  respondError(res, err);
 });
-
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (err) => {
@@ -287,7 +221,7 @@ app.get('/', (req, res) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`,
+    message: 'Route not found',
     statusCode: 404,
     timestamp: new Date().toISOString()
   });

@@ -1,4 +1,6 @@
-import { listLeads, updateLead, listSubscribers, suppressSubscriber } from '../controller/engagementController.js';
+import { createDistributedRateLimiter } from '../utils/distributedRateLimiter.js';
+import { listLeads, getLeadDetails, updateLead, listSubscribers, suppressSubscriber } from '../controller/engagementController.js';
+import { getAppointmentDetails } from '../controller/bookingController.js';
 import { validId, validatePage } from '../middleware/contracts.js';
 import { adminListProperties, adminSingleProperty } from '../controller/productController.js';
 import express from 'express';
@@ -30,7 +32,7 @@ import {
   getPropertyStats,
   getEnhancedOverview,
 } from '../controller/adminController.js';
-import { listModels, createModel, updateModel, deleteModel } from '../controller/aiModelController.js';
+import { listModels, createModel, updateModel, deleteModel, reorderModels, testModel } from '../controller/aiModelController.js';
 import { adminProtect } from '../middleware/authMiddleware.js';
 import { registry } from '../utils/circuitBreaker.js';
 
@@ -43,12 +45,14 @@ router.use(adminProtect);
 
 router.get('/session', (req, res) => res.json({ success: true, user: { email: req.admin.email, id: String(req.admin._id), role: 'admin' } }));
 router.get('/leads', listLeads);
+router.get('/leads/:id', getLeadDetails);
 router.put('/leads/:id', updateLead);
 router.get('/subscribers', listSubscribers);
 router.put('/subscribers/:id/suppress', suppressSubscriber);
 
 router.get('/stats', getAdminStats);
 router.get('/appointments', getAllAppointments);
+router.get('/appointments/:id', getAppointmentDetails);
 router.put('/appointments/status', updateAppointmentStatus);
 
 // Listing review queue
@@ -85,7 +89,11 @@ router.get('/stats/properties', getPropertyStats);
 router.get('/stats/overview', getEnhancedOverview);
 
 // AI Model Management
+export const modelTestRateLimiter = createDistributedRateLimiter({ windowMs: 60000, max: 6, storePath: process.env.RATE_LIMIT_STORE_PATH || './.rate-limit-store', keyGenerator: req => `ai-model-test:${req.admin._id}`, message: { success: false, message: 'Model test limit reached. Retry in one minute.' } });
+const modelTestLimiter = modelTestRateLimiter.createMiddleware();
 router.get('/ai-models', listModels);
+router.post('/ai-models/reorder', reorderModels);
+router.post('/ai-models/:id/test', modelTestLimiter, testModel);
 router.post('/ai-models', createModel);
 router.put('/ai-models/:id', updateModel);
 router.delete('/ai-models/:id', deleteModel);
@@ -104,7 +112,6 @@ router.get('/circuit-breakers', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch circuit breaker status',
-      error: error.message
     });
   }
 });

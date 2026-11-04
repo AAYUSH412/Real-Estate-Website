@@ -101,7 +101,7 @@ const UsersManagement = () => {
       setActionLoading(true);
       const response = await apiClient.put(
         `/api/admin/users/${selectedUser._id}/suspend`,
-        suspendData
+        { ...suspendData, expectedVersion: selectedUser.version }
       );
 
       if (response.data.success) {
@@ -126,7 +126,7 @@ const UsersManagement = () => {
       setActionLoading(true);
       const response = await apiClient.put(
         `/api/admin/users/${selectedUser._id}/ban`,
-        banData
+        { ...banData, expectedVersion: selectedUser.version }
       );
 
       if (response.data.success) {
@@ -150,7 +150,7 @@ const UsersManagement = () => {
       setActionLoading(true);
       const response = await apiClient.put(
         `/api/admin/users/${user._id}/unban`,
-        {}
+        { expectedVersion: user.version }
       );
 
       if (response.data.success) {
@@ -170,7 +170,7 @@ const UsersManagement = () => {
   const handleBulkModeration = async (action, data) => {
     setActionLoading(true);
     try {
-      const response = await apiClient.post(`/api/admin/users/bulk-${action}`, { userIds: [...selectedUsers], ...data });
+      const response = await apiClient.post(`/api/admin/users/bulk-${action}`, { userIds: [...selectedUsers], expectedVersions: Object.fromEntries(users.filter(user => selectedUsers.has(user._id)).map(user => [user._id, user.version])), ...data });
       toast.success(`${response.data.count} accounts updated`);
       setShowSuspendModal(false); setShowBanModal(false); setBulkMode(false);
       await fetchUsers(true);
@@ -349,7 +349,6 @@ const UsersManagement = () => {
               className="px-3 py-2 border border-[#E8E7E5] rounded-lg bg-white text-sm text-[#6B6B6A] focus:outline-none focus:border-[#D4755B] transition-all"
             >
               <option value="createdAt">Date Joined</option>
-              <option value="lastActive">Last Active</option>
               <option value="name">Name</option>
             </select>
             <button

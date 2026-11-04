@@ -1,0 +1,4 @@
+interface:
+  display_name: "BuildEstate Admin UI"
+  short_description: "Extend the replacement admin design and workflows"
+  default_prompt: "Use $buildestate-admin-ui to complete the requested BuildEstate work using the current plan and implementation."

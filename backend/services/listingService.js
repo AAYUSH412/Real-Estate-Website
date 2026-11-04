@@ -1,4 +1,4 @@
-import { parseListing, number, propertyDTO } from '@buildestate/contracts';
+import { parseListing, number, propertyDTO, ContractError } from '@buildestate/contracts';
 import { transaction } from './domain/transaction.js';
 import { audit } from './domain/audit.js';
 import { eligibleOwner } from './domain/review.js';
@@ -7,8 +7,9 @@ import { conflict, missing, respondError } from '../utils/httpErrors.js';
 import Property from '../models/propertyModel.js';
 import imagekit from '../config/imagekit.js';
 import logger from '../utils/logger.js';
+import sharp from 'sharp';
 
-const badRequest = message => Object.assign(new Error(message), { statusCode: 400 });
+const badRequest = message => new ContractError(message, 'image');
 export const listingFiles = files => Array.isArray(files) ? files : Object.values(files || {}).flat();
 
 export function parseArray(value, label) {
@@ -19,7 +20,7 @@ export function parseArray(value, label) {
   return value;
 }
 
-export function validateImage(file) {
+export async function validateImage(file) {
   const b = file.buffer;
   if (!Buffer.isBuffer(b)) throw badRequest('Invalid image upload');
   const signatures = {
@@ -29,6 +30,17 @@ export function validateImage(file) {
     'image/webp': b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP',
   };
   if (!signatures[file.mimetype]) throw badRequest('Image contents do not match its declared format');
+  if (b.length > 5 * 1024 * 1024) throw badRequest('Image exceeds 5 MB');
+  try {
+    // Decode every accepted image, including every animation frame, before upload.
+    // A pixel cap bounds decompression memory; reject animations for listing photos.
+    const options = { failOn: 'warning', limitInputPixels: 16000000, animated: true };
+    const meta = await sharp(b, options).metadata();
+    if (!meta.width || !meta.height || meta.width > 8000 || meta.height > 8000 || (meta.pages || 1) !== 1) throw new Error('Image dimensions or frame count exceed limits');
+    await sharp(b, options).timeout({ seconds: 5 }).stats();
+  } catch {
+    throw badRequest('Image cannot be decoded or exceeds limits (16 megapixels, 8000px per side, one frame)');
+  }
 }
 
 async function removeAssets(assets) {
@@ -48,7 +60,8 @@ export function retainedImages(body, existing, files) {
 
 export async function saveListing({ body, files, existing = null, owner = null, req = {} }) {
   const kept = retainedImages(body, existing, files);
-  files.forEach(validateImage);
+  // Sequential decoding bounds peak memory across a four-image request.
+  for (const file of files) await validateImage(file);
   const fields = parseListing(body, { partial: Boolean(existing) });
   if (existing) {
     const normalized = propertyDTO(existing, true);

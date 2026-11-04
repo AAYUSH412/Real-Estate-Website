@@ -1,3 +1,4 @@
+import '../config/environment.js';
 import { transaction } from '../services/domain/transaction.js';
 import { audit } from '../services/domain/audit.js';
 import { AuthSession } from '../models/authSessionModel.js';
@@ -6,7 +7,6 @@ import { respondError } from '../utils/httpErrors.js';
 import { createSession, rotateSession, closeSession } from '../services/sessionService.js';
 import { accountDenial, publicUser, sessionVersion, versionFilter, revokeSessionUpdate, USER_AUTH_FIELDS, ADMIN_AUTH_FIELDS } from '../utils/accountPolicy.js';
 import bcrypt from "bcryptjs";
-import dotenv from "dotenv";
 import validator from "validator";
 import crypto from "crypto";
 import userModel from "../models/userModel.js";
@@ -32,8 +32,6 @@ const issueUserSession = async (res, user, rememberMe = false, req = {}) => {
   res.cookie(USER_REFRESH_COOKIE, issued.raw, { ...userRefreshCookieOptions(), maxAge: issued.maxAge });
   return issued.token;
 };
-
-dotenv.config();
 
 // Generic message so attackers can't tell which of email/password was wrong
 const GENERIC_LOGIN_ERROR = "Invalid email or password";
@@ -361,8 +359,9 @@ const refresh = kind => async (req, res) => {
     res.cookie(cookie, issued.raw, { ...options, maxAge: issued.maxAge });
     return res.json({ success: true, token: issued.token });
   } catch (error) {
-    res.clearCookie(cookie, options);
-    return res.status(error.statusCode || 500).json({ success: false, code: error.code || 'INTERNAL_ERROR', message: error.statusCode ? error.message : 'Session service unavailable' });
+    // A database/provider outage does not invalidate the browser's credential.
+    if ([401, 403].includes(error.statusCode)) res.clearCookie(cookie, options);
+    return respondError(res, Object.assign(error, { statusCode: error.statusCode || 503 }));
   }
 };
 const signOut = kind => async (req, res) => {
@@ -491,8 +490,6 @@ const updateProfile = async (req, res) => {
     return respondError(res, error);
   }
 };
-
-
 
 const resendVerification = async (req, res) => {
   try {

@@ -9,6 +9,7 @@
 import { sendEmail } from '../config/nodemailer.js';
 import logger from '../utils/logger.js';
 import {
+  escHtml,
   getSchedulingEmailTemplate,
   getEmailTemplate,
   getNewsletterTemplate,
@@ -23,8 +24,8 @@ import {
 } from '../email.js';
 
 class EmailService {
-  constructor() {
-    this.fromAddress = process.env.EMAIL_USER || 'noreply@buildestate.com';
+  get fromAddress() {
+    return process.env.EMAIL_USER?.trim();
   }
 
   /**
@@ -42,7 +43,7 @@ class EmailService {
 
       logger.info(`Sending email: ${subject} to ${to}`);
       const result = await sendEmail(mailOptions);
-      logger.info(`Email sent: ${subject} to ${to}`);
+      logger.info(`Email accepted by Brevo: ${subject} to ${to}; delivery is not yet verified`);
 
       return { success: true, messageId: result.messageId };
     } catch (error) {
@@ -55,7 +56,7 @@ class EmailService {
    * Send appointment scheduling confirmation email
    */
   async sendAppointmentScheduled(userEmail, appointment, date, time, notes = '') {
-    const subject = `Appointment Scheduled - ${appointment.propertyId.title}`;
+    const subject = `Appointment Scheduled - ${(appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing')}`;
     const htmlContent = getSchedulingEmailTemplate(appointment, date, time, notes);
 
     return await this.sendEmail(userEmail, subject, htmlContent);
@@ -65,7 +66,7 @@ class EmailService {
    * Send appointment status update email
    */
   async sendAppointmentStatusUpdate(userEmail, appointment, status) {
-    const subject = `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} - ${appointment.propertyId.title}`;
+    const subject = `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} - ${(appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing')}`;
     const htmlContent = getEmailTemplate(appointment, status);
 
     return await this.sendEmail(userEmail, subject, htmlContent);
@@ -136,15 +137,15 @@ class EmailService {
    * Send appointment notification to admin
    */
   async sendAppointmentNotificationToAdmin(appointment, userDetails) {
-    const subject = `New Appointment Request - ${appointment.propertyId.title}`;
+    const subject = `New Appointment Request - ${(appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing')}`;
     const htmlContent = `
       <h2>New Appointment Request</h2>
-      <p><strong>Property:</strong> ${appointment.propertyId.title}</p>
-      <p><strong>User:</strong> ${userDetails.name} (${userDetails.email})</p>
-      <p><strong>Phone:</strong> ${userDetails.phone}</p>
+      <p><strong>Property:</strong> ${escHtml((appointment.propertySnapshot?.title || appointment.propertyId?.title || 'Unavailable listing'))}</p>
+      <p><strong>User:</strong> ${escHtml(userDetails.name)} (${escHtml(userDetails.email)})</p>
+      <p><strong>Phone:</strong> ${escHtml(userDetails.phone)}</p>
       <p><strong>Date:</strong> ${new Date(appointment.date).toLocaleDateString()}</p>
-      <p><strong>Time:</strong> ${appointment.time}</p>
-      ${appointment.notes ? `<p><strong>Notes:</strong> ${appointment.notes}</p>` : ''}
+      <p><strong>Time:</strong> ${escHtml(appointment.time)}</p>
+      ${appointment.notes ? `<p><strong>Notes:</strong> ${escHtml(appointment.notes)}</p>` : ''}
     `;
 
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@buildestate.com';
@@ -236,8 +237,8 @@ class EmailService {
       }
 
       return {
-        status: 'healthy',
-        message: 'Email service operational',
+        status: 'configured',
+        message: 'API key present; delivery has not been verified',
         provider: 'Brevo REST API',
         fromAddress: this.fromAddress
       };

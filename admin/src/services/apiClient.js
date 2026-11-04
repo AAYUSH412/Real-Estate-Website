@@ -73,8 +73,11 @@ apiClient.interceptors.response.use(
           original.headers.Authorization = `Bearer ${data.token}`;
           return apiClient(original);
         }
-      } catch {
-        // refresh cookie missing/expired — fall through to logout
+      } catch (refreshError) {
+        if (![401, 403].includes(refreshError.response?.status)) {
+          // Preserve credentials when the refresh service is temporarily unavailable.
+          return Promise.reject(refreshError);
+        }
       }
       clearSession();
     } else if (error.response?.status === 401 && !isAuthEndpoint) {

@@ -103,6 +103,11 @@ const ActivityLogs = () => {
       const response = await apiClient.get(`/api/admin/activity-logs/export?${queryParams}`, {
         responseType: 'blob',
       });
+      if (response.headers['x-export-truncated'] === 'true') {
+        const limit = response.headers['x-export-limit'];
+        const total = response.headers['x-export-total'];
+        if (!window.confirm(`This export contains the newest ${limit} of ${total} matching events. Narrow the filters for a complete export. Download this limited export?`)) return;
+      }
 
       // Download file
       const blob = response.data;
@@ -291,10 +296,10 @@ const ActivityLogs = () => {
                 </select>
               </div>
 
-              {/* Admin Email Filter */}
+              {/* Actor Email Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Admin Email
+                  Actor Email
                 </label>
                 <input
                   type="email"
@@ -412,7 +417,7 @@ const ActivityLogs = () => {
                     Timestamp
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Admin
+                    Actor
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Action
@@ -435,7 +440,7 @@ const ActivityLogs = () => {
                       {formatDate(log.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {log.adminEmail}
+                      {log.actorEmail || log.adminEmail} ({log.actorType || 'admin'})
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getActionBadgeColor(log.action)}`}>

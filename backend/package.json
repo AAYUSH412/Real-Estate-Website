@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:prod": "node server-production.js",
+    "start:prod": "node server.js",
     "dev": "nodemon server.js",
     "build": "echo 'Build completed'",
     "render-build": "npm install",
@@ -15,6 +15,7 @@
   "author": "Aayush Vaghela",
   "license": "ISC",
   "dependencies": {
+    "@buildestate/contracts": "file:../shared/contracts",
     "@mendable/firecrawl-js": "^4.16.0",
     "axios": "^1.13.5",
     "bcryptjs": "^2.4.3",
@@ -32,15 +33,14 @@
     "mongoose": "^8.9.3",
     "multer": "^2.5.0",
     "node-cron": "^4.2.1",
-    "openai": "^6.45.0",
+    "sharp": "^0.35.5",
     "uuid": "^13.0.0",
     "validator": "^13.12.0",
-    "winston": "^3.19.0",
-    "@buildestate/contracts": "file:../shared/contracts"
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.3.0",
-    "supertest": "^7.3.1",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "supertest": "^7.3.1"
   }
 }

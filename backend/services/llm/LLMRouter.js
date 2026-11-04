@@ -20,7 +20,7 @@ export class LLMRouter {
         logger.warn('LLMRouter provider failed, trying next', { provider: provider.name, error: err.message });
       }
     }
-    throw new Error('All LLM providers exhausted or unhealthy');
+    throw Object.assign(new Error('NVIDIA inference is temporarily unavailable'), { statusCode: 503, code: 'AI_UNAVAILABLE' });
   }
 
   // Validates all providers; returns per-provider results

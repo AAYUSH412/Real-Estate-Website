@@ -153,8 +153,8 @@ export const userListingsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
-  delete: (id: string) =>
-    apiClient.delete(`/user/properties/${id}`),
+  delete: (id: string, expectedVersion?: number) =>
+    apiClient.delete(`/user/properties/${id}`, { data: { expectedVersion } }),
 };
 
 // Appointments (supports guest + auth bookings)

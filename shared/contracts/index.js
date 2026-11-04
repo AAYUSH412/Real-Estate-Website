@@ -134,6 +134,11 @@ export function propertyDTO(source, privateFields = false) {
   if (result.status === 'active' && p.expiresAt && new Date(p.expiresAt) <= new Date()) result.status = 'expired';
   result.version = p.__v || 0;
   if (privateFields) for (const key of ['postedBy', 'rejectionReason', 'archivedAt']) result[key] = p[key];
+  if (privateFields) {
+    const owner = p.postedBy;
+    result.owner = owner?.name !== undefined ? { _id: String(owner._id), name: owner.name, email: owner.email } : null;
+    result.ownerId = owner ? String(owner._id || owner) : null;
+  }
   return result;
 }
 export function appointmentDTO(source) {

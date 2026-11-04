@@ -4,11 +4,11 @@
 
 _The core REST API server driving the BuildEstate real estate platform._
 
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Express.js](https://img.shields.io/badge/Express.js-Backend-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com)
 
-[![Live API](https://img.shields.io/badge/Live_API-On_Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://real-estate-website-backend-zfu7.onrender.com/)
+[![Live API](https://img.shields.io/badge/Live_API-On_Azure-0078D4?style=for-the-badge&logo=render&logoColor=white)](https://buildestate-api-prod.azurewebsites.net/)
 
 </div>
 
@@ -18,13 +18,13 @@ _The core REST API server driving the BuildEstate real estate platform._
 
 - **JWT Authentication** — Hardened token-based user authentication using bcrypt password hashing.
 - **Property Management (CRUD)** — Robust operations to add, query, update, and remove properties with multiplexed image management (up to 4 images).
-- **Scalable Image Upload** — Multer temp-file integration piping seamlessly into ImageKit CDN pipelines.
+- **Scalable Image Upload** — Multer memory-buffer integration piping seamlessly into ImageKit CDN pipelines.
 - **Appointment Architecture** — Guest and authenticated bookings coupled with autonomous email dispatch routing.
-- **AI Property Processing** — Live listing scraping via Firecrawl (user-supplied key) analyzed by a multi-model AI chain: NVIDIA NIM (GLM, Nemotron & more, admin-configurable) with GitHub Models (GPT-4.1) as fallback. Search results stream to the client over SSE.
+- **AI Property Processing** — Live listing scraping via Firecrawl (user-supplied key) analyzed by an NVIDIA-only catalog with tested models and ordered fallback. Search results stream to the client over SSE.
 - **Location Analytics** — Locality-level price trends, rental yields, and appreciation outlook for top Indian cities, with MongoDB response caching.
 - **Administrative Utilities** — Dashboard analytics handling aggregate counts across properties, users, and transactions.
 - **Infrastructure Security** — `express-rate-limit` DDoS prevention, deep Helmet.js header shielding, and integrated CORS validation.
-- **Email Notifications** — Custom branded transactional payloads delivered utilizing Brevo SMTP.
+- **Email Notifications** — Custom branded transactional payloads delivered through the Brevo REST API with a 10-second timeout.
 
 ---
 
@@ -32,14 +32,14 @@ _The core REST API server driving the BuildEstate real estate platform._
 
 | Domain                   | Technology               | Implementation Details                              |
 | ------------------------ | ------------------------ | --------------------------------------------------- |
-| **Runtime**              | Node.js 18+              | High-throughput asynchronous JS compilation         |
+| **Runtime**              | Node.js 22+              | High-throughput asynchronous JS compilation         |
 | **Application Layer**    | Express.js               | Granular endpoint definitions                       |
 | **Database Systems**     | MongoDB Atlas            | Distributed NoSQL storage                           |
 | **Object Modeling**      | Mongoose                 | Typed modeling and validation protocols             |
 | **Authentication**       | JWT + Bcrypt             | Cryptographically verified tokens and keys          |
 | **Storage Architecture** | Multer + ImageKit        | Multipart transmission yielding CDN delivery        |
-| **Communications**       | Nodemailer + Brevo       | Specialized template execution and delivery routing |
-| **AI Inference**         | NVIDIA NIM + GPT-4.1     | Multi-model property ranking with automatic fallback |
+| **Communications**       | Axios + Brevo REST       | Specialized template execution and delivery routing |
+| **AI Inference**         | NVIDIA NIM     | Multi-model property ranking with automatic fallback |
 | **Web Scraping**         | Firecrawl                | Live listing extraction (user-supplied API key)      |
 | **Cybersecurity**        | Helmet, CORS, Rate-limit | Middleware-injected traffic policing                |
 
@@ -76,10 +76,9 @@ MONGO_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?retryWrites=true&w=
 # JWT (generate with: openssl rand -hex 32)
 JWT_SECRET=your_jwt_secret_here
 
-# Brevo SMTP
-SMTP_USER=your_smtp_login
-SMTP_PASS=your_smtp_password
-EMAIL=your_sender_email@gmail.com
+# Brevo REST API (verified sender required)
+BREVO_API_KEY=your_brevo_api_key
+EMAIL_USER=your_verified_sender@example.com
 
 # Admin credentials
 ADMIN_EMAIL=admin@yourdomain.com
@@ -97,7 +96,6 @@ IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
 # Scraping key is supplied BY THE USER via the X-Firecrawl-Key header;
 # these server-side keys power the AI analysis step only.
 NVIDIA_API_KEY=your_nvidia_nim_api_key
-GITHUB_MODELS_API_KEY=your_github_pat_token
 ```
 
 </details>
@@ -217,32 +215,27 @@ backend/
 To guarantee high scalability, image uploads follow a strict proxy lifecycle:
 
 1. Operations manager (Admin) inputs high-res images to the frontend.
-2. The endpoint passes elements heavily shielded by **Multer** into deep-cache `uploads/`.
-3. The server immediately proxies payloads securely to the **ImageKit CDN** using dedicated SDK tokens.
-4. CDN access URIs are returned and definitively saved within MongoDB Atlas structure nodes.
-5. Temp `uploads/` files are wiped utilizing strict cleanup events.
+2. Multer bounds uploads in memory; Sharp verifies decoding and resource limits before any CDN upload.
+3. The server uploads accepted buffers to ImageKit using its private server credentials.
+4. Image URLs and asset IDs are saved transactionally in MongoDB.
+5. Failed saves remove newly uploaded assets; retained images stay intact.
 
 ---
 
-## 🌐 Deployment Mechanics (Render Instance)
+## Deployment and local runtime
 
-1. Provision a raw **Web Service** on [Render](https://render.com).
-2. Authorize standard GitHub injection.
-3. Configure **Root Directory** pointing strictly to `backend`.
-4. Command structures: Build: `npm install` | Run: `npm start`.
-5. Mirror `.env.local` accurately inside Render Environment Variables GUI.
-6. Verify `NODE_ENV=production` is assigned while pointing `WEBSITE_URL` properly to standard frontend Vercel mapping.
+The current API runs on Azure App Service using the repository's container deployment workflow. The Docker image uses Node.js 22; use Node.js 22 locally too. Both `npm start` and `npm run start:prod` run `server.js`. The latter does not set environment variables: configure `NODE_ENV=production` in the hosting environment.
 
-Active Node endpoint: **https://real-estate-website-backend-zfu7.onrender.com**
+MongoDB must support transactions: use Atlas or a local replica set, not standalone `mongod`. Keep `.env.local` private. Configure `WEBSITE_URL`, `ADMIN_URL` and allowed origins for the clients being used. `GET /health` is liveness; `GET /health/ready` checks database readiness.
 
----
+Listing uploads retain the four-image and 5 MB per-file limits. Sharp validates full image decoding before uploading originals to ImageKit; maximum 16 megapixels, 8000px on either side and one frame. ImageKit remains responsible for URL-based delivery resizing and optimization. Retained images are not reuploaded. See [Sharp constructor limits](https://sharp.pixelplumbing.com/api-constructor/) and [ImageKit resizing](https://imagekit.io/docs/image-resize-and-crop).
 
-<div align="center">
+Email health reports configuration only, not verified delivery. Notifications are best-effort attempts after committed writes; there is no durable retry queue or delivery guarantee.
 
-**Associated Applications**
+See [the Phase 1 contract notes](docs/admin-phase1-contracts.md) for dashboard definitions, detail endpoints, pagination aliases and compatible version checks. See [Phase 2 NVIDIA setup and migration](docs/admin-phase2-nvidia.md). NVIDIA is the only runtime inference provider.
 
-[Frontend README](../frontend/README.md) • [Admin Panel README](../admin/README.md) • [Root Interface](../README.md)
+## Replacement admin readiness
 
-_Engineered by [Aayush Vaghela](https://aayush-vaghela.vercel.app/)_
+The local Phase 3 backend gate passed with 106 tests across the API and existing clients. Start with the [accepted API contract index](docs/admin-api-contracts.md) and [acceptance evidence and release limits](docs/admin-phase3-acceptance.md) before building `admin_new`. Production migration/deployment and the original operations Phase 4 remain separate.
 
-</div>
+Local email setup: [environment load order, sender diagnosis and manual retest](docs/local-email-configuration.md). `EMAIL_USER` must be configured; API acceptance does not prove delivery.

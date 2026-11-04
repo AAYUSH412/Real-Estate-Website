@@ -217,7 +217,7 @@ const PropertyListings = () => {
   const handleRemoveProperty = async (propertyId, propertyTitle) => {
     if (!window.confirm(`Archive "${propertyTitle}"? Open viewings will be cancelled; history is retained.`)) return;
     try {
-      const response = await apiClient.post('/api/products/remove', { id: propertyId });
+      const response = await apiClient.post('/api/products/remove', { id: propertyId, expectedVersion: properties.find(property => property._id === propertyId)?.version });
       if (response.data.success) {
         toast.success("Property removed successfully");
         await fetchProperties();

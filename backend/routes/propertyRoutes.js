@@ -16,7 +16,7 @@ router.param('city', (req, res, next, city) => { try { text(city, 'city', { max:
 router.use((req, res, next) => req.method === 'GET' ? validatePage(req, res, next) : next());
 
 // ── AI-specific distributed rate limiter (works across multiple instances) ────
-// Each AI call costs real Firecrawl + GitHub Models quota, so cap per IP/hour.
+// Each AI call costs real Firecrawl + NVIDIA quota, so cap per IP/hour.
 // Uses filesystem-based storage to work across multiple server instances.
 const distributedLimiter = createDistributedRateLimiter({
     windowMs: 60 * 60 * 1000, // 1 hour window
@@ -73,7 +73,6 @@ router.get('/rate-limit/stats', adminProtect, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch rate limit statistics',
-            error: error.message
         });
     }
 });
@@ -92,7 +91,6 @@ router.get('/cache/stats', adminProtect, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch cache statistics',
-            error: error.message
         });
     }
 });

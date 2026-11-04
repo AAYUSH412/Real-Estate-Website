@@ -39,7 +39,7 @@ export default function Login() {
   if (state.status === "loading")
     return <PageLoading label="Checking your session" />;
   if (state.status === "authenticated")
-    return <Navigate to="/workspace" replace />;
+    return <Navigate to="/dashboard" replace />;
   if (state.status === "unavailable")
     return (
       <main className="mx-auto flex min-h-svh max-w-lg items-center p-6">
@@ -60,7 +60,7 @@ export default function Login() {
           !from.startsWith("//") &&
           from !== "/login"
           ? from
-          : "/workspace",
+          : "/dashboard",
         { replace: true },
       );
     } catch (failure) {

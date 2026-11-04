@@ -7,14 +7,14 @@ description: Build or extend BuildEstate admin_new screens using its established
 
 ## Start with the current implementation
 
-Resolve paths from the repository root. Read `ADMIN_NEW_PLAN.md` sections 8–11 and the requested phase, then `admin_new/README.md`. Check current code before treating a planned screen as implemented. As of the foundation, only login and the verified workspace exist; that is historical context, not a permanent scope limit. The original `admin/` stays available until an accepted cutover.
+Resolve paths from the repository root. Read `ADMIN_NEW_PLAN.md` sections 8–11 and the requested phase, then `admin_new/README.md`. Check current code before treating a planned screen as implemented. As of the foundation, only login and the verified workspace existed; consult the current router and plan for later screens. The original `admin/` stays available until an accepted cutover.
 
 Read only the files needed for the task:
 
 | Work | Existing source |
 | --- | --- |
 | Colors, typography, spacing, reduced motion | `admin_new/src/styles/globals.css` |
-| Shell, sidebar, mobile drawer, account menu | `admin_new/src/components/layout/shell.tsx` |
+| Desktop shell, sidebar and account menu | `admin_new/src/components/layout/shell.tsx` |
 | Routing and boundaries | `admin_new/src/app/router.tsx` |
 | Authentication and transport | `admin_new/src/features/auth/session.tsx`, `admin_new/src/lib/api.ts` |
 | Query defaults and keys | `admin_new/src/app/query-client.ts` |
@@ -46,4 +46,4 @@ Preserve memory-only access tokens, httpOnly cookie restoration, refresh dedupli
 
 Run the app from `admin_new/` on localhost:5175; existing backend defaults to port 4000. Blank local `VITE_API_URL` uses the Vite development proxy. That localhost-only proxy strips upstream Origin; it is not a production hosting arrangement. Do not broaden backend production CORS or replace the existing alias to make a preview work.
 
-For changed UI code run the relevant tests, lint and build from `admin_new/`; scale checks to the change. The owner explicitly prefers manual browser testing: do not add or run Playwright unless that preference is changed. Provide a short task-specific checklist for the actual screen (themes, phone/tablet, long content, keyboard/focus/Escape, failed saves and reload/deep links as relevant). Record only checks actually completed by the agent or reported by the owner. Desktop screenshots do not prove mobile or keyboard behavior.
+For changed UI code run the relevant tests, lint and build from `admin_new/`; scale checks to the change. The owner explicitly prefers manual browser testing: do not add or run Playwright unless that preference is changed. Provide a short task-specific checklist for the actual screen (themes, desktop widths, long content, keyboard/focus/Escape, failed saves and reload/deep links as relevant). Record only checks actually completed by the agent or reported by the owner. Desktop-only is the owner-approved scope. Do not add phone/tablet layouts or mobile acceptance tasks. Desktop screenshots alone do not prove keyboard behavior.

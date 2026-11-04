@@ -13,9 +13,11 @@ import { ApiError } from "@/lib/api";
 export function RequestError({
   message,
   retry,
+  retryLabel = "Try again",
 }: {
   message: string;
   retry?: () => void;
+  retryLabel?: string;
 }) {
   return (
     <Alert variant="destructive">
@@ -25,7 +27,7 @@ export function RequestError({
         <p>{message}</p>
         {retry ? (
           <Button variant="outline" size="sm" onClick={retry}>
-            Try again
+            {retryLabel}
           </Button>
         ) : null}
       </AlertDescription>
@@ -35,20 +37,23 @@ export function RequestError({
 export function ErrorState({
   error,
   retry,
+  retryLabel,
 }: {
   error: unknown;
   retry?: () => void;
+  retryLabel?: string;
 }) {
   return (
     <RequestError
       message={
         error instanceof ApiError && error.status === 409
-          ? "This record changed. Refresh and review the latest version before saving again."
+          ? `${error.message} Refresh and review the latest version before saving again.`
           : error instanceof Error
             ? error.message
             : "The request failed. Please retry."
       }
       retry={retry}
+      retryLabel={retryLabel}
     />
   );
 }

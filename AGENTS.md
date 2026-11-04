@@ -21,6 +21,7 @@ Read only skills relevant to the requested work. They live in the repository so 
 
 ## Working preferences and boundaries
 
+- The replacement admin is desktop-only by owner decision. Do not add phone/tablet layouts or mobile acceptance tasks unless the scope changes.
 - Browser testing is manual at the owner's request. Do not add or run Playwright unless that preference changes. Provide a short checklist and distinguish owner-reported evidence from automated checks.
 - Keep the original admin available until an accepted cutover. Expose navigation only for implemented destinations; use real backend data and honest unavailable/error states.
 - Do not stop running project servers for routine development or tests. Tests should own their temporary servers/databases. Do not import backend/server.js as an isolated test fixture.

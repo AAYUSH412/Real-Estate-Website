@@ -3,10 +3,11 @@ import {
   Building2,
   ChevronsUpDown,
   LayoutGrid,
+  ClipboardCheck,
   LogOut,
   ShieldCheck,
 } from "lucide-react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useSession } from "@/features/auth/session";
 import { ThemeToggle } from "@/app/theme";
@@ -49,6 +50,7 @@ import { ErrorState } from "@/components/feedback/states";
 function Navigation() {
   const { state, logout } = useSession();
   const { setOpenMobile, isMobile } = useSidebar();
+  const location = useLocation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   async function signOut() {
@@ -69,7 +71,7 @@ function Navigation() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild tooltip="BuildEstate">
-              <Link to="/workspace" onClick={() => setOpenMobile(false)}>
+              <Link to="/dashboard" onClick={() => setOpenMobile(false)}>
                 <span className="brand-mark">
                   <Building2 />
                 </span>
@@ -91,18 +93,28 @@ function Navigation() {
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive tooltip="Workspace">
-                  <Link
-                    to="/workspace"
-                    onClick={() => setOpenMobile(false)}
-                    aria-current="page"
+              {[
+                { path: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+                { path: "/properties", label: "Properties", icon: Building2 },
+                {
+                  path: "/reviews",
+                  label: "Review queue",
+                  icon: ClipboardCheck,
+                },
+              ].map(({ path, label, icon: Icon }) => (
+                <SidebarMenuItem key={path}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname.startsWith(path)}
+                    tooltip={label}
                   >
-                    <LayoutGrid />
-                    <span>Workspace</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    <NavLink to={path}>
+                      <Icon />
+                      <span>{label}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -161,7 +173,23 @@ function Navigation() {
 }
 export default function Shell() {
   const location = useLocation();
-  const isWorkspace = location.pathname === "/workspace";
+  const path = location.pathname;
+  const section = path.startsWith("/properties")
+    ? "Properties"
+    : path.startsWith("/reviews")
+      ? "Review queue"
+      : path === "/dashboard"
+        ? "Dashboard"
+        : "Page not found";
+  const deep = path.startsWith("/properties/") || path.startsWith("/reviews/");
+  const pageTitle =
+    path === "/properties/new"
+      ? "Add property"
+      : path.endsWith("/edit")
+        ? "Edit property"
+        : section === "Review queue"
+          ? "Submission"
+          : "Property detail";
   return (
     <SidebarProvider>
       <a href="#main-content" className="skip-link">
@@ -175,20 +203,26 @@ export default function Shell() {
             <Separator orientation="vertical" className="h-4" />
             <Breadcrumb>
               <BreadcrumbList>
-                {!isWorkspace ? (
+                {deep ? (
                   <>
                     <BreadcrumbItem>
                       <BreadcrumbLink asChild>
-                        <Link to="/workspace">Workspace</Link>
+                        <Link
+                          to={
+                            section === "Properties"
+                              ? "/properties"
+                              : "/reviews"
+                          }
+                        >
+                          {section}
+                        </Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                   </>
                 ) : null}
                 <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    {isWorkspace ? "Workspace" : "Page not found"}
-                  </BreadcrumbPage>
+                  <BreadcrumbPage>{deep ? pageTitle : section}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
@@ -217,7 +251,7 @@ export function NotFound() {
         Return to your workspace to continue.
       </p>
       <Button asChild>
-        <Link to="/workspace">Go to workspace</Link>
+        <Link to="/dashboard">Go to dashboard</Link>
       </Button>
     </section>
   );

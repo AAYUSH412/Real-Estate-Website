@@ -28,7 +28,7 @@ A skill does not grant permission to push, merge, deploy, send messages or modif
 | Shared contracts | Relevant backend tests plus affected existing/new client tests/builds |
 | Skills/docs only | Skill frontmatter/links/metadata validation and diff review; no need to start app servers or rerun domain tests |
 
-Read current package scripts before running commands. The owner prefers manual browser testing: do not install/use Playwright unless later instructions change that preference. Provide a concise checklist tied to the implemented screen and let the owner report results. Mark screenshots as visual/workflow evidence for what they actually show; do not extrapolate desktop evidence to keyboard/mobile/reload/outage acceptance.
+Read current package scripts before running commands. The owner prefers manual browser testing: do not install/use Playwright unless later instructions change that preference. Provide a concise checklist tied to the implemented screen and let the owner report results. Mark screenshots as visual/workflow evidence for what they actually show; do not extrapolate screenshots to keyboard/reload/outage acceptance. The owner-approved admin scope is desktop-only; mobile/tablet acceptance is not required.
 
 Do not stop project servers for routine checks. Tests should own their listeners and ephemeral databases. No production deployment, model migration apply, seed, Azure configuration change or alias switch follows automatically from a passing local gate. If those actions are requested, read the current release notes and applicable deployment skill rather than deriving commands from an old handoff.
 

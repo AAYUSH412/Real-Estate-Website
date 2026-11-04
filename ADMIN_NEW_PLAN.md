@@ -1,9 +1,9 @@
 # BuildEstate — Backend readiness and `admin_new` redesign plan
 
 Prepared: 3 November 2026
-Status: **Phase 4 foundation implemented; desktop manual evidence received; remaining browser acceptance pending**
+Status: **Phase 4 desktop acceptance confirmed by owner; Phase 5 implemented locally; owner design/workflow review pending**
 Repository baseline: `9b7d946` (Phase 3 release documentation)
-Scope update: 3 November 2026 — prioritize essential features for a demonstration project.
+Scope update: 4 November 2026 — essential demo features; replacement admin is desktop-only. Browser testing stays manual.
 
 ## 1. Decisions captured from your requests
 
@@ -14,11 +14,12 @@ Scope update: 3 November 2026 — prioritize essential features for a demonstrat
 5. Use a modern, professional design based on **shadcn/ui and Radix primitives**.
 6. Use **NVIDIA NIM as the only AI inference service**. Remove GitHub Models from active backend routing, configuration, catalog setup and admin choices.
 7. Make adding, testing, enabling, disabling, removing and selecting AI models possible through the admin interface.
-8. Keep the original audit's **Phase 4 — Make operations dependable** deferred at your request. Its unresolved items remain documented, rather than marked completed.
+8. Build the replacement admin for desktop only; phone/tablet layouts and mobile acceptance are out of scope.
+9. Keep the original audit's **Phase 4 — Make operations dependable** deferred at your request. Its unresolved items remain documented, rather than marked completed.
 
 **Phase 3 baseline:** Phase 3 backend acceptance passed locally with **106 tests (86 backend, 11 admin, 9 frontend)**, admin lint, both client builds and backend syntax checks. Connected workflows verify session outage recovery/logout, shared CORS/cookie policy, retained-image revisions, booking history during mail failure, inquiry resolution and newsletter consent. A fresh-stream provenance gap found by acceptance was fixed: fresh/cached/late-coalesced SSE now receive the complete final result. No project database mutation, model migration apply, production deployment or project server stop occurred. `admin_new/` now contains the Phase 4 foundation; see section 10.5 for current validation and manual acceptance.
 
-**Current:** Phase 4 foundation is implemented on `feat/admin-new-phase4-foundation`, based on Phase 3. Desktop screenshots supplied on 4 November show the authenticated workspace, both themes and successful logout. Browser testing is manual at the owner's request; mobile/keyboard/reload/recovery checks remain pending. Phase 5 dashboard/properties comes after this review. See [local setup/manual checklist](admin_new/README.md). Production and model migration remain separate release steps.
+**Current:** Phase 4 foundation is accepted on `feat/admin-new-phase4-foundation`, based on Phase 3. The owner confirmed the remaining desktop foundation checks and local reset-email receipt on 4 November, and authorized Phase 5. Browser testing remains manual; mobile checks are out of scope. Phase 5 dashboard/properties/review is implemented locally; its new visual checkpoint and manual journeys await owner review. See [local setup/manual checklist](admin_new/README.md). Production and model migration remain separate release steps.
 
 ## 2. Recommendation
 
@@ -401,7 +402,7 @@ The real-estate identity comes from useful property photography, clear location/
 
 ### 9.2 Application shell
 
-Collapsible sidebar, compact top header, breadcrumbs, real account menu and theme switch. Primary page actions occupy a consistent location. On mobile, navigation becomes a drawer; detail forms and actions remain usable without shrinking every desktop table column.
+Desktop collapsible sidebar, compact top header, breadcrumbs, real account menu and theme switch. Primary page actions occupy a consistent location. Phone/tablet adaptation is out of scope; inherited primitive drawer support is not a separate deliverable.
 
 Navigation groups:
 
@@ -420,7 +421,7 @@ Do not include Settings, Notifications, Billing or Team pages until their backen
 | Dashboard | Operational task queue first: pending reviews, upcoming viewings and new inquiries. A few reconciled counts and a meaningful dated chart. No revenue tile without a revenue system. |
 | Properties | Thumbnail/title/location, price/purpose, listing state, market state and owner; search/filter toolbar, column visibility, selection and consistent row actions. |
 | Property detail/edit | Organized details, location, pricing, amenities and media; existing images retained visibly; clear pending/saving/conflict states. |
-| Review queue | Desktop queue-and-detail workspace with image gallery, owner eligibility, rejection history and explicit approve/reject actions. Responsive single-detail flow on mobile. |
+| Review queue | Desktop queue-and-detail workspace with image gallery, owner eligibility, rejection history and explicit approve/reject actions. Desktop queue-and-detail flow. |
 | Users | Account list and direct-linkable detail with separately paged listings/bookings; consistent moderation reasons, expiry and archive wording. |
 | Appointments | Clear scheduled timezone/date, contact and property; existing status/search filters, record detail, meeting controls and legal actions. Date-window agenda, calendar and rescheduling are deferred. |
 | Contact inbox | List/detail composition, readable message, contact identity, internal note and resolution controls. Assignment/reply actions appear only after those APIs exist. |
@@ -455,10 +456,10 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | **1 — Essential backend fixes** | Correct and consistent APIs for the existing admin journeys | **Complete (local)** | Phase 0 | 84 tests; admin lint; both client builds; [contract notes](backend/docs/admin-phase1-contracts.md); no deployment |
 | **2 — NVIDIA-only AI** | GitHub inference removed; safe model CRUD/testing/default/fallback behavior | **Complete (local; live limits recorded)** | Phase 1 | 100 tests; migration rehearsal; bounded live checks; [Phase 2 contract/release notes](backend/docs/admin-phase2-nvidia.md); no migration apply/deployment |
 | **3 — Backend acceptance gate** | Backend verified before building its replacement client | **Complete (local gate passed)** | Phases 1–2 | 106 tests, client builds/lint, shared CORS checks, connected journeys and SSE fix; [acceptance report](backend/docs/admin-phase3-acceptance.md) |
-| **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Implemented; manual acceptance pending | Phase 3 | Working local application and responsive/theme/session checks |
-| **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Not started | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
+| **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Complete (desktop owner acceptance) | Phase 3 | Working local application and desktop/theme/session checks |
+| **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Implemented; visual/manual acceptance pending | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
 | **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Not started | Phase 5 design checkpoint | Each module works with actual backend contracts |
-| **7 — Full-panel verification** | Consistent, accessible and responsive replacement admin | Not started | Phases 5–6 | Browser/API acceptance results and production build |
+| **7 — Full-panel verification** | Consistent, accessible desktop replacement admin | Not started | Phases 5–6 | Browser/API acceptance results and production build |
 | **8 — Preview and production cutover** | Accepted preview and controlled replacement of the current admin | Not started | Phase 7 | Deployment identifiers, smoke checks and rollback reference |
 
 ### 10.2 Phase 1 — Essential backend fixes
@@ -570,13 +571,13 @@ Tasks:
 - [x] **P4-03:** Build the collapsible sidebar, compact header, breadcrumbs and mobile navigation drawer.
 - [x] **P4-04:** Connect actual admin authentication, session validation, refresh/logout, protected routes and private cache clearing.
 - [x] **P4-05:** Set up shared query/table/form/error/loading patterns and lazy-loaded routes.
-- [ ] **P4-06:** Verify light/dark themes, keyboard access and the separate local origin without changing the production alias.
+- [x] **P4-06:** Verify desktop light/dark themes, keyboard access and the separate local origin without changing the production alias. Owner confirmed remaining desktop checks; mobile verification removed from scope.
 
 **Done when:** the real login and shell work against the accepted backend. Navigation only exposes implemented screens; no dummy counters, fake account settings or placeholder saves.
 
-**Implementation evidence — 4 November 2026:** React 19/TypeScript/Vite 7 app, official shadcn/Radix primitives, Geist and semantic light/dark/status/focus tokens; collapsible sidebar, breadcrumbs, mobile Sheet, verified account menu and theme switch. Real login/session/refresh/logout routes, memory-only access token, shared refresh promise/Web Locks, private-cache clearing and retry states are connected. Shared Query/Table/Form and feedback patterns plus lazy route chunks are installed. No unfinished management destinations appear in navigation. Seven session-transport tests, lint and TypeScript/production build pass; the backend follow-up regression run passes **89/89**. Runtime dependency audit is clean; 12 moderate lint-toolchain findings remain documented in the README.
+**Implementation evidence — 4 November 2026:** React 19/TypeScript/Vite 7 app, official shadcn/Radix primitives, Geist and semantic light/dark/status/focus tokens; collapsible sidebar, breadcrumbs, mobile Sheet, verified account menu and theme switch. Real login/session/refresh/logout routes, memory-only access token, shared refresh promise/Web Locks, private-cache clearing and retry states are connected. Shared Query/Table/Form and feedback patterns plus lazy route chunks are installed. At the Phase 4 baseline, navigation exposed only its implemented workspace. Phase 5 adds the real dashboard, Properties and review queue. Seven session-transport tests, lint and TypeScript/production build pass; the backend follow-up regression run passes **89/89**. Runtime dependency audit is clean; 12 moderate lint-toolchain findings remain documented in the README.
 
-**P4-06 remains open:** owner screenshots establish desktop light/dark login/workspace and logout at localhost:5175. Mobile drawer, keyboard/focus/Escape, preference persistence, cookie restoration after reload and outage recovery still need the owner's manual checks. No Playwright dependency, config or browser tests remain. No production alias change.
+**P4-06 desktop acceptance — 4 November 2026:** owner supplied desktop login/workspace light/dark and logout screenshots, then confirmed the remaining checks and authorized Phase 5. Treat this as owner-reported manual acceptance, not automated browser coverage. Mobile layouts/testing are out of scope by explicit request. No Playwright or production alias change.
 
 **Local email follow-up:** user evidence exposed late `.env.local` loading and a frozen fallback sender. Shared early environment loading and send-time sender resolution fix the false key warning and unverified fallback; provider logs now say API acceptance, not verified delivery. Public-user expired tokens are handled quietly, with temporary store failures returning 503. See [root cause and retest instructions](backend/docs/local-email-configuration.md). No Azure settings or private env files changed.
 
@@ -584,15 +585,28 @@ Tasks:
 
 Tasks:
 
-- [ ] **P5-01:** Build the pending-work dashboard with real review/viewing/inquiry counts and clear loading/error/empty states.
-- [ ] **P5-02:** Build one complete Properties screen with thumbnail/title/location, pricing, purpose, listing/market state, owner, filters and server pagination.
+- [x] **P5-01:** Build the pending-work dashboard with real review/viewing/inquiry counts and clear loading/error/empty states.
+- [x] **P5-02:** Build one complete Properties screen with thumbnail/title/location, pricing, purpose, listing/market state, owner, filters and server pagination.
 - [ ] **P5-03:** **Design checkpoint:** review the shell/dashboard/Properties screen before applying the visual system to every module.
-- [ ] **P5-04:** Build property detail/add/edit forms and media retention/replacement controls with inline validation and unsaved-edit feedback.
-- [ ] **P5-05:** Build the review queue/detail workspace, image gallery, reasons and versioned approve/reject actions.
-- [ ] **P5-06:** Connect current-page bulk actions and archive confirmation; explain affected bookings accurately without inventing impact counts.
-- [ ] **P5-07:** Verify the complete property journey, stale conflicts, long content and mobile layouts.
+- [x] **P5-04:** Build property detail/add/edit forms and media retention/replacement controls with inline validation and unsaved-edit feedback.
+- [x] **P5-05:** Build the review queue/detail workspace, image gallery, reasons and versioned approve/reject actions.
+- [x] **P5-06:** Connect current-page bulk actions and archive confirmation; explain affected bookings accurately without inventing impact counts.
+- [ ] **P5-07:** Verify the complete property journey, stale conflicts, long content and desktop layouts.
 
 **Done when:** an admin can manage and review a property end to end using real data. The accepted design becomes the reference for the remaining modules.
+
+**Implementation evidence — 4 November 2026 (local):**
+
+| Area | Result |
+| --- | --- |
+| P5-01 | Real pending-review/upcoming-viewing/new-inquiry/public-listing totals, oldest review previews, latest submitted pending viewing requests, honest inventory/account counts and a dated 30-UTC-day request chart. Dependency failures show unavailable/error states, never fabricated zeroes. Chart code is separately lazy-loaded. |
+| P5-02 | URL-backed search/state/type/purpose/price filters and server sorting/paging; photo/title/location, price/purpose, listing/market state, safe owner summary, date/actions, optional columns and current-page selection. |
+| P5-04 | Deep-link detail and add/edit forms, shared validators, inline errors, explicit retained/new photos, object-URL cleanup, gallery, unsaved navigation/reload guards and displayed-version saves. Initial text/media/version are frozen together so background refetches cannot silently upgrade the save version. |
+| P5-05 | Searchable FIFO queue with selected detail/direct links, owner account/email checks, rejection reason, latest linked activity and versioned approve/reject commands. The server is the final eligibility authority. |
+| P5-06 | Pending-only bulk review, archive confirmations with honest booking/history consequences, atomic selected-row/version maps, no automatic mutation retry and clear conflict refresh/review. Archived records are read-only with no invented restore action. |
+| Checks | **18/18 new-admin tests**, lint and TypeScript/production build. Tests include media/versions, filter normalization, exact selected-row commands, conflict propagation, selection resets, mixed-status eligibility and stale form background-refetch regression. No backend implementation changed; earlier backend acceptance is historical evidence, not a new test run. |
+
+**Pending:** P5-03 design checkpoint and P5-07 complete manual desktop journeys. Follow [Phase 5 acceptance checklist](admin_new/PHASE_5_ACCEPTANCE.md). No Playwright, production cutover, project DB migration or new operational modules. The owner-approved desktop-only scope is reflected in AGENTS.md and project skills. Phase 5 uses `feat/admin-new-phase5-properties`, based on the Phase 4 branch; keep Phase 6 paused until its visual checkpoint is reviewed.
 
 ### 10.7 Phase 6 — Complete existing management modules
 
@@ -614,7 +628,7 @@ Tasks:
 
 - [ ] **P7-01:** Verify all agreed API/component/browser workflows with test data, including real refresh-cookie behavior in the intended browser/origin arrangement.
 - [ ] **P7-02:** Check keyboard/focus/dialog/popover behavior, light/dark contrast and reduced motion.
-- [ ] **P7-03:** Check phone/tablet/desktop layouts, long names/emails, large prices and missing historical references.
+- [ ] **P7-03:** Check desktop layouts at agreed viewport widths, long names/emails, large prices and missing historical references. Phone/tablet checks are out of scope.
 - [ ] **P7-04:** Check offline/retry, failed saves, version conflicts, disabled reasons and cleanup after logout.
 - [ ] **P7-05:** Run type checks, relevant tests, lint and production build; inspect lazy-loaded bundles for accidental heavy initial imports.
 - [ ] **P7-06:** Record known limitations and remove any unfinished action rather than presenting it as working.
@@ -643,7 +657,7 @@ After each implementation session:
 4. A blocked task gets its reason and dependency; do not silently skip it or mark it complete.
 5. Keep release/deployment outcomes separate from local implementation completion.
 
-**Current position:** Phases 0–3 accepted locally; Phase 4 implementation ready, with P4-06 manual checks pending. **Next: finish manual foundation acceptance, then Phase 5 dashboard/property workflows.** No production cutover or model migration apply has started.
+**Current position:** Phases 0–4 accepted locally, including owner-reported desktop foundation checks. Phase 5 dashboard/property/review code is implemented and checked; P5-03 visual review and P5-07 manual workflows require owner review. No production cutover or model migration apply has started.
 
 | Date | Phase/task | Outcome | Validation/evidence | Next |
 | --- | --- | --- | --- | --- |
@@ -652,7 +666,8 @@ After each implementation session:
 | 2026-11-03 | P2-01–P2-08 | NVIDIA-only inference, model lifecycle/testing, provenance/cache and current-client controls implemented | 100 tests; client builds/lint; actual-snapshot migration rehearsal; mixed live profile results documented; no project migration/deployment | Phase 3 acceptance gate |
 | 2026-11-03 | P3-01–P3-07 | Local backend gate passed; connected acceptance journeys and complete final SSE results verified | 106 tests; client builds/lint; shared production CORS/cookie checks; accepted contract index and gate report; original operations Phase 4 deferred | Phase 4 `admin_new` foundation |
 
-| 2026-11-04 | P4-01–P4-05 | New admin foundation implemented; desktop light/dark and logout evidence supplied by owner | Seven client tests, lint/build; 89 backend tests; manual checklist in `admin_new/README.md`; P4-06 pending | Owner browser checks, then Phase 5 |
+| 2026-11-04 | P4-01–P4-06 | Desktop foundation accepted by owner; local reset email received after config fix | Earlier seven client / 89 backend checks; desktop screenshots and owner confirmation; mobile scope removed | Phase 5 |
+| 2026-11-04 | P5-01/P5-02/P5-04–P5-06 | Dashboard, catalog/detail/forms and review/archive workflows implemented locally | 18 client tests, lint, TypeScript/build; no backend changes; manual desktop checklist | Owner P5-03/P5-07 review before Phase 6 |
 
 ## 11. Important features only — fixed first-release scope
 
@@ -711,8 +726,8 @@ Keep historical audit findings and release evidence. Add links/status changes; d
 
 ## 15. Where to start now
 
-The local backend gate has passed and Phase 4 implementation is ready. Complete the remaining manual checks in P4-06 before Phase 5 dashboard/property workflows. Keep the existing admin available, use a configured local/test origin and real authentication, and handle unavailable AI models honestly. Apply model migration only as a coordinated release step.
+The local backend gate and desktop foundation are accepted. Continue Phase 5 dashboard/property/review work; review its concrete screens before expanding to Phase 6. Keep the existing admin available, use a configured local/test origin and real authentication, and handle unavailable AI models honestly. Apply model migration only as a coordinated release step.
 
 The plan is deliberately limited to existing management modules plus the three important additions in section 11. The larger operations Phase 4 and optional product ideas remain deferred.
 
-**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation is implemented; remaining manual acceptance is recorded in section 10.5.
+**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation has owner-reported desktop acceptance; Phase 5 is the active implementation.

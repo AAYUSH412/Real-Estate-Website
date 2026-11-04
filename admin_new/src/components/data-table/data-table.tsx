@@ -1,3 +1,12 @@
+import { useState } from "react";
+import type { VisibilityState } from "@tanstack/react-table";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
 import {
   flexRender,
   getCoreRowModel,
@@ -48,12 +57,19 @@ export function DataTable<T>({
   busy,
   caption,
 }: Props<T>) {
+  const [visibility, setVisibility] = useState<VisibilityState>({});
   // TanStack Table intentionally returns mutable APIs; this component is not compiler-memoized.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
-    state: { pagination, sorting, rowSelection: selection },
+    state: {
+      pagination,
+      sorting,
+      rowSelection: selection,
+      columnVisibility: visibility,
+    },
+    onColumnVisibilityChange: setVisibility,
     onPaginationChange,
     onSortingChange,
     onRowSelectionChange: onSelectionChange,
@@ -65,6 +81,33 @@ export function DataTable<T>({
   });
   return (
     <div className="flex flex-col gap-4" aria-busy={busy}>
+      <div className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Columns
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              {table
+                .getAllLeafColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) => column.toggleVisibility(value)}
+                  >
+                    {typeof column.columnDef.header === "string"
+                      ? column.columnDef.header
+                      : column.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <div className="overflow-x-auto rounded-lg border bg-card">
         <Table>
           <caption className="sr-only">{caption}</caption>

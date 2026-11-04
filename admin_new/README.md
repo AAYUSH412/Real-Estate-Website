@@ -1,6 +1,6 @@
-# BuildEstate replacement admin — Phase 4 foundation
+# BuildEstate replacement admin — desktop workspace
 
-React/TypeScript/Vite, official shadcn/Radix components, Geist, semantic light/dark themes, TanStack Query/Table and React Hook Form. Phase 4 implements the login and protected workspace shell. Dashboard/property workflows are Phase 5; other management modules are Phase 6. Only implemented destinations appear in navigation. The original `admin/` remains available.
+React/TypeScript/Vite, official shadcn/Radix components, Geist, semantic light/dark themes, TanStack Query/Table and React Hook Form. Phase 4 provides the login and protected shell. Phase 5 now implements dashboard, Properties, add/edit/detail, review and archive workflows. Other management modules remain Phase 6. Desktop-only is the approved scope; mobile/tablet adaptation is not required. Only implemented destinations appear in navigation. The original `admin/` remains available.
 
 ## Run locally
 
@@ -26,7 +26,7 @@ npm run lint
 npm run build
 ```
 
-Seven transport regression tests cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin_new`. Playwright was removed at the owner's request; browser testing is manual.
+Eighteen current client tests (seven session transport tests and eleven property payload/command/component regressions) cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin_new`. Playwright was removed at the owner's request; browser testing is manual.
 
 ## Manual acceptance checklist
 
@@ -35,14 +35,17 @@ User screenshots on 4 November show the real authenticated workspace in light/da
 - [x] Authenticated desktop workspace renders at localhost:5175.
 - [x] Desktop login/workspace light and dark themes render.
 - [x] Logout returns to login with signed-out feedback.
-- [ ] Reload while signed in: session restores using the cookie.
-- [ ] Reload after logout or open `/workspace` signed out: login remains required.
-- [ ] Empty/invalid form, wrong password, password visibility and pending state.
-- [ ] Collapse/reopen sidebar; account menu opens/closes normally.
-- [ ] Tab/Shift+Tab focus is visible; skip link works; Escape closes menus/drawer.
-- [ ] Phone/tablet viewport: drawer navigation and account menu usable; no horizontal overflow.
-- [ ] Theme preference survives reload; reduced-motion setting is respected.
-- [ ] Temporarily unavailable backend: retry state appears and recovery succeeds.
+- [x] Owner reported remaining desktop foundation checks complete on 4 November; this is manual evidence, not automated browser coverage.
+- [x] Reload while signed in: session restores using the cookie.
+- [x] Reload after logout or open `/workspace` signed out: login remains required.
+- [x] Empty/invalid form, wrong password, password visibility and pending state.
+- [x] Collapse/reopen sidebar; account menu opens/closes normally.
+- [x] Tab/Shift+Tab focus is visible; skip link works; Escape closes menus.
+- Phone/tablet acceptance removed from scope by owner request.
+- [x] Theme preference survives reload; reduced-motion setting is respected.
+- [x] Temporarily unavailable backend: retry state appears and recovery succeeds.
+
+For new Phase 5 acceptance, use [the desktop workflow checklist](PHASE_5_ACCEPTANCE.md). The owner’s earlier foundation confirmation does not establish acceptance of these new screens.
 
 ## Shared implementation patterns
 
@@ -52,4 +55,4 @@ User screenshots on 4 November show the real authenticated workspace in light/da
 
 On 4 November 2026, runtime `npm audit --omit=dev` reports **zero vulnerabilities**. Full audit reports **12 moderate development-tool findings**, all arising from the lint toolchain's minimatch advisory GHSA-g3hv-75wg-m249. No high/critical findings remain. A forced cross-major minimatch override was not applied to older ESLint APIs. Recheck supported upstream fixes rather than declaring the full development tree clean.
 
-No deployment, canonical alias switch or model migration is part of Phase 4.
+No deployment, canonical alias switch or model migration is part of the local Phase 4/5 work.

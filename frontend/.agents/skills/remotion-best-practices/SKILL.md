@@ -23,7 +23,7 @@ When needing to visualize audio (spectrum bars, waveforms, bass-reactive effects
 
 ## Sound effects
 
-When needing to use sound effects, load the [./rules/sound-effects.md](./rules/sound-effects.md) file for more information.
+When needing to use sound effects, load the [audio guidance](./rules/audio.md) file for more information.
 
 ## How to use
 

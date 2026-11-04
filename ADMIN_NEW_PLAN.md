@@ -1,7 +1,7 @@
 # BuildEstate — Backend readiness and `admin_new` redesign plan
 
 Prepared: 3 November 2026
-Status: **Phase 6 implemented and owner-reported desktop checks accepted; Phase 7 verification/release preparation is next**
+Status: **Phase 7 accepted for continuation by owner; Phase 8 release preparation next**
 Repository baseline: `9b7d946` (Phase 3 release documentation)
 Scope update: 4 November 2026 — essential demo features; replacement admin is desktop-only. Browser testing stays manual.
 
@@ -459,7 +459,7 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Complete (desktop owner acceptance) | Phase 3 | Working local application and desktop/theme/session checks |
 | **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Implemented; visual/manual acceptance pending | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
 | **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Owner-reported desktop acceptance | Phase 5 design checkpoint | Each module works with actual backend contracts |
-| **7 — Full-panel verification** | Consistent, accessible desktop replacement admin | Not started | Phases 5–6 | Browser/API acceptance results and production build |
+| **7 — Full-panel verification** | Consistent, accessible desktop replacement admin | Complete (automated checks; owner-reported acceptance) | Phases 5–6 | Browser/API acceptance results and production build |
 | **8 — Preview and production cutover** | Accepted preview and controlled replacement of the current admin | Not started | Phase 7 | Deployment identifiers, smoke checks and rollback reference |
 
 ### 10.2 Phase 1 — Essential backend fixes
@@ -647,10 +647,14 @@ Tasks:
 - [ ] **P7-02:** Check keyboard/focus/dialog/popover behavior, light/dark contrast and reduced motion.
 - [ ] **P7-03:** Check desktop layouts at agreed viewport widths, long names/emails, large prices and missing historical references. Phone/tablet checks are out of scope.
 - [ ] **P7-04:** Check offline/retry, failed saves, version conflicts, disabled reasons and cleanup after logout.
-- [ ] **P7-05:** Run type checks, relevant tests, lint and production build; inspect lazy-loaded bundles for accidental heavy initial imports.
+- [x] **P7-05:** Run type checks, relevant tests, lint and production build; inspect lazy-loaded bundles for accidental heavy initial imports.
 - [ ] **P7-06:** Record known limitations and remove any unfinished action rather than presenting it as working.
 
 **Done when:** the replacement is reviewable and usable across the agreed screens and devices, with the test results recorded. No “perfect system” or independent accessibility certification is implied.
+
+**Phase 7 evidence — 4 November 2026:** Fresh checks passed: 32 replacement-admin tests, ESLint, TypeScript/production build and 89 isolated backend tests. The first sandboxed backend run could not open localhost (EPERM); the permitted rerun passed all 89. Route modules and the dashboard chart remain lazy-loaded; the build emits a separate 368.61 kB chart chunk (107.70 kB gzip), with a 450.61 kB entry chunk (144.62 kB gzip). Reduced-motion CSS and disabled chart animation are present. This is source/build evidence, not browser acceptance. See [Phase 7 acceptance record](admin_new/PHASE_7_ACCEPTANCE.md) for outstanding checks. No live provider tests, database maintenance, emails or deployment were performed.
+
+**Owner acceptance:** On 4 November the owner reported checking the entire admin and authorized release preparation. Detailed browser/viewport outcomes were not supplied and are not claimed as agent-observed. Hosted-origin cookies and deployed workflows remain Phase 8 gates. Added `admin_new/vercel.json` with the existing admin’s SPA routing fallback and security headers; no deployment settings changed. Existing branches and `admin/` are retained.
 
 ### 10.9 Phase 8 — Preview, release and cutover
 

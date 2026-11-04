@@ -8,7 +8,7 @@ export class ApiError extends Error {
     super(message);
   }
 }
-type Options = RequestInit & { anonymous?: boolean };
+type Options = RequestInit & { anonymous?: boolean; responseType?: "blob" };
 type Identity = { id: string; email: string; role: string };
 export type Session = { success: true; user: Identity };
 const configured = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
@@ -29,7 +29,7 @@ export function createApi(
     token = null;
     for (const listener of listeners) listener();
   }
-  async function raw<T>(path: string, options: RequestInit = {}): Promise<T> {
+  async function raw<T>(path: string, options: Options = {}): Promise<T> {
     const headers = new Headers(options.headers);
     if (options.body && !(options.body instanceof FormData))
       headers.set("Content-Type", "application/json");
@@ -48,6 +48,8 @@ export function createApi(
         "Cannot reach the server. Check your connection and retry.",
       );
     }
+    if (response.ok && options.responseType === "blob")
+      return { blob: await response.blob(), headers: response.headers } as T;
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.success === false)
       throw new ApiError(

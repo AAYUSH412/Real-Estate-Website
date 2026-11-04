@@ -1,6 +1,6 @@
 # BuildEstate replacement admin — desktop workspace
 
-React/TypeScript/Vite, official shadcn/Radix components, Geist, semantic light/dark themes, TanStack Query/Table and React Hook Form. Phase 4 provides the login and protected shell. Phase 5 now implements dashboard, Properties, add/edit/detail, review and archive workflows. Other management modules remain Phase 6. Desktop-only is the approved scope; mobile/tablet adaptation is not required. Only implemented destinations appear in navigation. The original `admin/` remains available.
+React/TypeScript/Vite, official shadcn/Radix components, Geist, semantic light/dark themes, TanStack Query/Table and React Hook Form. Phase 4 provides the login and protected shell. Phase 5 now implements dashboard, Properties, add/edit/detail, review and archive workflows. Phase 6 adds Users, Appointments, Contact inbox, Subscribers, NVIDIA models and Activity logs using the existing backend APIs. Full-panel manual acceptance remains pending. Desktop-only is the approved scope; mobile/tablet adaptation is not required. Only implemented destinations appear in navigation. The original `admin/` remains available.
 
 ## Run locally
 
@@ -26,7 +26,7 @@ npm run lint
 npm run build
 ```
 
-Twenty current client tests (seven session transport tests and thirteen property/media/command/component regressions) cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin_new`. Playwright was removed at the owner's request; browser testing is manual.
+Thirty-two current client tests (session, property/media and management command/component regressions) cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin_new`. Playwright was removed at the owner's request; browser testing is manual.
 
 ## Manual acceptance checklist
 
@@ -46,6 +46,8 @@ User screenshots on 4 November show the real authenticated workspace in light/da
 - [x] Temporarily unavailable backend: retry state appears and recovery succeeds.
 
 For new Phase 5 acceptance, use [the desktop workflow checklist](PHASE_5_ACCEPTANCE.md). The owner’s earlier foundation confirmation does not establish acceptance of these new screens.
+
+Phase 6 module routes and manual checks: [management acceptance checklist](PHASE_6_ACCEPTANCE.md). All new sidebar destinations are implemented; tests use mocked commands/provider calls and do not consume NVIDIA quota.
 
 ## Shared implementation patterns
 

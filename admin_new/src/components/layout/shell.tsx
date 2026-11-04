@@ -4,6 +4,12 @@ import {
   ChevronsUpDown,
   LayoutGrid,
   ClipboardCheck,
+  Users,
+  CalendarDays,
+  Inbox,
+  Mail,
+  Cpu,
+  History,
   LogOut,
   ShieldCheck,
 } from "lucide-react";
@@ -89,35 +95,63 @@ function Navigation() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {[
-                { path: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-                { path: "/properties", label: "Properties", icon: Building2 },
-                {
-                  path: "/reviews",
-                  label: "Review queue",
-                  icon: ClipboardCheck,
-                },
-              ].map(({ path, label, icon: Icon }) => (
-                <SidebarMenuItem key={path}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname.startsWith(path)}
-                    tooltip={label}
-                  >
-                    <NavLink to={path}>
-                      <Icon />
-                      <span>{label}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {[
+          {
+            label: "Overview",
+            items: [
+              { path: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+            ],
+          },
+          {
+            label: "Property management",
+            items: [
+              { path: "/properties", label: "Properties", icon: Building2 },
+              { path: "/reviews", label: "Review queue", icon: ClipboardCheck },
+              {
+                path: "/appointments",
+                label: "Appointments",
+                icon: CalendarDays,
+              },
+            ],
+          },
+          {
+            label: "People",
+            items: [
+              { path: "/users", label: "Users", icon: Users },
+              { path: "/leads", label: "Contact inbox", icon: Inbox },
+              { path: "/subscribers", label: "Subscribers", icon: Mail },
+            ],
+          },
+          {
+            label: "Administration",
+            items: [
+              { path: "/ai-models", label: "NVIDIA models", icon: Cpu },
+              { path: "/activity", label: "Activity logs", icon: History },
+            ],
+          },
+        ].map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map(({ path, label, icon: Icon }) => (
+                  <SidebarMenuItem key={path}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname.startsWith(path)}
+                      tooltip={label}
+                    >
+                      <NavLink to={path}>
+                        <Icon />
+                        <span>{label}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         {error ? (
@@ -174,14 +208,23 @@ function Navigation() {
 export default function Shell() {
   const location = useLocation();
   const path = location.pathname;
-  const section = path.startsWith("/properties")
-    ? "Properties"
-    : path.startsWith("/reviews")
-      ? "Review queue"
-      : path === "/dashboard"
-        ? "Dashboard"
-        : "Page not found";
-  const deep = path.startsWith("/properties/") || path.startsWith("/reviews/");
+  const destinations: Record<string, string> = {
+    properties: "Properties",
+    reviews: "Review queue",
+    users: "Users",
+    appointments: "Appointments",
+    leads: "Contact inbox",
+    subscribers: "Subscribers",
+    "ai-models": "NVIDIA models",
+    activity: "Activity logs",
+    dashboard: "Dashboard",
+  };
+  const segment = path.split("/")[1];
+  const section = destinations[segment] || "Page not found";
+  const deep =
+    ["properties", "reviews", "users", "appointments", "leads"].includes(
+      segment,
+    ) && path.split("/").filter(Boolean).length > 1;
   const pageTitle =
     path === "/properties/new"
       ? "Add property"
@@ -189,7 +232,9 @@ export default function Shell() {
         ? "Edit property"
         : section === "Review queue"
           ? "Submission"
-          : "Property detail";
+          : segment === "properties"
+            ? "Property detail"
+            : "Record detail";
   return (
     <SidebarProvider>
       <a href="#main-content" className="skip-link">
@@ -207,15 +252,7 @@ export default function Shell() {
                   <>
                     <BreadcrumbItem>
                       <BreadcrumbLink asChild>
-                        <Link
-                          to={
-                            section === "Properties"
-                              ? "/properties"
-                              : "/reviews"
-                          }
-                        >
-                          {section}
-                        </Link>
+                        <Link to={`/${segment}`}>{section}</Link>
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />

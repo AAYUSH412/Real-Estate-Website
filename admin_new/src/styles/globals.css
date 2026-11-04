@@ -888,3 +888,49 @@
     font-size: 13px;
   }
 }
+@layer components {
+  .detail-record-list {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+  .detail-record-list > a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .detail-record-list strong {
+    font-weight: 550;
+  }
+  .metadata-block {
+    max-height: 360px;
+    overflow: auto;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .model-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 22px;
+  }
+  .model-facts dt {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    margin-bottom: 6px;
+  }
+  .model-facts dd {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+}

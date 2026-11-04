@@ -1,6 +1,6 @@
 # Admin API contract index — accepted local baseline
 
-Accepted on 3 November 2026 for `admin_new` development. Implemented routes are shared through `routes/mountApiRoutes.js`. Payload declarations live in `shared/contracts/index.d.ts`; validators/DTOs live in `shared/contracts/index.js`. The isolated HTTP regression suite verifies actual handlers and MongoDB transactions. This is a contract index, not a claim of a complete OpenAPI specification or production certification.
+Accepted on 3 November 2026 for `admin` development. Implemented routes are shared through `routes/mountApiRoutes.js`. Payload declarations live in `shared/contracts/index.d.ts`; validators/DTOs live in `shared/contracts/index.js`. The isolated HTTP regression suite verifies actual handlers and MongoDB transactions. This is a contract index, not a claim of a complete OpenAPI specification or production certification.
 
 ## Authentication and transport
 
@@ -13,7 +13,7 @@ Send access credentials as `Authorization: Bearer <token>`. Administrator identi
 | POST | `/api/users/admin/refresh` | Rotating refresh cookie → new access token and refresh cookie |
 | POST | `/api/users/admin/logout` | Revokes session and clears refresh cookie |
 
-Local cookies use SameSite=Lax; production cookies use SameSite=None and Secure. Admin cookie path is `/api/users/admin`. The shared `config/corsPolicy.js` accepts configured `FRONTEND_URL`, `ADMIN_URL`, `WEBSITE_URL`, comma-separated `LOCAL_URLS` and `EXTRA_ALLOWED_ORIGINS`. Development also permits localhost ports 4000/5173/5174; production does not automatically permit localhost. Set an explicit allowed origin if `admin_new` uses a different local port. Origin checks and cookie attributes were exercised over HTTP; actual browser third-party-cookie behavior and deployed host configuration remain release checks.
+Local cookies use SameSite=Lax; production cookies use SameSite=None and Secure. Admin cookie path is `/api/users/admin`. The shared `config/corsPolicy.js` accepts configured `FRONTEND_URL`, `ADMIN_URL`, `WEBSITE_URL`, comma-separated `LOCAL_URLS` and `EXTRA_ALLOWED_ORIGINS`. Development also permits localhost ports 4000/5173/5174; production does not automatically permit localhost. Set an explicit allowed origin if `admin` uses a different local port. Origin checks and cookie attributes were exercised over HTTP; actual browser third-party-cookie behavior and deployed host configuration remain release checks.
 
 ## Queries, pages and errors
 
@@ -58,4 +58,4 @@ Subscription cleanup follows response closure, not the incoming request-body lif
 
 [Phase 1 contracts](admin-phase1-contracts.md) and [Phase 2 migration/rollback notes](admin-phase2-nvidia.md) provide detailed compatibility and rollout rules. Model migration is read-only by default, backed up before apply, rehearsed on an isolated snapshot and not applied to the project database in this gate. Re-run inventory at release time, preserve the private backup, coordinate catalog writes, retire the legacy default index and test the exact saved configuration before enabling. Mistral/MiniMax timeout limits remain recorded; keep unverified candidates disabled.
 
-Use an accepted local/test backend for `admin_new` development. Release compatible backend and clients before preview/production users depend on new contracts. No `main` merge, production cutover, production database mutation or project server stop is part of this acceptance gate.
+Use an accepted local/test backend for `admin` development. Release compatible backend and clients before preview/production users depend on new contracts. No `main` merge, production cutover, production database mutation or project server stop is part of this acceptance gate.

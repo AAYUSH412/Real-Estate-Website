@@ -57,4 +57,4 @@ The existing frontend warning about a shared static/dynamic API import remains n
 
 ## Decision
 
-The implemented contracts and verified failure states are sufficient to start **Phase 4 — `admin_new` foundation** against a verified local/test backend. Use a configured allowed origin for its local port, real protected APIs and shared types. Do not introduce mocked product counters or pretend the unavailable AI candidates are enabled. The original admin stays available throughout development; production cutover still waits for later acceptance and release work.
+The implemented contracts and verified failure states are sufficient to start **Phase 4 — `admin` foundation** against a verified local/test backend. Use a configured allowed origin for its local port, real protected APIs and shared types. Do not introduce mocked product counters or pretend the unavailable AI candidates are enabled. The original admin stays available throughout development; production cutover still waits for later acceptance and release work.

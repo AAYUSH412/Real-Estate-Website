@@ -104,4 +104,4 @@ Live checks used only the fixed demo prompt through the server key, with no proj
 
 These are observations from one bounded check, not benchmark guarantees. Mistral/MiniMax timeout results are unresolved account/output-readiness limits; neither should be enabled without a later successful test. The live checks did not grant activation evidence to database records: run the admin test on the exact saved post-migration configuration. Advanced parameter combinations were covered with mocked payload tests, not exhaustively exercised against the hosted service.
 
-No production deployment, migration apply or full browser acceptance is claimed. Phase 3 is the backend acceptance gate before `admin_new` construction.
+No production deployment, migration apply or full browser acceptance is claimed. Phase 3 is the backend acceptance gate before `admin` construction.

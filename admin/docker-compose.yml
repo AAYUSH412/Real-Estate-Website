@@ -1,8 +1,0 @@
-version: '3.8'
-
-services:
-  admin:
-    build: .
-    volumes:
-      - .:/app
-      - /app/node_modules

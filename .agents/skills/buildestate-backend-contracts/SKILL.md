@@ -9,7 +9,7 @@ description: Implement or review BuildEstate Express/MongoDB API changes for adm
 
 Read `backend/docs/admin-api-contracts.md`, then the relevant shared validators/types in `shared/contracts/index.js` and `index.d.ts`. `backend/routes/mountApiRoutes.js` registers actual production prefixes; read the route middleware and domain service before changing a controller. Historical findings in `PROJECT_AUDIT.md` are a baseline, not proof a fixed issue still exists. `ADMIN_NEW_PLAN.md` records active scope.
 
-Express/Mongoose and a MongoDB replica set support the current application. Keep public `frontend/` and legacy `admin/` callers compatible while `admin_new/` grows. Preserve documented response aliases and multipart names; make additive contract changes where practical. No standalone transaction fallback exists.
+Express/Mongoose and a MongoDB replica set support the current application. Keep public `frontend/` and legacy `admin/` callers compatible while `admin/` grows. Preserve documented response aliases and multipart names; make additive contract changes where practical. No standalone transaction fallback exists.
 
 ## Domain invariants
 

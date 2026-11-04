@@ -1,3 +1,5 @@
+> Repository update — 4 November 2026: the accepted TypeScript admin now lives in `admin/`. The legacy JavaScript admin was removed by owner request and remains in Git history. Dated findings and phase branch names below are historical.
+
 # BuildEstate - Architecture Issues Document
 
 > **Project:** Real Estate Website (BuildEstate)

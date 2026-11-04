@@ -22,4 +22,4 @@ Tests mock provider HTTP and use isolated MongoDB. They cover env precedence/tes
 
 Restart the local backend normally to load the change, then request a fresh reset email and inspect the corresponding Brevo log. A rejected older request will remain rejected. Confirm the new request uses your configured sender and reaches Delivered; the application cannot guarantee delivery from the API response alone.
 
-Admin refresh 401 immediately after logout or with no valid cookie is expected. `/api/users/me` belongs to public-user authentication, not `admin_new`: old browser tokens must refresh or require a fresh sign-in. Never extend JWT validity to hide expiry.
+Admin refresh 401 immediately after logout or with no valid cookie is expected. `/api/users/me` belongs to public-user authentication, not `admin`: old browser tokens must refresh or require a fresh sign-in. Never extend JWT validity to hide expiry.

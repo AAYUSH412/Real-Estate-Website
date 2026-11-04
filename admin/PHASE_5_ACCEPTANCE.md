@@ -4,7 +4,7 @@ Implementation: 4 November 2026. This checklist is for owner-run manual testing;
 
 ## Open the new screens
 
-Start the existing local backend normally, then run `npm run dev` in `admin_new/`. Open http://localhost:5175. Sign-in now opens `/dashboard`; old `/workspace` links redirect there.
+Start the existing local backend normally, then run `npm run dev` in `admin/`. Open http://localhost:5175. Sign-in now opens `/dashboard`; old `/workspace` links redirect there.
 
 - `/dashboard`: pending reviews, future pending/confirmed viewings, new inquiries and public listings; oldest pending submissions; latest submitted pending viewing requests; 30 UTC-day detail API request chart and accessible daily values.
 - `/properties`: URL-backed filters, server paging/sort, column visibility, owner information and current-page selection.

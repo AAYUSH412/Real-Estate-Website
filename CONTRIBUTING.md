@@ -96,7 +96,7 @@ There are several ways you can contribute to the BuildEstate project:
 |---|---|---|
 | `backend/` | Node.js + Express REST API | 4000 |
 | `frontend/` | React + TypeScript user site | 5173 |
-| `admin/` | React admin dashboard | 5174 |
+| `admin/` | React 19 + TypeScript desktop admin | 5175 |
 
 ## Questions?
 

@@ -1,10 +1,12 @@
+> Repository update — 4 November 2026: the accepted TypeScript admin now lives in `admin/`. The legacy JavaScript admin was removed by owner request and remains in Git history. Dated findings and phase branch names below are historical.
+
 # BuildEstate project audit
 
 > **Implementation update:** Phase 1 changes and verification are documented in [docs/phase1/PHASE_1.md](docs/phase1/PHASE_1.md). The findings below preserve the original audit snapshot; use the phase registers for current remediation status.
 >
 > **Phase 2 implementation:** Shared contracts, domain transactions, device sessions and verification are documented in [docs/phase2/PHASE_2.md](docs/phase2/PHASE_2.md). Deployment and legacy-data migration remain explicit rollout steps.
 
-> **Active admin-rebuild plan:** [ADMIN_NEW_PLAN.md](ADMIN_NEW_PLAN.md) tracks the separate backend-readiness and `admin_new` work. Its Phase 3 acceptance gate passed locally on 3 November 2026; see [acceptance evidence](backend/docs/admin-phase3-acceptance.md) and [accepted API contracts](backend/docs/admin-api-contracts.md). These current records supersede fixed behavior in the original snapshot below; original finding/advisory totals are not a new scan.
+> **Active admin-rebuild plan:** [ADMIN_NEW_PLAN.md](ADMIN_NEW_PLAN.md) tracks the separate backend-readiness and `admin` work. Its Phase 3 acceptance gate passed locally on 3 November 2026; see [acceptance evidence](backend/docs/admin-phase3-acceptance.md) and [accepted API contracts](backend/docs/admin-api-contracts.md). These current records supersede fixed behavior in the original snapshot below; original finding/advisory totals are not a new scan.
 >
 > **Owner decision:** the original **Phase 4 — Make operations dependable** remains **deferred**. The new plan's Phase 4 means the replacement-admin foundation, not completion of operations work.
 

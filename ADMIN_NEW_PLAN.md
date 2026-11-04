@@ -1,4 +1,6 @@
-# BuildEstate — Backend readiness and `admin_new` redesign plan
+> Repository update — 4 November 2026: the accepted TypeScript admin now lives in `admin/`. The legacy JavaScript admin was removed by owner request and remains in Git history. Dated findings and phase branch names below are historical.
+
+# BuildEstate — Backend readiness and `admin` redesign plan
 
 Prepared: 3 November 2026
 Status: **Phase 7 accepted for continuation by owner; Phase 8 release preparation next**
@@ -10,22 +12,22 @@ Scope update: 4 November 2026 — essential demo features; replacement admin is 
 1. Create this Markdown document first so you can read and approve the work.
 2. Review the backend before starting the new admin application.
 3. Finish the backend work required by the approved admin journeys, then begin the redesign.
-4. Build the replacement from scratch in a future **`admin_new/`** directory. Keep the current `admin/` available during development and acceptance.
+4. Build the replacement from scratch in a future **`admin/`** directory. Keep the current `admin/` available during development and acceptance.
 5. Use a modern, professional design based on **shadcn/ui and Radix primitives**.
 6. Use **NVIDIA NIM as the only AI inference service**. Remove GitHub Models from active backend routing, configuration, catalog setup and admin choices.
 7. Make adding, testing, enabling, disabling, removing and selecting AI models possible through the admin interface.
 8. Build the replacement admin for desktop only; phone/tablet layouts and mobile acceptance are out of scope.
 9. Keep the original audit's **Phase 4 — Make operations dependable** deferred at your request. Its unresolved items remain documented, rather than marked completed.
 
-**Phase 3 baseline:** Phase 3 backend acceptance passed locally with **106 tests (86 backend, 11 admin, 9 frontend)**, admin lint, both client builds and backend syntax checks. Connected workflows verify session outage recovery/logout, shared CORS/cookie policy, retained-image revisions, booking history during mail failure, inquiry resolution and newsletter consent. A fresh-stream provenance gap found by acceptance was fixed: fresh/cached/late-coalesced SSE now receive the complete final result. No project database mutation, model migration apply, production deployment or project server stop occurred. `admin_new/` now contains the Phase 4 foundation; see section 10.5 for current validation and manual acceptance.
+**Phase 3 baseline:** Phase 3 backend acceptance passed locally with **106 tests (86 backend, 11 admin, 9 frontend)**, admin lint, both client builds and backend syntax checks. Connected workflows verify session outage recovery/logout, shared CORS/cookie policy, retained-image revisions, booking history during mail failure, inquiry resolution and newsletter consent. A fresh-stream provenance gap found by acceptance was fixed: fresh/cached/late-coalesced SSE now receive the complete final result. No project database mutation, model migration apply, production deployment or project server stop occurred. `admin/` now contains the Phase 4 foundation; see section 10.5 for current validation and manual acceptance.
 
-**Current:** Phase 4 foundation is accepted on `feat/admin-new-phase4-foundation`, based on Phase 3. The owner confirmed the remaining desktop foundation checks and local reset-email receipt on 4 November, and authorized Phase 5. Browser testing remains manual; mobile checks are out of scope. The owner reviewed the desktop screens, confirmed create/edit/archive after rotating ImageKit keys locally and in Azure, and authorized Phase 6. Its six management modules are now implemented locally; remaining full-panel/manual checks continue in Phase 7. See [local setup/manual checklist](admin_new/README.md). Production and model migration remain separate release steps.
+**Current:** Phase 4 foundation is accepted on `feat/admin-new-phase4-foundation`, based on Phase 3. The owner confirmed the remaining desktop foundation checks and local reset-email receipt on 4 November, and authorized Phase 5. Browser testing remains manual; mobile checks are out of scope. The owner reviewed the desktop screens, confirmed create/edit/archive after rotating ImageKit keys locally and in Azure, and authorized Phase 6. Its six management modules are now implemented locally; remaining full-panel/manual checks continue in Phase 7. See [local setup/manual checklist](admin/README.md). Production and model migration remain separate release steps.
 
 ## 2. Recommendation
 
 The backend already supports most core management work. Rewriting it from zero would discard useful validation, transactions, ownership checks, audit records and tests.
 
-My recommendation is to retain Express, MongoDB/Mongoose and the existing domain services, close the specific gaps in section 5, verify the resulting contracts, and then build `admin_new` against those contracts.
+My recommendation is to retain Express, MongoDB/Mongoose and the existing domain services, close the specific gaps in section 5, verify the resulting contracts, and then build `admin` against those contracts.
 
 “Backend ready” will mean that every approved first-release screen has a documented, tested API with real data and defined failure behavior. The first release preserves the existing management modules and adds only the three practical improvements selected in section 11. The wider feature ideas in this document are a deferred reference backlog, not required implementation tasks.
 
@@ -50,7 +52,7 @@ Related records:
 
 Route names below include their production mount prefixes. “Connected” means the route/controller exists and, where stated, the current client calls it. It does not mean the module has no remaining improvements.
 
-| Module | Existing backend support | Current readiness for `admin_new` |
+| Module | Existing backend support | Current readiness for `admin` |
 | --- | --- | --- |
 | Admin login/session | `POST /api/users/admin`, `/admin/refresh`, `/admin/logout`; `GET /api/admin/session`; stored device sessions, rotating refresh credentials and audit events | Connected. Improve transient refresh failure handling; multi-admin management is not present. |
 | Public/user authentication | Registration, verification, resend, login, refresh/logout, forgot/reset password, profile changes and user device session inventory/revocation under `/api/users` | Connected. Preserve these user journeys while changing admin and AI code. |
@@ -80,7 +82,7 @@ Route names below include their production mount prefixes. “Connected” means
 - Existing booking timezone is Asia/Kolkata, with stored UTC start/end times. Existing slots are fixed; a working availability editor does not exist.
 - No public or admin DTO should expose password hashes, refresh credentials, reset/verification secrets or provider API keys.
 
-## 5. Backend work before `admin_new`
+## 5. Backend work before `admin`
 
 ### B01 — Make dashboard figures match actual domain rules
 
@@ -96,7 +98,7 @@ Several totals use raw `status: 'active'`, while public visibility also depends 
 
 **Source-confirmed:** the shared refresh handler in `backend/controller/userController.js` clears its cookie in every catch branch, including a temporary database/session-service failure. The admin client now retains stored credentials on a temporary proactive-refresh failure, but the backend can still remove the cookie needed for the retry.
 
-**Required:** clear credentials for invalid, expired, replayed or revoked sessions; preserve the refresh cookie for transient failures and return a retryable service error. Verify both user and admin behavior, including concurrent refresh and replay protection. Verify the future `admin_new` origin and cookie behavior in a browser.
+**Required:** clear credentials for invalid, expired, replayed or revoked sessions; preserve the refresh cookie for transient failures and return a retryable service error. Verify both user and admin behavior, including concurrent refresh and replay protection. Verify the future `admin` origin and cookie behavior in a browser.
 
 **Done when:** an injected temporary DB failure followed by recovery permits a refresh without another password login, while invalid/replayed credentials remain rejected.
 
@@ -291,7 +293,7 @@ The Test model button should explain that it runs a small NVIDIA request. Test c
 2. Back up the affected model configuration and preserve audit history. No user/property/appointment deletion is involved.
 3. Add NVIDIA-only resolution and remove GitHub inference branches from `propertyController.js` and `aiService.js`.
 4. Remove `GitHubModelsProvider.js` and simplify provider routing to a NVIDIA model fallback chain. Remove dependencies used exclusively by that adapter after checking imports; the OpenAI SDK is currently used by that adapter.
-5. Update the model schema/input validation, public DTOs, current admin form and future `admin_new` form so GitHub cannot be selected or written. Keep a compatible transition for the current admin while it remains deployed.
+5. Update the model schema/input validation, public DTOs, current admin form and future `admin` form so GitHub cannot be selected or written. Keep a compatible transition for the current admin while it remains deployed.
 6. Replace seeds and retire the old `migrateAIModels.js` behavior that inserts GitHub models and makes GPT-4.1 the default. Public requests must never repopulate a removed catalog.
 7. Remove GitHub-only runtime environment requirements and current setup instructions. Keep GitHub repository/Actions credentials and historical audit documentation.
 8. Migrate GitHub catalog records out of the active catalog; choose a verified NVIDIA replacement/default. **Do not relabel a GitHub model ID as NVIDIA without checking the actual NVIDIA ID.**
@@ -319,7 +321,7 @@ The following are not currently complete backend features. They must either be i
 | Provider usage/cost reports | Circuit statistics are process-local; no durable per-model billing ledger. | Basic measured request/latency data first. Do not label estimates as billed cost. |
 | Global command search | Entity-specific list searches exist; no cross-entity search endpoint. | Initial command palette can navigate pages; global record search needs a bounded authorized API. |
 
-## 8. `admin_new` architecture
+## 8. `admin` architecture
 
 ### 8.1 Proposed stack
 
@@ -337,7 +339,7 @@ Exact package versions and component APIs will be checked for compatibility when
 ### 8.2 Future folder structure
 
 ```text
-admin_new/
+admin/
   src/
     app/                 # providers, router, shell, query client
     components/
@@ -442,7 +444,7 @@ Do not include Settings, Notifications, Billing or Team pages until their backen
 
 ## 10. Approved delivery sequence and progress tracker
 
-**Execution sequence:** backend fixes, NVIDIA-only management and the backend acceptance gate precede the replacement admin. Phases 1–3 are now accepted locally; the next phase is the `admin_new` foundation. Treat the findings in section 5 as original evidence; this tracker and the linked acceptance records define current status.
+**Execution sequence:** backend fixes, NVIDIA-only management and the backend acceptance gate precede the replacement admin. Phases 1–3 are now accepted locally; the next phase is the `admin` foundation. Treat the findings in section 5 as original evidence; this tracker and the linked acceptance records define current status.
 
 The original audit's deferred Phase 4 is a separate workstream. “Phase 4” in the tracker below means the **new-admin foundation**, not reopening the operations project.
 
@@ -456,7 +458,7 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | **1 — Essential backend fixes** | Correct and consistent APIs for the existing admin journeys | **Complete (local)** | Phase 0 | 84 tests; admin lint; both client builds; [contract notes](backend/docs/admin-phase1-contracts.md); no deployment |
 | **2 — NVIDIA-only AI** | GitHub inference removed; safe model CRUD/testing/default/fallback behavior | **Complete (local; live limits recorded)** | Phase 1 | 100 tests; migration rehearsal; bounded live checks; [Phase 2 contract/release notes](backend/docs/admin-phase2-nvidia.md); no migration apply/deployment |
 | **3 — Backend acceptance gate** | Backend verified before building its replacement client | **Complete (local gate passed)** | Phases 1–2 | 106 tests, client builds/lint, shared CORS checks, connected journeys and SSE fix; [acceptance report](backend/docs/admin-phase3-acceptance.md) |
-| **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Complete (desktop owner acceptance) | Phase 3 | Working local application and desktop/theme/session checks |
+| **4 — `admin` foundation** | New app folder, design system, shell and real authentication | Complete (desktop owner acceptance) | Phase 3 | Working local application and desktop/theme/session checks |
 | **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Implemented; visual/manual acceptance pending | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
 | **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Owner-reported desktop acceptance | Phase 5 design checkpoint | Each module works with actual backend contracts |
 | **7 — Full-panel verification** | Consistent, accessible desktop replacement admin | Complete (automated checks; owner-reported acceptance) | Phases 5–6 | Browser/API acceptance results and production build |
@@ -546,7 +548,7 @@ Tasks:
 - [x] **P3-06:** Verify the NVIDIA model lifecycle, cache behavior, invalid/disabled model handling and removal of GitHub inference.
 - [x] **P3-07:** Record the finalized API contracts, safe migration steps and unresolved deferred limitations. Link the active plan from `PROJECT_AUDIT.md` and mark the original operations Phase 4 deferred.
 
-**Gate:** start `admin_new` only when required backend checks pass. Production deployment is not required merely to begin local client development; use a verified local/test backend initially. Deploy compatible backend changes before preview/production clients depend on them, as part of the release plan. No automatic server stop is part of this gate.
+**Gate:** start `admin` only when required backend checks pass. Production deployment is not required merely to begin local client development; use a verified local/test backend initially. Deploy compatible backend changes before preview/production clients depend on them, as part of the release plan. No automatic server stop is part of this gate.
 
 **Completion evidence — 3 November 2026 (local acceptance):**
 
@@ -560,13 +562,13 @@ Tasks:
 | P3-06 | Full NVIDIA lifecycle/cache/profile suite rerun. New fresh/cache/late-coalesced SSE checks found and fixed missing final `result` metadata; response-close cleanup and closed-response guards included. Shared requests make one source lookup/inference. No additional live quota consumed. |
 | P3-07 | [Accepted API contract index](backend/docs/admin-api-contracts.md) and [gate report](backend/docs/admin-phase3-acceptance.md) record contracts, migration/release steps and remaining limits. `PROJECT_AUDIT.md` now links the active plan and explicitly marks its original operations Phase 4 deferred. |
 
-**Gate decision: PASS for local `admin_new` development.** The new client can use the real protected routes and shared types; it must handle actual unavailable states. Production readiness is separate: apply/review the model migration during coordinated release, test exact saved configurations, verify browser/host origins/cookies and complete later panel/cutover checks. Mistral/MiniMax live timeouts, best-effort notification delivery, filesystem quota limits and deferred operations work are not marked resolved. The original admin remains available. Phase 3 uses branch `test/admin-new-phase3-acceptance` based on Phase 2; this work does not merge or deploy `main`.
+**Gate decision: PASS for local `admin` development.** The new client can use the real protected routes and shared types; it must handle actual unavailable states. Production readiness is separate: apply/review the model migration during coordinated release, test exact saved configurations, verify browser/host origins/cookies and complete later panel/cutover checks. Mistral/MiniMax live timeouts, best-effort notification delivery, filesystem quota limits and deferred operations work are not marked resolved. The original admin remains available. Phase 3 uses branch `test/admin-new-phase3-acceptance` based on Phase 2; this work does not merge or deploy `main`.
 
-### 10.5 Phase 4 — Create `admin_new` and its design system
+### 10.5 Phase 4 — Create `admin` and its design system
 
 Tasks:
 
-- [x] **P4-01:** Create `admin_new/` with React, TypeScript and Vite; keep current `admin/` intact.
+- [x] **P4-01:** Create `admin/` with React, TypeScript and Vite; keep current `admin/` intact.
 - [x] **P4-02:** Install compatible shadcn/Radix components and establish semantic theme, typography, spacing, status and focus tokens.
 - [x] **P4-03:** Build the collapsible sidebar, compact header, breadcrumbs and mobile navigation drawer.
 - [x] **P4-04:** Connect actual admin authentication, session validation, refresh/logout, protected routes and private cache clearing.
@@ -608,7 +610,7 @@ Tasks:
 
 **Screenshot follow-up — 4 November 2026:** owner provided desktop dashboard/catalog/detail/edit/empty-queue images. Fixed catalog filters stacking because FieldGroup's flex utility outranked component-layer grid CSS; explicit grid utilities now control the layout. Added accessible unavailable-photo fallbacks without changing stored URLs, truthful missing-date labels, and one main queue empty state without redundant one-page pagination. **20 client tests**, lint and TypeScript/build pass. Owner follow-up screenshots at 12:37 confirm the filter grid, photo fallbacks and missing-date labels. The owner subsequently authorized Phase 6 after reviewing the desktop screens, accepting the direction for reuse. Complete manual mutation/stale-tab acceptance remains pending.
 
-**Design checkpoint accepted for continuation:** the owner authorized Phase 6 after reviewing the desktop screenshots and confirming create/edit/archive. **Still pending:** P5-07 remaining complete manual journeys, including owner review/bulk/stale-tab cases. Follow [Phase 5 acceptance checklist](admin_new/PHASE_5_ACCEPTANCE.md). No Playwright, production cutover, project DB migration or new operational modules. The owner-approved desktop-only scope is reflected in AGENTS.md and project skills. Phase 5 uses `feat/admin-new-phase5-properties`, based on the Phase 4 branch; Phase 6 continuation was explicitly authorized after owner review.
+**Design checkpoint accepted for continuation:** the owner authorized Phase 6 after reviewing the desktop screenshots and confirming create/edit/archive. **Still pending:** P5-07 remaining complete manual journeys, including owner review/bulk/stale-tab cases. Follow [Phase 5 acceptance checklist](admin/PHASE_5_ACCEPTANCE.md). No Playwright, production cutover, project DB migration or new operational modules. The owner-approved desktop-only scope is reflected in AGENTS.md and project skills. Phase 5 uses `feat/admin-new-phase5-properties`, based on the Phase 4 branch; Phase 6 continuation was explicitly authorized after owner review.
 
 ### 10.7 Phase 6 — Complete existing management modules
 
@@ -637,7 +639,7 @@ Tasks:
 | P6-07 | Grouped desktop navigation, lazy routes, URL-backed list state, shared native filter grid/table/status/confirmation/error/query patterns, version snapshots and private-cache invalidation. |
 | Checks | **32/32 client tests**, lint and TypeScript/production build. Twelve new regressions cover moderation versions, booking time/state rules, NVIDIA lifecycle payloads/eligibility/failed test results, CSV auth/blob/limits, stale inquiry drafts and suppression-only UI. No new dependencies or backend implementation changes. |
 
-**Acceptance boundary:** these checks establish local implementation, not full browser/production acceptance. Follow [Phase 6 desktop checklist](admin_new/PHASE_6_ACCEPTANCE.md) and carry forward unfinished Phase 5 manual cases into Phase 7. No Playwright, paid inference, outgoing email, live moderation, model migration apply, deployment or alias cutover was performed by this phase. Existing backend evidence was not rerun or relabeled as fresh. Work is on `feat/admin-new-phase6-modules`, based on Phase 5.
+**Acceptance boundary:** these checks establish local implementation, not full browser/production acceptance. Follow [Phase 6 desktop checklist](admin/PHASE_6_ACCEPTANCE.md) and carry forward unfinished Phase 5 manual cases into Phase 7. No Playwright, paid inference, outgoing email, live moderation, model migration apply, deployment or alias cutover was performed by this phase. Existing backend evidence was not rerun or relabeled as fresh. Work is on `feat/admin-new-phase6-modules`, based on Phase 5.
 
 ### 10.8 Phase 7 — Full-panel acceptance
 
@@ -652,15 +654,15 @@ Tasks:
 
 **Done when:** the replacement is reviewable and usable across the agreed screens and devices, with the test results recorded. No “perfect system” or independent accessibility certification is implied.
 
-**Phase 7 evidence — 4 November 2026:** Fresh checks passed: 32 replacement-admin tests, ESLint, TypeScript/production build and 89 isolated backend tests. The first sandboxed backend run could not open localhost (EPERM); the permitted rerun passed all 89. Route modules and the dashboard chart remain lazy-loaded; the build emits a separate 368.61 kB chart chunk (107.70 kB gzip), with a 450.61 kB entry chunk (144.62 kB gzip). Reduced-motion CSS and disabled chart animation are present. This is source/build evidence, not browser acceptance. See [Phase 7 acceptance record](admin_new/PHASE_7_ACCEPTANCE.md) for outstanding checks. No live provider tests, database maintenance, emails or deployment were performed.
+**Phase 7 evidence — 4 November 2026:** Fresh checks passed: 32 replacement-admin tests, ESLint, TypeScript/production build and 89 isolated backend tests. The first sandboxed backend run could not open localhost (EPERM); the permitted rerun passed all 89. Route modules and the dashboard chart remain lazy-loaded; the build emits a separate 368.61 kB chart chunk (107.70 kB gzip), with a 450.61 kB entry chunk (144.62 kB gzip). Reduced-motion CSS and disabled chart animation are present. This is source/build evidence, not browser acceptance. See [Phase 7 acceptance record](admin/PHASE_7_ACCEPTANCE.md) for outstanding checks. No live provider tests, database maintenance, emails or deployment were performed.
 
-**Owner acceptance:** On 4 November the owner reported checking the entire admin and authorized release preparation. Detailed browser/viewport outcomes were not supplied and are not claimed as agent-observed. Hosted-origin cookies and deployed workflows remain Phase 8 gates. Added `admin_new/vercel.json` with the existing admin’s SPA routing fallback and security headers; no deployment settings changed. Existing branches and `admin/` are retained.
+**Owner acceptance:** On 4 November the owner reported checking the entire admin and authorized release preparation. Detailed browser/viewport outcomes were not supplied and are not claimed as agent-observed. Hosted-origin cookies and deployed workflows remain Phase 8 gates. Added `admin/vercel.json` with the existing admin’s SPA routing fallback and security headers; no deployment settings changed. Existing branches and `admin/` are retained.
 
 ### 10.9 Phase 8 — Preview, release and cutover
 
 Tasks:
 
-- [ ] **P8-01:** Create/configure a separate Vercel project or preview rooted at `admin_new`, with shared-contract access and the correct public API origin.
+- [ ] **P8-01:** Create/configure a separate Vercel project or preview rooted at `admin`, with shared-contract access and the correct public API origin.
 - [ ] **P8-02:** Allowlist the intended origin; deploy any accepted compatible backend changes and apply rehearsed migrations where required.
 - [ ] **P8-03:** Verify login/refresh and the complete approved workflows in preview; let the owner review the replacement before switching the canonical admin alias.
 - [ ] **P8-04:** Record the old deployment/alias as the rollback reference, then perform the accepted cutover.
@@ -685,7 +687,7 @@ After each implementation session:
 | 2026-11-03 | Phase 0 | Owner reviewed the direction; essential demo scope and executable tracker recorded | Documentation update only; no tests rerun or deployment performed | Begin Phase 1 when implementation starts |
 | 2026-11-03 | P1-01–P1-09 | Essential backend fixes and old-client compatibility implemented locally | 84 tests passed; admin lint; client builds and TypeScript; contract notes above; no push/deployment or project database changes | P2-01 inventory/report |
 | 2026-11-03 | P2-01–P2-08 | NVIDIA-only inference, model lifecycle/testing, provenance/cache and current-client controls implemented | 100 tests; client builds/lint; actual-snapshot migration rehearsal; mixed live profile results documented; no project migration/deployment | Phase 3 acceptance gate |
-| 2026-11-03 | P3-01–P3-07 | Local backend gate passed; connected acceptance journeys and complete final SSE results verified | 106 tests; client builds/lint; shared production CORS/cookie checks; accepted contract index and gate report; original operations Phase 4 deferred | Phase 4 `admin_new` foundation |
+| 2026-11-03 | P3-01–P3-07 | Local backend gate passed; connected acceptance journeys and complete final SSE results verified | 106 tests; client builds/lint; shared production CORS/cookie checks; accepted contract index and gate report; original operations Phase 4 deferred | Phase 4 `admin` foundation |
 
 | 2026-11-04 | P4-01–P4-06 | Desktop foundation accepted by owner; local reset email received after config fix | Earlier seven client / 89 backend checks; desktop screenshots and owner confirmation; mobile scope removed | Phase 5 |
 | 2026-11-04 | P5-01/P5-02/P5-04–P5-06 | Dashboard, catalog/detail/forms and review/archive workflows implemented locally | 18 client tests, lint, TypeScript/build; no backend changes; manual desktop checklist | Owner P5-03/P5-07 review before Phase 6 |
@@ -708,7 +710,7 @@ Light/dark mode, responsive layout, readable tables, keyboard access, truthful f
 
 Those remain useful reference ideas from sections 6–9, not commitments. Existing necessary security/domain behavior remains in scope even though the properties are demo data and the user accounts can be real. Expanding the first release requires an explicit scope change; it must not happen simply because a dashboard template includes another menu item.
 
-## 12. Acceptance checklist before starting `admin_new`
+## 12. Acceptance checklist before starting `admin`
 
 - [x] First-release scope recorded after owner review: preserve existing modules and add only the three improvements in section 11; further additions require a scope change.
 - [x] Dashboard definitions reconcile with actual catalog/account rules and failure tests.
@@ -721,7 +723,7 @@ Those remain useful reference ideas from sections 6–9, not commitments. Existi
 - [x] GitHub Models runtime/config/seed paths removed; NVIDIA-only catalog migration rehearsed.
 - [x] Model test/default/removal/fallback/capability and cache-change behavior verified.
 - [x] Actual route mounts, old admin and public frontend pass regression checks.
-- [x] Required backend changes are verified locally and the contracts accepted before `admin_new` begins; production/preview deployment is tracked separately in Phase 8.
+- [x] Required backend changes are verified locally and the contracts accepted before `admin` begins; production/preview deployment is tracked separately in Phase 8.
 
 ## 13. Deferred operations work and document updates
 
@@ -731,7 +733,7 @@ If a first-release screen depends on one of those capabilities, either narrow/om
 
 The owner has approved the direction. Phase 3 applied the audit-status link/update in `PROJECT_AUDIT.md`:
 
-> Phase 4 — Make operations dependable: Deferred at the owner's request. Active workstream: backend readiness for a NVIDIA-only AI service, followed by a replacement admin in `admin_new/`, governed by `ADMIN_NEW_PLAN.md`.
+> Phase 4 — Make operations dependable: Deferred at the owner's request. Active workstream: backend readiness for a NVIDIA-only AI service, followed by a replacement admin in `admin/`, governed by `ADMIN_NEW_PLAN.md`.
 
 Keep historical audit findings and release evidence. Add links/status changes; do not erase unresolved findings or mark planned features as implemented.
 
@@ -744,7 +746,7 @@ Keep historical audit findings and release evidence. Add links/status changes; d
 - Prefer compatible online changes. Any genuinely necessary maintenance pause must be explained and planned; creating a design document or a new client does not itself require stopping the hosted API.
 - Develop the new admin at a separate local origin/preview deployment and allowlist only intended origins.
 - Account for cross-origin refresh-cookie behavior before alias cutover.
-- Git push triggers the connected Vercel projects; the future `admin_new` project/root directory must be configured explicitly. Do not replace the existing production alias until acceptance.
+- Git push triggers the connected Vercel projects; the future `admin` project/root directory must be configured explicitly. Do not replace the existing production alias until acceptance.
 - Do not commit secrets, private backups or production personal data.
 
 ## 15. Where to start now
@@ -753,7 +755,7 @@ The local backend gate, desktop foundation and design direction are accepted. Ph
 
 The plan is deliberately limited to existing management modules plus the three important additions in section 11. The larger operations Phase 4 and optional product ideas remain deferred.
 
-**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation has owner-reported desktop acceptance; Phase 6 implementation is ready for full-panel manual acceptance.
+**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin` foundation has owner-reported desktop acceptance; Phase 6 implementation is ready for full-panel manual acceptance.
 
 ### Owner acceptance and authorized maintenance — 4 November 2026
 

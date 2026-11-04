@@ -40,3 +40,9 @@ Bookings, users, inbox, subscribers, NVIDIA management and full activity-log nav
 Automated client checks cover session handling, retained-image/version payloads, photo bounds, shared validation, malformed filters, single archive/bulk commands, conflict propagation, selection reset on page/filter changes and mixed-status bulk eligibility. Lint and production build include TypeScript. Record the actual current test outcome in ADMIN_NEW_PLAN.md.
 
 No new backend handlers, database migration, deployment, automatic browser execution or live provider calls are part of this implementation. Existing backend domain acceptance is retained; new browser end-to-end acceptance remains pending until the owner reports it. Email API acceptance is not proof of inbox delivery.
+
+## Owner screenshot review — 4 November 2026
+
+Desktop screenshots show the dashboard, catalog, published detail/edit and empty queue rendering. Review found a FieldGroup utility/cascade conflict that stacked catalog filters: the filter group now uses explicit grid utilities. Missing/failing photos now have a consistent accessible fallback; underlying URLs are unchanged. Missing/invalid historical dates show Not recorded, with absent expiry labeled separately. An empty queue has one full empty state and no unnecessary one-page pagination. Current checks: 20 client tests, lint and TypeScript/build passed. Refresh and review these changes manually; screenshots alone do not complete the mutation/stale-tab journeys or establish design approval.
+
+Owner follow-up screenshots at 12:37 confirm the four-column desktop filter grid, unavailable-photo placeholders and Not recorded date labels. This verifies those visual fixes only; mutation/stale-tab acceptance remains pending.

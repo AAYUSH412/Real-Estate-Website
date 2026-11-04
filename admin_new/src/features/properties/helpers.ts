@@ -7,13 +7,15 @@ import {
 import type { CatalogFilters } from "./api";
 export const money = (value: number, purpose?: string) =>
   `${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value)}${purpose === "rent" ? " / month" : ""}`;
-export const dateLabel = (value?: string | null) =>
-  value
+export function dateLabel(value?: string | null, fallback = "Not recorded") {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime())
     ? new Intl.DateTimeFormat("en-IN", {
         dateStyle: "medium",
         timeZone: "Asia/Kolkata",
-      }).format(new Date(value))
-    : "—";
+      }).format(date)
+    : fallback;
+}
 export function readFilters(params: URLSearchParams): CatalogFilters {
   const page = Number(params.get("page") || 1);
   const pick = (key: string, allowed: readonly string[], fallback: string) =>

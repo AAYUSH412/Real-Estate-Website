@@ -26,7 +26,7 @@ npm run lint
 npm run build
 ```
 
-Eighteen current client tests (seven session transport tests and eleven property payload/command/component regressions) cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin_new`. Playwright was removed at the owner's request; browser testing is manual.
+Twenty current client tests (seven session transport tests and thirteen property/media/command/component regressions) cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin_new`. Playwright was removed at the owner's request; browser testing is manual.
 
 ## Manual acceptance checklist
 

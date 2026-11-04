@@ -1,3 +1,4 @@
+import { PropertyImage } from "@/components/media/property-image";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -191,7 +192,7 @@ function ReviewPage({
                   <Link
                     to={`/reviews/${row._id}${search || page > 1 ? `?${new URLSearchParams({ ...(search ? { search } : {}), page: String(page) })}` : ""}`}
                   >
-                    <img src={row.image[0]} alt="" />
+                    <PropertyImage src={row.image[0]} alt="" />
                     <strong>{row.title}</strong>
                     <span>{row.location}</span>
                     <span>{money(row.price)}</span>
@@ -207,16 +208,13 @@ function ReviewPage({
               ))}
             </div>
           ) : (
-            <EmptyResults
-              title="Queue is clear"
-              description={
-                search
-                  ? "No pending submissions match this search."
-                  : "New submissions will appear here."
-              }
-            />
+            <p className="queue-empty-note">
+              {search
+                ? "No submissions match this search. Clear the search to see the full queue."
+                : "No pending submissions."}
+            </p>
           )}
-          {query.data ? (
+          {query.data && query.data.pagination.totalPages > 1 ? (
             <div className="flex items-center justify-between gap-2">
               <Button
                 size="sm"
@@ -245,10 +243,18 @@ function ReviewPage({
             <PropertyRecord key={selectedId} id={selectedId} reviewing />
           ) : query.isPending ? (
             <PageLoading />
-          ) : (
+          ) : query.isError ? null : (
             <EmptyResults
-              title="Nothing waiting for review"
-              description="Select a submission when one arrives."
+              title={
+                search
+                  ? "No matching submissions"
+                  : "Nothing waiting for review"
+              }
+              description={
+                search
+                  ? "Try a different property or owner search."
+                  : "New property submissions will appear here."
+              }
             />
           )}
         </section>

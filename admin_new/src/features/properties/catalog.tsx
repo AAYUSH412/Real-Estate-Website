@@ -1,3 +1,4 @@
+import { PropertyImage } from "@/components/media/property-image";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
@@ -107,7 +108,7 @@ function CatalogPage({
       enableHiding: false,
       cell: ({ row: { original: row } }) => (
         <Link className="property-cell" to={`/properties/${row._id}`}>
-          <img src={row.image[0]} alt="" loading="lazy" />
+          <PropertyImage src={row.image[0]} alt="" />
           <span>
             <strong>{row.title}</strong>
             <small>{row.location}</small>
@@ -215,7 +216,7 @@ function CatalogPage({
         </div>
       </div>
       <form onSubmit={filterSubmit} className="filter-panel">
-        <FieldGroup className="catalog-filters">
+        <FieldGroup className="catalog-filters grid grid-cols-4 gap-4">
           <Field>
             <FieldLabel htmlFor="search">Search properties</FieldLabel>
             <Input

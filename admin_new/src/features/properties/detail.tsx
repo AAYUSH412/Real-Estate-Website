@@ -1,3 +1,4 @@
+import { PropertyImage } from "@/components/media/property-image";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
@@ -201,15 +202,15 @@ export function PropertyRecord({
               <dl className="overview-facts">
                 <div>
                   <dt>Submitted</dt>
-                  <dd>{dateLabel(record.createdAt)}</dd>
+                  <dd>{dateLabel(record.createdAt, "Not recorded")}</dd>
                 </div>
                 <div>
                   <dt>Updated</dt>
-                  <dd>{dateLabel(record.updatedAt)}</dd>
+                  <dd>{dateLabel(record.updatedAt, "Not recorded")}</dd>
                 </div>
                 <div>
                   <dt>Expires</dt>
-                  <dd>{dateLabel(record.expiresAt)}</dd>
+                  <dd>{dateLabel(record.expiresAt, "No scheduled expiry")}</dd>
                 </div>
                 <div>
                   <dt>Version</dt>
@@ -283,7 +284,8 @@ function Gallery({ images, title }: { images: string[]; title: string }) {
   const [index, setIndex] = useState(0);
   return (
     <section className="property-gallery" aria-label="Property photos">
-      <img
+      <PropertyImage
+        compact={false}
         className="gallery-main"
         src={images[index]}
         alt={`${title}, photo ${index + 1}`}
@@ -297,7 +299,7 @@ function Gallery({ images, title }: { images: string[]; title: string }) {
             aria-label={`Show photo ${i + 1}`}
             aria-pressed={i === index}
           >
-            <img src={image} alt="" />
+            <PropertyImage src={image} alt="" />
           </button>
         ))}
       </div>

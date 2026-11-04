@@ -1,3 +1,4 @@
+import { PropertyImage } from "@/components/media/property-image";
 import { useEffect, useRef, useState } from "react";
 import { useForm, type Path } from "react-hook-form";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -358,7 +359,7 @@ function ListingForm({ record: initialRecord }: { record?: PropertyDTO }) {
                 <div className="photo-editor">
                   {retained.map((url, index) => (
                     <div className="photo-edit-item" key={url}>
-                      <img
+                      <PropertyImage
                         src={url}
                         alt={`Retained property photo ${index + 1}`}
                       />

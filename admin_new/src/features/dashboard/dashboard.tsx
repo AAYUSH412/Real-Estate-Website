@@ -1,3 +1,4 @@
+import { PropertyImage } from "@/components/media/property-image";
 import { lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -196,7 +197,7 @@ export default function Dashboard() {
                     className="review-preview"
                     to={`/reviews/${row._id}`}
                   >
-                    <img src={row.image[0]} alt="" loading="lazy" />
+                    <PropertyImage src={row.image[0]} alt="" />
                     <span>
                       <strong>{row.title}</strong>
                       <small>

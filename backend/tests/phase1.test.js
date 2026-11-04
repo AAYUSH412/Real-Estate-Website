@@ -1338,3 +1338,15 @@ test('acceptance P3-06: a late coalesced SSE client receives the complete shared
     }
   } finally { release?.(); if (first) await first.catch(() => {}); prototype.findProperties = find; NvidiaNimProvider.prototype._call = call; }
 });
+
+test('expired public tokens are rejected quietly and session-store outages remain retryable', async () => {
+ const expired = jwt.sign({ id: owner.id, sv: 0 }, process.env.JWT_SECRET, { expiresIn: -1 });
+ const result = await request(testServer).get('/api/users/me').set('Authorization', `Bearer ${expired}`);
+ assert.equal(result.status, 401); assert.equal(result.body.code, 'TOKEN_EXPIRED');
+ const find = User.findById;
+ User.findById = () => { throw new Error('private store failure'); };
+ try {
+  const unavailable = await request(testServer).get('/api/users/me').set('Authorization', auth(owner));
+  assert.equal(unavailable.status, 503); assert.doesNotMatch(JSON.stringify(unavailable.body), /private store/);
+ } finally { User.findById = find; }
+});

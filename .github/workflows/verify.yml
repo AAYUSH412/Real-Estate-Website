@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [frontend, admin]
+        app: [frontend, admin, admin_new]
     defaults:
       run:
         working-directory: ${{ matrix.app }}
@@ -41,5 +41,5 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm test
       - run: npm run lint
-        if: matrix.app == 'admin'
+        if: matrix.app == 'admin' || matrix.app == 'admin_new'
       - run: npm run build

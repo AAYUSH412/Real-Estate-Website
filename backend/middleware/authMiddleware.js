@@ -38,10 +38,15 @@ export const protect = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error("Auth error:", error);
-    return res.status(401).json({
-      success: false,
-      message: "Not authorized",
+    const expired = error.name === 'TokenExpiredError';
+    const expected = ['TokenExpiredError', 'JsonWebTokenError', 'NotBeforeError'].includes(error.name) || [401, 403].includes(error.statusCode);
+    if (!expected) {
+      console.error('User session validation unavailable:', error.name);
+      return res.status(503).json({ success: false, message: 'Unable to verify session. Please retry.' });
+    }
+    return res.status(error.statusCode || 401).json({
+      success: false, code: expired ? 'TOKEN_EXPIRED' : 'INVALID_SESSION',
+      message: expired ? 'Access token expired. Refresh your session.' : 'Not authorized',
     });
   }
 };

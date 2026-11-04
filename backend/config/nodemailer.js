@@ -1,7 +1,5 @@
+import './environment.js';
 import axios from 'axios';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // Create a pseudo-transporter that uses Brevo's REST API instead of SMTP
 // This bypasses free-tier Render's strict block on outbound port 587 traffic.
@@ -15,6 +13,8 @@ const createTransporter = () => {
       if (!process.env.BREVO_API_KEY) {
         throw new Error('Missing BREVO_API_KEY. Cannot send email.');
       }
+
+      if (!mailOptions.from?.trim()) throw new Error('Missing EMAIL_USER. Configure a Brevo-verified sender.');
 
       try {
         const payload = {
@@ -33,7 +33,7 @@ const createTransporter = () => {
           }
         });
 
-        console.log('✅ Email sent successfully via REST API:', response.data.messageId);
+        console.log('Email accepted by Brevo REST API (delivery not verified):', response.data.messageId);
         return response.data;
       } catch (error) {
         console.error('❌ Failed to send email via REST API:', error.response?.data || error.message);

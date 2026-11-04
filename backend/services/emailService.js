@@ -24,8 +24,8 @@ import {
 } from '../email.js';
 
 class EmailService {
-  constructor() {
-    this.fromAddress = process.env.EMAIL_USER || 'noreply@buildestate.com';
+  get fromAddress() {
+    return process.env.EMAIL_USER?.trim();
   }
 
   /**
@@ -43,7 +43,7 @@ class EmailService {
 
       logger.info(`Sending email: ${subject} to ${to}`);
       const result = await sendEmail(mailOptions);
-      logger.info(`Email sent: ${subject} to ${to}`);
+      logger.info(`Email accepted by Brevo: ${subject} to ${to}; delivery is not yet verified`);
 
       return { success: true, messageId: result.messageId };
     } catch (error) {

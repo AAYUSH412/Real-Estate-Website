@@ -237,3 +237,5 @@ See [the Phase 1 contract notes](docs/admin-phase1-contracts.md) for dashboard d
 ## Replacement admin readiness
 
 The local Phase 3 backend gate passed with 106 tests across the API and existing clients. Start with the [accepted API contract index](docs/admin-api-contracts.md) and [acceptance evidence and release limits](docs/admin-phase3-acceptance.md) before building `admin_new`. Production migration/deployment and the original operations Phase 4 remain separate.
+
+Local email setup: [environment load order, sender diagnosis and manual retest](docs/local-email-configuration.md). `EMAIL_USER` must be configured; API acceptance does not prove delivery.

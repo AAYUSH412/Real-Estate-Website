@@ -1,7 +1,7 @@
 # BuildEstate — Backend readiness and `admin_new` redesign plan
 
 Prepared: 3 November 2026
-Status: **Phases 1–3 complete locally; backend acceptance gate passed; `admin_new` foundation next**
+Status: **Phase 4 foundation implemented; desktop manual evidence received; remaining browser acceptance pending**
 Repository baseline: `9b7d946` (Phase 3 release documentation)
 Scope update: 3 November 2026 — prioritize essential features for a demonstration project.
 
@@ -16,9 +16,9 @@ Scope update: 3 November 2026 — prioritize essential features for a demonstrat
 7. Make adding, testing, enabling, disabling, removing and selecting AI models possible through the admin interface.
 8. Keep the original audit's **Phase 4 — Make operations dependable** deferred at your request. Its unresolved items remain documented, rather than marked completed.
 
-**Current delivery:** Phase 3 backend acceptance passed locally with **106 tests (86 backend, 11 admin, 9 frontend)**, admin lint, both client builds and backend syntax checks. Connected workflows verify session outage recovery/logout, shared CORS/cookie policy, retained-image revisions, booking history during mail failure, inquiry resolution and newsletter consent. A fresh-stream provenance gap found by acceptance was fixed: fresh/cached/late-coalesced SSE now receive the complete final result. No project database mutation, model migration apply, production deployment or project server stop occurred. `admin_new/` has not been created.
+**Phase 3 baseline:** Phase 3 backend acceptance passed locally with **106 tests (86 backend, 11 admin, 9 frontend)**, admin lint, both client builds and backend syntax checks. Connected workflows verify session outage recovery/logout, shared CORS/cookie policy, retained-image revisions, booking history during mail failure, inquiry resolution and newsletter consent. A fresh-stream provenance gap found by acceptance was fixed: fresh/cached/late-coalesced SSE now receive the complete final result. No project database mutation, model migration apply, production deployment or project server stop occurred. `admin_new/` now contains the Phase 4 foundation; see section 10.5 for current validation and manual acceptance.
 
-**Next:** Phase 4 — `admin_new` foundation (P4-01–P4-06), using the [accepted API contracts](backend/docs/admin-api-contracts.md) and [Phase 3 acceptance evidence/release limits](backend/docs/admin-phase3-acceptance.md). Mistral/MiniMax readiness limits from Phase 2 remain; keep unverified configurations disabled. The original operations Phase 4 remains deferred. Earlier work is backed up in [Phase 1 PR #4](https://github.com/AAYUSH412/Real-Estate-Website/pull/4) and [Phase 2 PR #5](https://github.com/AAYUSH412/Real-Estate-Website/pull/5).
+**Current:** Phase 4 foundation is implemented on `feat/admin-new-phase4-foundation`, based on Phase 3. Desktop screenshots supplied on 4 November show the authenticated workspace, both themes and successful logout. Browser testing is manual at the owner's request; mobile/keyboard/reload/recovery checks remain pending. Phase 5 dashboard/properties comes after this review. See [local setup/manual checklist](admin_new/README.md). Production and model migration remain separate release steps.
 
 ## 2. Recommendation
 
@@ -455,7 +455,7 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | **1 — Essential backend fixes** | Correct and consistent APIs for the existing admin journeys | **Complete (local)** | Phase 0 | 84 tests; admin lint; both client builds; [contract notes](backend/docs/admin-phase1-contracts.md); no deployment |
 | **2 — NVIDIA-only AI** | GitHub inference removed; safe model CRUD/testing/default/fallback behavior | **Complete (local; live limits recorded)** | Phase 1 | 100 tests; migration rehearsal; bounded live checks; [Phase 2 contract/release notes](backend/docs/admin-phase2-nvidia.md); no migration apply/deployment |
 | **3 — Backend acceptance gate** | Backend verified before building its replacement client | **Complete (local gate passed)** | Phases 1–2 | 106 tests, client builds/lint, shared CORS checks, connected journeys and SSE fix; [acceptance report](backend/docs/admin-phase3-acceptance.md) |
-| **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Not started | Phase 3 | Working local application and responsive/theme/session checks |
+| **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Implemented; manual acceptance pending | Phase 3 | Working local application and responsive/theme/session checks |
 | **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Not started | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
 | **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Not started | Phase 5 design checkpoint | Each module works with actual backend contracts |
 | **7 — Full-panel verification** | Consistent, accessible and responsive replacement admin | Not started | Phases 5–6 | Browser/API acceptance results and production build |
@@ -565,14 +565,20 @@ Tasks:
 
 Tasks:
 
-- [ ] **P4-01:** Create `admin_new/` with React, TypeScript and Vite; keep current `admin/` intact.
-- [ ] **P4-02:** Install compatible shadcn/Radix components and establish semantic theme, typography, spacing, status and focus tokens.
-- [ ] **P4-03:** Build the collapsible sidebar, compact header, breadcrumbs and mobile navigation drawer.
-- [ ] **P4-04:** Connect actual admin authentication, session validation, refresh/logout, protected routes and private cache clearing.
-- [ ] **P4-05:** Set up shared query/table/form/error/loading patterns and lazy-loaded routes.
+- [x] **P4-01:** Create `admin_new/` with React, TypeScript and Vite; keep current `admin/` intact.
+- [x] **P4-02:** Install compatible shadcn/Radix components and establish semantic theme, typography, spacing, status and focus tokens.
+- [x] **P4-03:** Build the collapsible sidebar, compact header, breadcrumbs and mobile navigation drawer.
+- [x] **P4-04:** Connect actual admin authentication, session validation, refresh/logout, protected routes and private cache clearing.
+- [x] **P4-05:** Set up shared query/table/form/error/loading patterns and lazy-loaded routes.
 - [ ] **P4-06:** Verify light/dark themes, keyboard access and the separate local origin without changing the production alias.
 
 **Done when:** the real login and shell work against the accepted backend. Navigation only exposes implemented screens; no dummy counters, fake account settings or placeholder saves.
+
+**Implementation evidence — 4 November 2026:** React 19/TypeScript/Vite 7 app, official shadcn/Radix primitives, Geist and semantic light/dark/status/focus tokens; collapsible sidebar, breadcrumbs, mobile Sheet, verified account menu and theme switch. Real login/session/refresh/logout routes, memory-only access token, shared refresh promise/Web Locks, private-cache clearing and retry states are connected. Shared Query/Table/Form and feedback patterns plus lazy route chunks are installed. No unfinished management destinations appear in navigation. Seven session-transport tests, lint and TypeScript/production build pass; the backend follow-up regression run passes **89/89**. Runtime dependency audit is clean; 12 moderate lint-toolchain findings remain documented in the README.
+
+**P4-06 remains open:** owner screenshots establish desktop light/dark login/workspace and logout at localhost:5175. Mobile drawer, keyboard/focus/Escape, preference persistence, cookie restoration after reload and outage recovery still need the owner's manual checks. No Playwright dependency, config or browser tests remain. No production alias change.
+
+**Local email follow-up:** user evidence exposed late `.env.local` loading and a frozen fallback sender. Shared early environment loading and send-time sender resolution fix the false key warning and unverified fallback; provider logs now say API acceptance, not verified delivery. Public-user expired tokens are handled quietly, with temporary store failures returning 503. See [root cause and retest instructions](backend/docs/local-email-configuration.md). No Azure settings or private env files changed.
 
 ### 10.6 Phase 5 — Dashboard, properties and review
 
@@ -637,7 +643,7 @@ After each implementation session:
 4. A blocked task gets its reason and dependency; do not silently skip it or mark it complete.
 5. Keep release/deployment outcomes separate from local implementation completion.
 
-**Current position:** Phases 0–3 complete locally. **Next: Phase 4 — `admin_new` foundation (P4-01–P4-06).** Required local backend contracts/checks are accepted; no `admin_new` implementation, project database migration apply or production cutover has started.
+**Current position:** Phases 0–3 accepted locally; Phase 4 implementation ready, with P4-06 manual checks pending. **Next: finish manual foundation acceptance, then Phase 5 dashboard/property workflows.** No production cutover or model migration apply has started.
 
 | Date | Phase/task | Outcome | Validation/evidence | Next |
 | --- | --- | --- | --- | --- |
@@ -645,6 +651,8 @@ After each implementation session:
 | 2026-11-03 | P1-01–P1-09 | Essential backend fixes and old-client compatibility implemented locally | 84 tests passed; admin lint; client builds and TypeScript; contract notes above; no push/deployment or project database changes | P2-01 inventory/report |
 | 2026-11-03 | P2-01–P2-08 | NVIDIA-only inference, model lifecycle/testing, provenance/cache and current-client controls implemented | 100 tests; client builds/lint; actual-snapshot migration rehearsal; mixed live profile results documented; no project migration/deployment | Phase 3 acceptance gate |
 | 2026-11-03 | P3-01–P3-07 | Local backend gate passed; connected acceptance journeys and complete final SSE results verified | 106 tests; client builds/lint; shared production CORS/cookie checks; accepted contract index and gate report; original operations Phase 4 deferred | Phase 4 `admin_new` foundation |
+
+| 2026-11-04 | P4-01–P4-05 | New admin foundation implemented; desktop light/dark and logout evidence supplied by owner | Seven client tests, lint/build; 89 backend tests; manual checklist in `admin_new/README.md`; P4-06 pending | Owner browser checks, then Phase 5 |
 
 ## 11. Important features only — fixed first-release scope
 
@@ -703,8 +711,8 @@ Keep historical audit findings and release evidence. Add links/status changes; d
 
 ## 15. Where to start now
 
-The local backend gate has passed. Continue with **Phase 4 — Create `admin_new` and its design system**, using P4-01–P4-06 and the accepted API contract index. Keep the existing admin available, use a configured local/test origin and real authentication, and handle unavailable AI models honestly. Apply model migration only as a coordinated release step.
+The local backend gate has passed and Phase 4 implementation is ready. Complete the remaining manual checks in P4-06 before Phase 5 dashboard/property workflows. Keep the existing admin available, use a configured local/test origin and real authentication, and handle unavailable AI models honestly. Apply model migration only as a coordinated release step.
 
 The plan is deliberately limited to existing management modules plus the three important additions in section 11. The larger operations Phase 4 and optional product ideas remain deferred.
 
-**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation is the next authorized phase when implementation is requested.
+**Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation is implemented; remaining manual acceptance is recorded in section 10.5.

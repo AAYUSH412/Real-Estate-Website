@@ -1,9 +1,9 @@
+import './config/environment.js';
 import { allowedOrigins, corsOptions } from './config/corsPolicy.js';
 import { mountApiRoutes } from './routes/mountApiRoutes.js';
 import { respondError } from './utils/httpErrors.js';
 import { redactUrl } from './utils/redactUrl.js';
 import express from 'express';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
@@ -19,11 +19,6 @@ import getStatusPage from './serverweb.js';
 import { startExpireListingsJob } from './utils/expireListings.js';
 import { startAutoUnsuspendJob } from './utils/autoUnsuspend.js';
 import { printBanner } from './utils/banner.js';
-
-if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: './.env.local' });
-}
-dotenv.config(); // .env fallback / Render uses process-level env vars
 
 const app = express();
 
@@ -91,7 +86,6 @@ app.use(mongoSanitize({
   }
 }));
 
-
 // CORS policy is shared with isolated HTTP acceptance tests.
 const uniqueAllowedOrigins = allowedOrigins();
 if (process.env.NODE_ENV === 'production') {
@@ -136,13 +130,11 @@ connectdb().then(() => {
   }
 });
 
-
 // Health check routes (mounted early for reliability)
 app.use('/health', healthRouter);
 
 // API Routes
 mountApiRoutes(app);
-
 
 app.use((err, req, res, next) => {
   logger.error('Request error', {
@@ -154,7 +146,6 @@ app.use((err, req, res, next) => {
   });
   respondError(res, err);
 });
-
 
 // Handle unhandled rejections
 process.on('unhandledRejection', (err) => {

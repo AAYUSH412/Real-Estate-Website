@@ -1,6 +1,6 @@
 # New admin — Phase 1 backend contract notes
 
-These are additive changes for the current clients and the planned `admin_new` client. No production migration is required for this phase. The NVIDIA provider cleanup belongs to Phase 2.
+These are additive changes for the current clients and the planned `admin` client. No production migration is required for this phase. The NVIDIA provider cleanup belongs to Phase 2.
 
 ## Dashboard definitions
 

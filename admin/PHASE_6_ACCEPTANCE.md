@@ -2,7 +2,7 @@
 
 Implemented locally on 4 November 2026. Browser acceptance is owner-run; no Playwright or automatic live-service tests. Use synthetic/test-owned accounts and bookings when trying moderation, consent and model actions. Successful domain saves may trigger real best-effort email attempts through your configured backend.
 
-Start the existing backend normally and `npm run dev` in `admin_new/`, then open http://localhost:5175. No production alias or deployment changes are part of this phase.
+Start the existing backend normally and `npm run dev` in `admin/`, then open http://localhost:5175. No production alias or deployment changes are part of this phase.
 
 ## Routes and actual capabilities
 

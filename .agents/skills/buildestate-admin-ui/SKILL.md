@@ -1,27 +1,27 @@
 ---
 name: buildestate-admin-ui
-description: Build or extend BuildEstate admin_new screens using its established shadcn/Radix design system, authenticated API client and shared interaction patterns. Use for replacement-admin UI work; not the public frontend or legacy admin.
+description: Build or extend BuildEstate admin screens using its established shadcn/Radix design system, authenticated API client and shared interaction patterns. Use for replacement-admin UI work; not the public frontend.
 ---
 
 # BuildEstate replacement admin
 
 ## Start with the current implementation
 
-Resolve paths from the repository root. Read `ADMIN_NEW_PLAN.md` sections 8–11 and the requested phase, then `admin_new/README.md`. Check current code before treating a planned screen as implemented. As of the foundation, only login and the verified workspace existed; consult the current router and plan for later screens. The original `admin/` stays available until an accepted cutover.
+Resolve paths from the repository root. Read `ADMIN_NEW_PLAN.md` sections 8–11 and the requested phase, then `admin/README.md`. Check current code before treating a planned screen as implemented. As of the foundation, only login and the verified workspace existed; consult the current router and plan for later screens. The canonical TypeScript app now occupies `admin/`; the retired implementation is retained in Git history.
 
 Read only the files needed for the task:
 
 | Work | Existing source |
 | --- | --- |
-| Colors, typography, spacing, reduced motion | `admin_new/src/styles/globals.css` |
-| Desktop shell, sidebar and account menu | `admin_new/src/components/layout/shell.tsx` |
-| Routing and boundaries | `admin_new/src/app/router.tsx` |
-| Authentication and transport | `admin_new/src/features/auth/session.tsx`, `admin_new/src/lib/api.ts` |
-| Query defaults and keys | `admin_new/src/app/query-client.ts` |
-| Controlled server table | `admin_new/src/components/data-table/data-table.tsx` |
-| Loading, errors, empty, statuses, confirmations | `admin_new/src/components/feedback/` |
-| Labeled validated form example | `admin_new/src/features/auth/login.tsx` |
-| Installed primitive inventory and aliases | `admin_new/src/components/ui/`, `admin_new/components.json` |
+| Colors, typography, spacing, reduced motion | `admin/src/styles/globals.css` |
+| Desktop shell, sidebar and account menu | `admin/src/components/layout/shell.tsx` |
+| Routing and boundaries | `admin/src/app/router.tsx` |
+| Authentication and transport | `admin/src/features/auth/session.tsx`, `admin/src/lib/api.ts` |
+| Query defaults and keys | `admin/src/app/query-client.ts` |
+| Controlled server table | `admin/src/components/data-table/data-table.tsx` |
+| Loading, errors, empty, statuses, confirmations | `admin/src/components/feedback/` |
+| Labeled validated form example | `admin/src/features/auth/login.tsx` |
+| Installed primitive inventory and aliases | `admin/src/components/ui/`, `admin/components.json` |
 
 ## Maintain the approved visual language
 
@@ -44,6 +44,6 @@ Preserve memory-only access tokens, httpOnly cookie restoration, refresh dedupli
 
 ## Local setup and acceptance
 
-Run the app from `admin_new/` on localhost:5175; existing backend defaults to port 4000. Blank local `VITE_API_URL` uses the Vite development proxy. That localhost-only proxy strips upstream Origin; it is not a production hosting arrangement. Do not broaden backend production CORS or replace the existing alias to make a preview work.
+Run the app from `admin/` on localhost:5175; existing backend defaults to port 4000. Blank local `VITE_API_URL` uses the Vite development proxy. That localhost-only proxy strips upstream Origin; it is not a production hosting arrangement. Do not broaden backend production CORS or replace the existing alias to make a preview work.
 
-For changed UI code run the relevant tests, lint and build from `admin_new/`; scale checks to the change. The owner explicitly prefers manual browser testing: do not add or run Playwright unless that preference is changed. Provide a short task-specific checklist for the actual screen (themes, desktop widths, long content, keyboard/focus/Escape, failed saves and reload/deep links as relevant). Record only checks actually completed by the agent or reported by the owner. Desktop-only is the owner-approved scope. Do not add phone/tablet layouts or mobile acceptance tasks. Desktop screenshots alone do not prove keyboard behavior.
+For changed UI code run the relevant tests, lint and build from `admin/`; scale checks to the change. The owner explicitly prefers manual browser testing: do not add or run Playwright unless that preference is changed. Provide a short task-specific checklist for the actual screen (themes, desktop widths, long content, keyboard/focus/Escape, failed saves and reload/deep links as relevant). Record only checks actually completed by the agent or reported by the owner. Desktop-only is the owner-approved scope. Do not add phone/tablet layouts or mobile acceptance tasks. Desktop screenshots alone do not prove keyboard behavior.

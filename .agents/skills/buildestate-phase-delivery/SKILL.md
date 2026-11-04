@@ -23,7 +23,7 @@ A skill does not grant permission to push, merge, deploy, send messages or modif
 
 | Changed area | Appropriate checks |
 | --- | --- |
-| `admin_new` code | Relevant session/component tests, lint and TypeScript/production build from that folder |
+| `admin` code | Relevant session/component tests, lint and TypeScript/production build from that folder |
 | Backend domain/session/config | Isolated backend suite; affected compatibility checks if shared contracts changed |
 | Shared contracts | Relevant backend tests plus affected existing/new client tests/builds |
 | Skills/docs only | Skill frontmatter/links/metadata validation and diff review; no need to start app servers or rerun domain tests |

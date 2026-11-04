@@ -1,0 +1,4 @@
+interface:
+  display_name: "BuildEstate Backend Contracts"
+  short_description: "Preserve domain rules and client API compatibility"
+  default_prompt: "Use $buildestate-backend-contracts to complete the requested BuildEstate work using the current plan and implementation."

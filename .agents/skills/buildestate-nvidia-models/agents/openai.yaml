@@ -1,0 +1,4 @@
+interface:
+  display_name: "BuildEstate NVIDIA Models"
+  short_description: "Extend NVIDIA catalog testing and inference safely"
+  default_prompt: "Use $buildestate-nvidia-models to complete the requested BuildEstate work using the current plan and implementation."

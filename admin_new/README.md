@@ -58,3 +58,11 @@ Phase 6 module routes and manual checks: [management acceptance checklist](PHASE
 On 4 November 2026, runtime `npm audit --omit=dev` reports **zero vulnerabilities**. Full audit reports **12 moderate development-tool findings**, all arising from the lint toolchain's minimatch advisory GHSA-g3hv-75wg-m249. No high/critical findings remain. A forced cross-major minimatch override was not applied to older ESLint APIs. Recheck supported upstream fixes rather than declaring the full development tree clean.
 
 No deployment, canonical alias switch or model migration is part of the local Phase 4/5 work.
+
+## Status colors
+
+All operational pills use `StateBadge` in `src/components/feedback/status-badge.tsx`; listing `StatusBadge` delegates to it while displaying active listings as “Published”. Keep meanings consistent: amber = attention (pending/new/unverified), blue = underway (confirmed/in progress), green = successful/available (active/published/completed/verified/resolved), red = stopped (cancelled/rejected/banned), purple = temporarily restricted (suspended), gray = inactive/history (archived/expired/disabled/unsubscribed). Unknown states remain neutral. Labels and decorative icons accompany every status; color is never the only cue.
+
+The badge primitive owns the six color variants, with pale fills and dark text in light mode and muted fills with light text in dark mode. Use these variants instead of page-specific `data-tone` CSS overrides. Email verification, property availability/owner eligibility, and model enabled/test states share the same component.
+
+Validation for the status-color update: 32 client tests, lint and production build passed. Manual visual check remains: inspect Users, Appointments, Properties, Review queue, dashboard and NVIDIA models in both themes; confirm pale fills, readable labels/icons, and unchanged filters/actions.

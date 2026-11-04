@@ -84,8 +84,7 @@ function UserList({ view }: { view: ReturnType<typeof useListView> }) {
     {
       id: "verified",
       header: "Email",
-      cell: ({ row }) =>
-        row.original.isEmailVerified ? "Verified" : "Unverified",
+      cell: ({ row }) => <StateBadge status={row.original.isEmailVerified ? "verified" : "unverified"} />,
     },
     {
       id: "listings",
@@ -285,7 +284,7 @@ export function UserDetail() {
             </div>
             <div>
               <dt>Email</dt>
-              <dd>{user.isEmailVerified ? "Verified" : "Unverified"}</dd>
+              <dd><StateBadge status={user.isEmailVerified ? "verified" : "unverified"} /></dd>
             </div>
             <div>
               <dt>Suspended until</dt>

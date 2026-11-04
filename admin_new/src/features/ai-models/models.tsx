@@ -1,3 +1,4 @@
+import { StateBadge } from "@/components/feedback/status-badge";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
@@ -178,18 +179,9 @@ export default function Models() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Badge variant={model.isActive ? "secondary" : "outline"}>
-                    {model.isActive ? "Enabled" : "Disabled"}
-                  </Badge>
+                  <StateBadge status={model.isActive ? "enabled" : "disabled"} />
                   {model.isDefault ? <Badge>Default</Badge> : null}
-                  <Badge
-                    variant="outline"
-                    data-tone={modelEligible(model) ? "success" : "warning"}
-                  >
-                    {modelEligible(model)
-                      ? "Application verified"
-                      : "Needs application test"}
-                  </Badge>
+                  <StateBadge status={modelEligible(model) ? "verified" : "pending"} label={modelEligible(model) ? "Application verified" : "Needs application test"} />
                 </div>
               </div>
             </CardHeader>

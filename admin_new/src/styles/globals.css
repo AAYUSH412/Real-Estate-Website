@@ -348,22 +348,6 @@
     scroll-behavior: auto !important;
   }
 }
-@layer components {
-  [data-slot="badge"][data-tone="success"] {
-    color: var(--success);
-    border-color: color-mix(in srgb, var(--success) 30%, transparent);
-    background: color-mix(in srgb, var(--success) 7%, transparent);
-  }
-  [data-slot="badge"][data-tone="warning"] {
-    color: var(--warning);
-    border-color: color-mix(in srgb, var(--warning) 30%, transparent);
-    background: color-mix(in srgb, var(--warning) 7%, transparent);
-  }
-  [data-slot="badge"][data-tone="destructive"] {
-    color: var(--destructive);
-    border-color: color-mix(in srgb, var(--destructive) 30%, transparent);
-  }
-}
 /* Desktop operations workspace; phone/tablet layouts are outside the approved scope. */
 @layer base {
   body {

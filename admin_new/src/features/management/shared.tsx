@@ -16,7 +16,6 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
@@ -160,24 +159,7 @@ export function Filters({
     </form>
   );
 }
-export function StateBadge({ status }: { status: string }) {
-  return (
-    <Badge
-      variant="outline"
-      data-tone={
-        ["active", "confirmed", "resolved", "completed"].includes(status)
-          ? "success"
-          : ["banned", "suspended", "new", "pending", "in_progress"].includes(
-                status,
-              )
-            ? "warning"
-            : "neutral"
-      }
-    >
-      {status.replaceAll("_", " ")}
-    </Badge>
-  );
-}
+export { StateBadge } from "@/components/feedback/status-badge";
 export function RecordTable<T extends { _id: string }>({
   query,
   rows,

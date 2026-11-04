@@ -1,3 +1,4 @@
+import { StateBadge } from "@/components/feedback/status-badge";
 import { PropertyImage } from "@/components/media/property-image";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -71,7 +72,7 @@ export function PropertyRecord({
           <div className="mb-3 flex gap-2">
             <StatusBadge status={record.status} />
             <Badge variant="outline">{record.type}</Badge>
-            <Badge variant="outline">{record.marketStatus}</Badge>
+            <StateBadge status={record.marketStatus} />
           </div>
           <h1>{record.title}</h1>
           <p className="flex items-center gap-2">
@@ -348,12 +349,7 @@ function OwnerPanel({ record }: { record: PropertyDTO }) {
           <p className="text-sm text-muted-foreground">Checking owner…</p>
         ) : (
           <>
-            <Badge
-              variant="outline"
-              data-tone={eligible ? "success" : "warning"}
-            >
-              {eligible ? "Owner eligible" : "Owner requires attention"}
-            </Badge>
+            <StateBadge status={eligible ? "verified" : "pending"} label={eligible ? "Owner eligible" : "Owner requires attention"} />
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
               Account: {owner?.status}. Email:{" "}
               {owner?.isEmailVerified ? "verified" : "unverified"}. Eligibility

@@ -61,3 +61,7 @@ Navigation groups are Overview, Property management, People and Administration. 
 Current client checks: **32 tests**, lint and TypeScript/production build. Twelve new management regressions cover selected-page version maps, guarded account archival, no retry on conflict, booking transitions/end-time rules, model test fingerprints/default replacement/reorder, CSV refresh/blob/truncation, a failed application test returning HTTP 200, stale inquiry draft preservation and suppression-only controls. Existing property/session tests remain in the suite.
 
 No backend code, schema, migration, private environment file or deployment changed in this phase. Existing backend test evidence remains historical; it was not rerun merely for new client screens. Model tests, emails, moderation and exports were mocked or not invoked during automated checks. New manual workflows remain pending owner acceptance; Phase 7 is the full-panel verification stage.
+
+## Owner follow-up acceptance — 4 November 2026
+
+Owner confirmed all current checks and requested GitHub push. This is owner-reported desktop acceptance; individual checklist items above remain the detailed testing guide rather than agent-observed browser evidence. Status colors passed 32 client tests, lint and build. Authorized appointment maintenance and NVIDIA catalog migration were verified separately; see ADMIN_NEW_PLAN.md follow-up record. Model application tests/activation and production deployment are not implied by this acceptance.

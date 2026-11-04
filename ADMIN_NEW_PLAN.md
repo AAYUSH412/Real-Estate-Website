@@ -1,7 +1,7 @@
 # BuildEstate — Backend readiness and `admin_new` redesign plan
 
 Prepared: 3 November 2026
-Status: **Phase 6 implemented locally; full-panel manual acceptance is next**
+Status: **Phase 6 implemented and owner-reported desktop checks accepted; Phase 7 verification/release preparation is next**
 Repository baseline: `9b7d946` (Phase 3 release documentation)
 Scope update: 4 November 2026 — essential demo features; replacement admin is desktop-only. Browser testing stays manual.
 
@@ -458,7 +458,7 @@ Status values: **Not started**, **In progress**, **Blocked** (with the specific 
 | **3 — Backend acceptance gate** | Backend verified before building its replacement client | **Complete (local gate passed)** | Phases 1–2 | 106 tests, client builds/lint, shared CORS checks, connected journeys and SSE fix; [acceptance report](backend/docs/admin-phase3-acceptance.md) |
 | **4 — `admin_new` foundation** | New app folder, design system, shell and real authentication | Complete (desktop owner acceptance) | Phase 3 | Working local application and desktop/theme/session checks |
 | **5 — Dashboard and property workflows** | Reviewable visual direction, then complete property/review journeys | Implemented; visual/manual acceptance pending | Phase 4 | Visual review plus create/edit/review/archive workflow checks |
-| **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Implemented locally; manual acceptance pending | Phase 5 design checkpoint | Each module works with actual backend contracts |
+| **6 — Remaining admin modules** | Users, appointments, contact inbox, subscribers, AI models and audit logs | Owner-reported desktop acceptance | Phase 5 design checkpoint | Each module works with actual backend contracts |
 | **7 — Full-panel verification** | Consistent, accessible desktop replacement admin | Not started | Phases 5–6 | Browser/API acceptance results and production build |
 | **8 — Preview and production cutover** | Accepted preview and controlled replacement of the current admin | Not started | Phase 7 | Deployment identifiers, smoke checks and rollback reference |
 
@@ -750,3 +750,11 @@ The local backend gate, desktop foundation and design direction are accepted. Ph
 The plan is deliberately limited to existing management modules plus the three important additions in section 11. The larger operations Phase 4 and optional product ideas remain deferred.
 
 **Implementation status:** Phases 1–3 have local completion evidence in sections 10.2–10.4; section 12 is accepted. No production deployment or project database mutation was made. Model migration remains a reviewed release step. `admin_new` foundation has owner-reported desktop acceptance; Phase 6 implementation is ready for full-panel manual acceptance.
+
+### Owner acceptance and authorized maintenance — 4 November 2026
+
+Owner reported all current checks complete and requested GitHub push. Follow-up status pills now share pale semantic colors, contrasting text and icons across both themes and management/property screens. Validation: 32 client tests, lint and production build passed; manual acceptance is owner-reported, not automated browser coverage.
+
+Separately authorized configured-database actions were completed: 127 appointments updated, all 129 verified completed with no active reservations; per-record audit entries and a private backup were saved, without emails. This was an explicit maintenance override including cancelled/future bookings; ordinary application transition restrictions remain unchanged. The three requested NVIDIA entries were added disabled through validated catalog commands. Subsequently the owner authorized the existing NVIDIA migration: legacy configuration normalized, MiniMax added, five supported models verified, migrationRequired=false, all disabled pending application testing. Private snapshots remain outside the repository. These actions supersede earlier statements that no configured-database mutation/migration has occurred; they do not imply production code deployment, model activation or alias cutover.
+
+Reusable maintenance scripts default to inventory-only; `--apply` is an explicit data-changing operation requiring session authorization. Existing release/deployment gates remain separate.

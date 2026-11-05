@@ -1,105 +1,90 @@
 # Contributing to BuildEstate
 
+Thank you for helping! Contributions of all sizes are welcome, and this project is a good place to make your first open-source pull request.
 
+By taking part, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Thank you for considering contributing to BuildEstate! This document outlines the process for contributing to this project.
+## Ways to help
 
-## Code of Conduct
+- **Report a bug:** [open an issue](https://github.com/AAYUSH412/Real-Estate-Website/issues/new/choose) with steps to reproduce it.
+- **Suggest a feature:** open an issue explaining the idea and who it helps.
+- **Improve the docs:** fixing a confusing sentence is a real contribution.
+- **Write code:** start with an issue labelled [good first issue](https://github.com/AAYUSH412/Real-Estate-Website/labels/good%20first%20issue).
 
-By participating in this project, you agree to maintain a respectful and inclusive environment for everyone. Please be courteous and respectful in your interactions.
+Before starting something large, open an issue first so we can agree on the approach.
 
-## How to Contribute
+## Your first pull request
 
-There are several ways you can contribute to the BuildEstate project:
+**1. Fork the repository** using the button on GitHub, then get your copy running:
 
-1. **Reporting Bugs**: Open an issue describing the bug, how to reproduce it, and any potential solutions.
-2. **Suggesting Features**: Open an issue describing your feature idea and how it would benefit the project.
-3. **Submitting Code**: Make a pull request with your code changes.
-4. **Improving Documentation**: Help improve the documentation through pull requests.
+```sh
+git clone https://github.com/YOUR_USERNAME/Real-Estate-Website.git
+cd Real-Estate-Website
+npm run setup
+npm run seed
+npm run dev
+```
 
-## Development Process
+No accounts are needed. See the [setup guide](docs/SETUP.md) if you get stuck.
 
-### Setup Local Environment
+**2. Create a branch:**
 
-1. Fork the repository
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/Real-Estate-Website.git
-   cd Real-Estate-Website
-   ```
-3. Install dependencies for each app:
-   ```bash
-   cd backend && npm install
-   cd ../frontend && npm install
-   cd ../admin && npm install
-   ```
-4. Set up environment files:
-   ```bash
-   cp backend/.env.example backend/.env.local
-   cp frontend/.env.example frontend/.env.local
-   cp admin/.env.example admin/.env.local
-   ```
-5. Edit each `.env.local` with your credentials — see [README.md](README.md) for the full list of required variables
+```sh
+git checkout -b fix/short-description
+```
 
-### Making Changes
+**3. Make your change.** The [architecture guide](docs/ARCHITECTURE.md) shows where things live.
 
-1. Create a new branch:
-   ```bash
-   git checkout -b feature/your-feature-name
-   # or for bug fixes:
-   git checkout -b fix/your-bug-description
-   ```
-2. Make your changes and test thoroughly
-3. Commit using conventional commits:
-   ```bash
-   git commit -m "feat: add your feature"
-   git commit -m "fix: resolve the bug"
-   git commit -m "docs: update readme"
-   ```
-4. Push to your fork:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-5. Open a Pull Request against the `main` branch
+**4. Run the checks:**
 
-## Pull Request Guidelines
+```sh
+npm test
+npm run build
+npm run check:docs
+```
 
-- Keep PRs focused on a single feature or fix
-- Include a clear description of what was changed and why
-- Reference any related issues (e.g. `Closes #42`)
-- Update documentation if your change affects setup or usage
-- Ensure `npm run build` succeeds in the affected app(s)
-- Run `npm run lint` and fix any errors before submitting
+If you changed the admin panel, also run `npm run lint` inside `admin/`.
 
-## Code Style
+**5. Commit** using [conventional commit](https://www.conventionalcommits.org/) messages:
 
-- Follow the existing code style and formatting
-- Use meaningful variable and function names
-- Write comments for complex logic
-- Include JSDoc comments for functions
+```sh
+git commit -m "fix: show an error when the listing fails to load"
+```
 
-## Testing
+Common prefixes are `feat:`, `fix:`, `docs:`, `test:` and `chore:`.
 
-- Add appropriate tests for new features
-- Ensure all existing tests pass
-- Manual testing should be performed on different devices and browsers
+**6. Push and open a pull request** against `main`:
 
-## Documentation
+```sh
+git push origin fix/short-description
+```
 
-- Update the README.md if necessary
-- Document API changes in the appropriate documentation files
-- Keep code comments up-to-date
+GitHub then runs the tests, and the quick start on Windows, macOS and Linux.
 
-## Project Structure Quick Reference
+## What makes a good pull request
 
-| Directory | App | Port |
-|---|---|---|
-| `backend/` | Node.js + Express REST API | 4000 |
-| `frontend/` | React + TypeScript user site | 5173 |
-| `admin/` | React 19 + TypeScript desktop admin | 5175 |
+- It covers one change.
+- It explains what changed and why, and links the issue (`Closes #42`).
+- It adds or updates tests when behavior changes.
+- It updates the docs when setup or usage changes.
+- It includes a screenshot if the interface changed.
+
+## Project rules
+
+These keep the project safe, so please follow them:
+
+- **Never commit secrets,** `.env.local` files, database exports or real user data.
+- **Keep secrets out of `VITE_` variables.** They are visible to anyone in the browser.
+- **Admin access tokens stay in memory.** Never move them to `localStorage`.
+- **Use versioned updates, transactions and audit records** for data changes in the admin flows. See the [architecture guide](docs/ARCHITECTURE.md#keeping-data-safe).
+- **NVIDIA is the only AI provider.** Firecrawl keys are supplied by the user.
+- **The admin panel is desktop-only** for now.
+- **Tests must not call real services** or touch real databases.
+
+Follow the style of the code around your change. Browser testing is manual, so list what you checked in your pull request.
 
 ## Questions?
 
-Feel free to [open an issue](https://github.com/AAYUSH412/Real-Estate-Website/issues) or reach out at **aayushvaghela12@gmail.com**.
+[Open an issue](https://github.com/AAYUSH412/Real-Estate-Website/issues) or email **aayushvaghela12@gmail.com**. To report a security problem, follow [SECURITY.md](SECURITY.md) instead.
 
-Thank you for contributing to BuildEstate!
+Thank you for contributing!

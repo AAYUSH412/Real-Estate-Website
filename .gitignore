@@ -208,7 +208,6 @@ backend/.local-db/
 !/.agents/skills/buildestate-admin-ui/
 !/.agents/skills/buildestate-backend-contracts/
 !/.agents/skills/buildestate-nvidia-models/
-!/.agents/skills/buildestate-phase-delivery/
 **/.claude/
 **/CLAUDE.md
 **/claude_code*.txt

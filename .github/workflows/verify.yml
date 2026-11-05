@@ -44,6 +44,15 @@ jobs:
         if: matrix.app == 'admin'
       - run: npm run build
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run check:docs
+
   # Follows the README quick start on each operating system students use.
   quick-start:
     runs-on: ${{ matrix.os }}

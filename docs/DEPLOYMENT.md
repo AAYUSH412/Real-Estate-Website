@@ -1,29 +1,122 @@
 # Deployment
 
-## Vercel clients
+How to host your own copy. The live project uses Vercel for the two browser apps and Azure App Service for the API, but any host with the same features works.
 
-Create independent projects from this repository with roots `frontend` and `admin`. Use the Vite preset, `npm ci`, `npm run build`, and output directory `dist`. Use a Node release satisfying each app's package engines (admin requires 22.12+). Include source files outside the root so the local `../shared/contracts` dependency is available.
+## Before you start
 
-Set frontend `VITE_API_BASE_URL` and admin `VITE_API_URL` to your HTTPS API origin, without a trailing `/api`. Client environment values are public and embedded at build time; redeploy after changes. Never expose server keys through `VITE_*` variables.
+You need:
 
-The admin's `vercel.json` supplies SPA fallback routing and security headers. Verify direct navigation/reload on `/dashboard`, `/users` and a test record detail.
+- A **MongoDB Atlas** cluster, or another replica set. See the [setup guide](SETUP.md#using-mongodb-atlas-instead-of-the-local-database).
+- An **ImageKit** account. In production, the API refuses to start without it.
+- A **Brevo** account with a verified sender, so users can verify their email.
+- Optional: an **NVIDIA** key for AI search.
 
-### Existing admin project after rename
+Deploy the API first, because both browser apps need its address.
 
-The canonical source is now `admin/`. Update the existing Vercel project's Root Directory from `admin_new` to `admin` before deploying this commit. Preserve its domain and production environment values. Record the currently working deployment before changing settings. Project/domain names need not match source folder names. The previous implementation remains in Git history, not a second application folder.
+## 1. Deploy the API
 
-## Azure backend
+### Azure App Service with GitHub Actions (how this repository works)
 
-The repository's `.github/workflows/deploy-backend.yml` tests the backend, builds the repository-root Docker context using `backend/Dockerfile`, publishes a SHA-tagged GHCR image and deploys to the configured App Service. Configure deployment secrets in your own GitHub repository and adapt the workflow resource names when forking.
+`.github/workflows/deploy-backend.yml` runs when `backend/` or `shared/` changes on `main`, except for Markdown-only changes. It tests the backend, builds a Docker image, publishes it to GitHub Container Registry and deploys it.
 
-Set database, JWT, administrator, ImageKit, Brevo and NVIDIA settings only in server configuration. Use a MongoDB replica set. Set `ADMIN_URL` to the exact admin HTTPS origin and `WEBSITE_URL` to the public website used in email links. Additional exact origins can be supplied through `EXTRA_ALLOWED_ORIGINS`. Do not use wildcard credentialed CORS.
+For your fork:
 
-## Release checks
+1. Create an Azure App Service using a Linux container.
+2. Download its publish profile and add it to your repository secrets as `AZURE_WEBAPP_PUBLISH_PROFILE`.
+3. In the workflow file, change `IMAGE` and `AZURE_WEBAPP_NAME` to your own values.
+4. Add the settings below under the App Service's environment variables.
 
-1. Verify checks and compatible backend code before client rollout.
-2. Record the prior deployment and source revision for rollback.
-3. Deploy clients with correct build-time API origins and allowlisted server origins.
-4. Test login, refresh/reload, logout, deep links, a test listing journey and a stale-version conflict in the intended browser. Cross-site cookie restrictions must be verified in that browser.
-5. Verify public website compatibility and `/health` and `/health/ready` on the backend.
+### Any other host that runs Docker
 
-A refresh request without credentials should return a readable 401 with the allowed origin, not a CORS failure. Successful email API acceptance does not establish inbox delivery. Model migrations, quota-consuming tests and activation are explicit operations; do not run them as incidental deployment checks.
+Build from the **repository root**, because the image needs `shared/contracts`:
+
+```sh
+docker build -f backend/Dockerfile -t buildestate-api .
+```
+
+To try the image locally with an Atlas `MONGO_URI` in `backend/.env.local`, run `docker compose up` in `backend/`. The compose file does not include a database, so the default local `MONGO_URI` will not work inside it.
+
+### API settings
+
+```env
+NODE_ENV=production
+PORT=4000
+BACKEND_URL=https://your-api.example.com
+MONGO_URI=mongodb+srv://...
+JWT_SECRET=a_long_random_value
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=a_strong_password
+WEBSITE_URL=https://your-website.example.com
+ADMIN_URL=https://your-admin.example.com
+IMAGEKIT_PUBLIC_KEY=...
+IMAGEKIT_PRIVATE_KEY=...
+IMAGEKIT_URL_ENDPOINT=...
+BREVO_API_KEY=...
+EMAIL_USER=your_verified_sender@example.com
+NVIDIA_API_KEY=...
+```
+
+On Azure, also set `WEBSITES_PORT=4000`.
+
+`WEBSITE_URL` is used in email links, and it and `ADMIN_URL` must exactly match your browser addresses for CORS. Add other addresses with `EXTRA_ALLOWED_ORIGINS`. Do not use a wildcard, because the API sends credentials.
+
+### Create the admin account
+
+`npm run seed` is for local databases, so create the production admin with this script once. Run it with your production settings in `backend/.env.local`, then remove them:
+
+```sh
+cd backend
+node scripts/createAdmin.js
+```
+
+It does nothing if that admin already exists.
+
+### Check it
+
+Open `https://your-api.example.com/health/ready`. It should report that the database is healthy.
+
+## 2. Deploy the website and admin panel on Vercel
+
+Create **two separate Vercel projects** from the same repository:
+
+| Setting | Website | Admin panel |
+| --- | --- | --- |
+| Root Directory | `frontend` | `admin` |
+| Framework Preset | Vite | Vite |
+| Build Command | `npm run build` | `npm run build` |
+| Output Directory | `dist` | `dist` |
+| Node.js Version | 22.x | 22.x |
+| Environment variable | `VITE_API_BASE_URL` | `VITE_API_URL` |
+
+Set each variable to your API address, using HTTPS and without a trailing `/api`.
+
+In each project, keep **Include files outside of the Root Directory** turned on, because both apps need `shared/contracts`.
+
+`VITE_` values are public and built into the browser code. Never put secrets in them. Redeploy after changing one.
+
+Leave `VITE_ENABLE_AI_HUB` unset on the public website if you want to avoid AI costs. Visitors then see an explanation page instead of the full search.
+
+Each app's `vercel.json` handles page routing and security headers.
+
+## 3. Check the release
+
+1. Automated checks passed on the commit you deployed.
+2. Note the current deployment, so you can roll back.
+3. On the admin panel, test: sign in, reload while signed in, sign out, and open `/dashboard` directly.
+4. On the website, test: browse listings, sign up and verify an email, then submit a test listing.
+5. Approve that listing from the admin panel, then remove it.
+6. Open `/health` and `/health/ready` on the API.
+
+A refresh request without a cookie should return a readable 401, not a CORS error. A CORS error means `ADMIN_URL` or `WEBSITE_URL` does not match the browser address exactly.
+
+Brevo accepting an email does not prove it was delivered, so check a real inbox.
+
+## Updating an existing database
+
+AI model migrations and tests are separate, deliberate steps because they can change data or use quota. Never run them as part of a routine deploy. See the [NVIDIA model guide](../backend/docs/admin-phase2-nvidia.md).
+
+## Rolling back
+
+- **Vercel:** promote the previous deployment in the project's Deployments page.
+- **Azure:** run the deploy with the previous image tag. Images are tagged with their commit SHA.
+- **Database:** take a backup before any migration, because rolling back code does not undo data changes.

@@ -1,10 +1,22 @@
-# BuildEstate admin — desktop workspace
+# BuildEstate admin panel
 
-Canonical React 19/TypeScript admin using Vite, shadcn/Radix, Tailwind, TanStack Query/Table and React Hook Form. Modules: dashboard, properties, reviews, users, appointments, contact inbox, subscribers, NVIDIA models and activity logs. Owner-reported local/full-panel and hosted acceptance was recorded on 4 November 2026. Desktop-only; browser testing is manual.
+The desktop dashboard for running [BuildEstate](../README.md): listings, reviews, users, appointments, messages, subscribers, AI models and activity logs.
 
-## Run locally
+![Admin dashboard](../Images/admin-dashboard.png)
 
-Requires Node 22.12+ and the existing backend on port 4000.
+## Run it
+
+The easiest way is from the repository root, which starts everything:
+
+```sh
+npm run setup
+npm run seed
+npm run dev
+```
+
+Open http://localhost:5175 and sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `backend/.env.local`.
+
+To run only this app, with the API already running on port 4000:
 
 ```sh
 cd admin
@@ -12,61 +24,85 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5175. Use your existing configured administrator credentials. If the backend is stopped, start it in a separate terminal with `cd backend` then `npm run dev`.
+This panel supports desktop screens only. There is no public demo account for the hosted version.
 
-Leave `VITE_API_URL` empty locally. Vite proxies `/api` to `DEV_API_TARGET` (default `http://localhost:4000`). The localhost-only development proxy removes the browser Origin header upstream because the browser talks to its own origin; the backend's CORS policy is unchanged. No production proxy/alias is configured. A separately hosted client must set its HTTPS API origin and be explicitly allowlisted, with browser cookie acceptance checked during release.
+## Settings
 
-Access tokens stay in memory; an httpOnly cookie restores the session on reload. Refresh calls are deduplicated within the tab and serialized with Web Locks across replacement-admin tabs where available. Logout/account changes clear private query caches. Temporary failures preserve credentials and offer retry; 401/403 invalidation returns to sign-in. Other localhost admin ports can share the backend cookie because cookies are not port-scoped.
+`admin/.env.local`:
 
-## Validation
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_URL` | Leave empty locally. When hosting, set the API's HTTPS address without `/api`. |
+| `DEV_API_TARGET` | Where the local proxy sends `/api`. Defaults to `http://localhost:4000`. |
 
-```sh
-npm test
-npm run lint
-npm run build
-```
+Locally, the browser talks to the panel's own address, and Vite forwards `/api` to the API. The proxy removes the browser's `Origin` header on the way, so local requests skip the API's CORS check. There is no proxy in production: the panel's address must be allowed through `ADMIN_URL` or `EXTRA_ALLOWED_ORIGINS` on the API.
 
-Thirty-two current client tests (session, property/media and management command/component regressions) cover refresh deduplication/recovery, invalid sessions, conflict handling, logout failure, late responses and cancellation. GitHub verification includes `admin`. Playwright was removed at the owner's request; browser testing is manual.
+## Tech stack
 
-## Manual acceptance checklist
+React 19, TypeScript, Vite 7, Tailwind CSS 4, shadcn/ui (Radix), TanStack Query and Table, React Hook Form and Recharts.
 
-User screenshots on 4 November show the real authenticated workspace in light/dark themes, the login in both themes and logout returning to login. These screenshots do not establish mobile, keyboard or reload behavior.
+## Screens
 
-- [x] Authenticated desktop workspace renders at localhost:5175.
-- [x] Desktop login/workspace light and dark themes render.
-- [x] Logout returns to login with signed-out feedback.
-- [x] Owner reported remaining desktop foundation checks complete on 4 November; this is manual evidence, not automated browser coverage.
-- [x] Reload while signed in: session restores using the cookie.
-- [x] Reload after logout or open `/workspace` signed out: login remains required.
-- [x] Empty/invalid form, wrong password, password visibility and pending state.
-- [x] Collapse/reopen sidebar; account menu opens/closes normally.
-- [x] Tab/Shift+Tab focus is visible; skip link works; Escape closes menus.
-- Phone/tablet acceptance removed from scope by owner request.
-- [x] Theme preference survives reload; reduced-motion setting is respected.
-- [x] Temporarily unavailable backend: retry state appears and recovery succeeds.
+| Screen | Address | What you can do |
+| --- | --- | --- |
+| Dashboard | `/dashboard` | See pending work and catalog numbers |
+| Properties | `/properties` | Search, create, edit and archive listings |
+| Review queue | `/reviews` | Approve or reject user listings |
+| Appointments | `/appointments` | Manage viewing requests |
+| Users | `/users` | View, suspend, ban and restore accounts |
+| Contact inbox | `/leads` | Handle contact messages |
+| Subscribers | `/subscribers` | Suppress newsletter subscribers |
+| NVIDIA models | `/ai-models` | Add, test and activate AI models |
+| Activity logs | `/activity` | Review and export administrator actions |
 
-For new Phase 5 acceptance, use [the desktop workflow checklist](PHASE_5_ACCEPTANCE.md). The owner’s earlier foundation confirmation does not establish acceptance of these new screens.
+## How sessions work
 
-Phase 6 module routes and manual checks: [management acceptance checklist](PHASE_6_ACCEPTANCE.md). All new sidebar destinations are implemented; tests use mocked commands/provider calls and do not consume NVIDIA quota.
+The access token stays in memory and is never stored in `localStorage`. An httpOnly cookie restores the session after a reload.
 
-## Shared implementation patterns
+- Refresh calls are shared within a tab and coordinated across tabs with Web Locks where the browser supports it.
+- Signing out or switching accounts clears cached private data.
+- Temporary failures keep you signed in and offer a retry. A 401 or 403 from the API returns you to sign in.
 
-`lib/api.ts`: credentialed requests, safe errors, one refresh lifecycle and AbortSignal support. `app/query-client.ts`: keys with filters/detail IDs, conservative query retry and no automatic mutation retry. `components/data-table/data-table.tsx`: server pagination/sorting and controlled current-page selection; screens must reset selection when page/filters change. `components/feedback/`: loading/error/empty states, shared status labels/icons and controlled confirmations. Login demonstrates shared-contract email validation with labeled Field/Input controls. Future mutations must supply displayed versions, map field errors and invalidate affected queries after successful commits.
+Browser storage keeps only conveniences such as the theme.
 
-## Dependency audit
+## Patterns to follow in the code
 
-On 4 November 2026, runtime `npm audit --omit=dev` reports **zero vulnerabilities**. Full audit reports **12 moderate development-tool findings**, all arising from the lint toolchain's minimatch advisory GHSA-g3hv-75wg-m249. No high/critical findings remain. A forced cross-major minimatch override was not applied to older ESLint APIs. Recheck supported upstream fixes rather than declaring the full development tree clean.
+| Where | What it does |
+| --- | --- |
+| `src/lib/api.ts` | Sends credentials, handles errors, runs one refresh at a time and supports cancelling |
+| `src/app/query-client.ts` | Query keys, careful retries and no automatic retry of changes |
+| `src/components/data-table/data-table.tsx` | Server-side paging and sorting. Screens reset selection when the page or filters change. |
+| `src/components/feedback/` | Loading, error and empty states, status labels and confirmations |
 
-No deployment, canonical alias switch or model migration is part of the local Phase 4/5 work.
+New changes to data must send the version they displayed, show field errors, and refresh affected queries after saving.
 
 ## Status colors
 
-All operational pills use `StateBadge` in `src/components/feedback/status-badge.tsx`; listing `StatusBadge` delegates to it while displaying active listings as “Published”. Keep meanings consistent: amber = attention (pending/new/unverified), blue = underway (confirmed/in progress), green = successful/available (active/published/completed/verified/resolved), red = stopped (cancelled/rejected/banned), purple = temporarily restricted (suspended), gray = inactive/history (archived/expired/disabled/unsubscribed). Unknown states remain neutral. Labels and decorative icons accompany every status; color is never the only cue.
+All status pills use `StateBadge` in `src/components/feedback/status-badge.tsx`. Keep the meanings consistent:
 
-The badge primitive owns the six color variants, with pale fills and dark text in light mode and muted fills with light text in dark mode. Use these variants instead of page-specific `data-tone` CSS overrides. Email verification, property availability/owner eligibility, and model enabled/test states share the same component.
+| Color | Meaning | Examples |
+| --- | --- | --- |
+| Amber | Needs attention | Pending, new, unverified |
+| Blue | Underway | Confirmed, in progress |
+| Green | Successful or available | Published, completed, verified, resolved |
+| Red | Stopped | Cancelled, rejected, banned |
+| Purple | Temporarily restricted | Suspended |
+| Gray | Inactive or history | Archived, expired, disabled, unsubscribed |
 
-Validation for the status-color update: 32 client tests, lint and production build passed. Manual visual check remains: inspect Users, Appointments, Properties, Review queue, dashboard and NVIDIA models in both themes; confirm pale fills, readable labels/icons, and unchanged filters/actions.
+Every status also has a label, so color is never the only cue.
 
-## Deployment after folder rename
+## Commands
 
-Set Vercel Root Directory to `admin` before deploying this revision. Enable access to `shared/contracts` outside the root. Build: `npm run build`; output: `dist`; Node: 22.12+. Set `VITE_API_URL` to the HTTPS backend origin without `/api`. Allowlist the exact admin origin in backend `ADMIN_URL` or `EXTRA_ALLOWED_ORIGINS`. Verify login, reload and deep links. Existing browser storage identifiers remain unchanged for continuity.
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Starts the development server on port 5175 |
+| `npm test` | Runs the 32 tests with Vitest |
+| `npm run lint` | Checks code style |
+| `npm run build` | Checks types and builds for production |
+| `npm run preview` | Serves the production build on port 4175 |
+
+Browser testing is manual. Automated tests cover sessions, property and photo handling, and management commands. They use mocked requests and do not use NVIDIA quota.
+
+## Deployment
+
+See the [deployment guide](../docs/DEPLOYMENT.md). Set the Vercel Root Directory to `admin`, allow access to files outside the root for `shared/contracts`, and set `VITE_API_URL`.

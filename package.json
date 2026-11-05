@@ -1,0 +1,18 @@
+{
+  "name": "buildestate",
+  "private": true,
+  "description": "Convenience commands for running BuildEstate locally. Each app keeps its own dependencies.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "seed": "node scripts/seed.mjs",
+    "dev": "node scripts/dev.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "test": "npm --prefix backend test && npm --prefix frontend test && npm --prefix admin test",
+    "build": "npm --prefix frontend run build && npm --prefix admin run build"
+  }
+}

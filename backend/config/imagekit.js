@@ -1,22 +1,25 @@
 import './environment.js';
 import ImageKit from 'imagekit';
+import { ContractError } from '@buildestate/contracts';
 
-const imagekit = new ImageKit({
-  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
-  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
-});
+const missing = ['IMAGEKIT_PUBLIC_KEY', 'IMAGEKIT_PRIVATE_KEY', 'IMAGEKIT_URL_ENDPOINT'].filter(name => !process.env[name]);
 
-if (!process.env.IMAGEKIT_PUBLIC_KEY) {
-  throw new Error('Missing IMAGEKIT_PUBLIC_KEY');
+// Production must not start half-configured. Local development can run without an
+// ImageKit account, so only photo uploads fail, with a message that says why.
+if (missing.length && process.env.NODE_ENV === 'production') {
+  throw new Error(`Missing ${missing[0]}`);
 }
 
-if (!process.env.IMAGEKIT_PRIVATE_KEY) {
-  throw new Error('Missing IMAGEKIT_PRIVATE_KEY');
-}
+const unavailable = async () => {
+  throw new ContractError('Photo uploads need ImageKit keys. Add the IMAGEKIT_* values to backend/.env.local and restart the API.', 'images', 400, 'IMAGEKIT_NOT_CONFIGURED');
+};
 
-if (!process.env.IMAGEKIT_URL_ENDPOINT) {
-  throw new Error('Missing IMAGEKIT_URL_ENDPOINT');
-}
+const imagekit = missing.length
+  ? { upload: unavailable, deleteFile: unavailable }
+  : new ImageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+    urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+  });
 
 export default imagekit;

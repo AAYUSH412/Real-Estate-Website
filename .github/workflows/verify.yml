@@ -43,3 +43,21 @@ jobs:
       - run: npm run lint
         if: matrix.app == 'admin'
       - run: npm run build
+
+  # Follows the README quick start on each operating system students use.
+  quick-start:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run setup
+      - run: npm run doctor
+      - run: npm run seed
+      - run: npm run smoke

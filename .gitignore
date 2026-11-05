@@ -187,8 +187,29 @@ docker-compose.override.yml
 !.env.template
 
 # Large demo videos — upload to GitHub via web editor instead of committing
-Image/new images and video/
 *.mov
+
+# Local database created by npm run dev
+backend/.local-db/
+
+# Azure CLI deployment notes
+.azure/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Local coding-agent packages and Claude files
+**/.agent/
+**/.agents/
+!/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/buildestate-admin-ui/
+!/.agents/skills/buildestate-backend-contracts/
+!/.agents/skills/buildestate-nvidia-models/
+!/.agents/skills/buildestate-phase-delivery/
+**/.claude/
+**/CLAUDE.md
+**/claude_code*.txt
+**/skills-lock.json

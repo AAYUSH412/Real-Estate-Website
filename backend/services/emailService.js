@@ -86,6 +86,7 @@ class EmailService {
    * Send email verification link to new users
    */
   async sendEmailVerification(userEmail, userName, verificationUrl) {
+    if (this.printLocalLink('Verify this account', userEmail, verificationUrl)) return { success: true, messageId: 'local-terminal' };
     const subject = 'Verify Your BuildEstate Email Address';
     const htmlContent = getEmailVerificationTemplate(userName, verificationUrl);
 
@@ -96,10 +97,21 @@ class EmailService {
    * Send password reset email
    */
   async sendPasswordResetEmail(userEmail, resetUrl) {
+    if (this.printLocalLink('Reset this password', userEmail, resetUrl)) return { success: true, messageId: 'local-terminal' };
     const subject = 'Reset Your BuildEstate Password';
     const htmlContent = getPasswordResetTemplate(resetUrl);
 
     return await this.sendEmail(userEmail, subject, htmlContent);
+  }
+
+  /**
+   * Local development without Brevo: print account links in the terminal so
+   * sign-up and password reset still work. Never active in production.
+   */
+  printLocalLink(action, userEmail, url) {
+    if (process.env.BREVO_API_KEY || ['production', 'test'].includes(process.env.NODE_ENV)) return false;
+    console.log(`\n  [no email service] ${action} (${userEmail}):\n  ${url}\n`);
+    return true;
   }
 
   /**

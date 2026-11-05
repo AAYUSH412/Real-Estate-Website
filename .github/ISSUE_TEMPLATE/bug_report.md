@@ -23,10 +23,13 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
-- Device: [e.g., Desktop, iPhone 12]
-- OS: [e.g., Windows 10, iOS 16]
-- Browser: [e.g., Chrome 112, Safari 16]
-- BuildEstate Version: [e.g., 1.0.0]
+- Where: [e.g., running locally, or the live website]
+- OS: [e.g., Windows 11, macOS 15, Ubuntu 24.04]
+- Browser: [e.g., Chrome 130, Safari 18]
+- Node.js version: [run `node --version`]
+
+**Output of `npm run doctor`**
+For setup problems, paste the output here. It does not print secret values.
 
 **Additional context**
 Add any other context about the problem here.

@@ -7,7 +7,7 @@ description: Build or extend BuildEstate admin screens using its established sha
 
 ## Start with the current implementation
 
-Resolve paths from the repository root. Read `ADMIN_NEW_PLAN.md` sections 8–11 and the requested phase, then `admin/README.md`. Check current code before treating a planned screen as implemented. As of the foundation, only login and the verified workspace existed; consult the current router and plan for later screens. The canonical TypeScript app now occupies `admin/`; the retired implementation is retained in Git history.
+Resolve paths from the repository root. Read `admin/README.md` and `docs/ARCHITECTURE.md`. Check current code before treating a planned screen as implemented. Consult the current router for the available screens. The canonical TypeScript app now occupies `admin/`; the retired implementation is retained in Git history.
 
 Read only the files needed for the task:
 

@@ -92,7 +92,7 @@ Coordinate an AI-catalog edit pause during release. Migration deliberately leave
 
 ## Verification and live checks
 
-Local regression evidence: **100 tests passed (80 backend, 11 admin, 9 frontend)**, admin lint, both client builds (including frontend TypeScript), diff and backend syntax checks. The existing frontend static/dynamic API-import warning remains non-blocking. Detailed tracking is recorded in `ADMIN_NEW_PLAN.md`. The actual model-only snapshot was rehearsed against an ephemeral MongoDB replica set: one retained/normalized entry plus three inserted candidates; four disabled NVIDIA entries afterwards; unrelated collection sentinels unchanged; repeat application preserved the resulting catalog. Separate synthetic regression coverage verifies GitHub record retirement, private backup permissions and audit preservation. No migration has been applied to the configured project database.
+Local regression evidence: **100 tests passed (80 backend, 11 admin, 9 frontend)**, admin lint, both client builds (including frontend TypeScript), diff and backend syntax checks. The existing frontend static/dynamic API-import warning remains non-blocking. The actual model-only snapshot was rehearsed against an ephemeral MongoDB replica set: one retained/normalized entry plus three inserted candidates; four disabled NVIDIA entries afterwards; unrelated collection sentinels unchanged; repeat application preserved the resulting catalog. Separate synthetic regression coverage verifies GitHub record retirement, private backup permissions and audit preservation. No migration has been applied to the configured project database.
 
 Live checks used only the fixed demo prompt through the server key, with no project/user data and no MongoDB writes:
 
